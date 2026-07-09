@@ -63,7 +63,7 @@ export default async function DashboardHome() {
     speedTestRes,
     uptimeRes,
     topDevicesRes,
-    intranetBandwidthRes,
+    intranetHistoryRes,
   ] = await Promise.all([
     db.query<{ Fields: string | null; ReceivedAt: string }>(
       `SELECT TOP 20 Fields, ReceivedAt FROM SystemHealthLogs WHERE LogComponent = 'CPU' ORDER BY ReceivedAt DESC`
@@ -133,13 +133,15 @@ export default async function DashboardHome() {
       GROUP BY SrcIp
       ORDER BY COUNT(*) DESC
     `),
-    // Intranet = LAN-side traffic to connected clients (MikroTik's internet_port interface,
-    // despite the name — see "LAN Bandwidth (internet_port -> clients)" on the Router Clients
-    // page), distinct from the Sophos Port1/Port2 WAN/WLAN readings above.
-    db.query<{ ReceivedAt: string; RxMbps: number | null; TxMbps: number | null }>(`
-      SELECT TOP 20 ReceivedAt, RxMbps, TxMbps
-      FROM RouterBandwidth
-      WHERE Interface = 'internet_port'
+    // Intranet = Sophos Port1 interface bandwidth history (for the sparkline only — the
+    // live Rx/Tx value itself comes from `ifaceByName`/`interfaceKpi` below, same as CPU/
+    // Memory/Disk sparklines pull their own dedicated TOP-N history).
+    db.query<{ ReceivedAt: string; Rx: string | null; Tx: string | null }>(`
+      SELECT TOP 20 ReceivedAt,
+        JSON_VALUE(Fields, '$.receivedkbits') AS Rx,
+        JSON_VALUE(Fields, '$.transmittedkbits') AS Tx
+      FROM SystemHealthLogs
+      WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') = 'Port1'
       ORDER BY ReceivedAt DESC
     `),
   ]);
@@ -242,18 +244,11 @@ export default async function DashboardHome() {
       .reverse();
   });
 
-  // --- Intranet (LAN-side, internet_port) bandwidth: already native Mbps, no conversion ---
-  const intranetRows = intranetBandwidthRes.recordset;
-  const intranetLatest = intranetRows.find((r) => r.RxMbps !== null && r.TxMbps !== null) ?? null;
-  const intranetStale = isStale(intranetLatest?.ReceivedAt);
-  const intranetStatus: KpiStatus = !intranetLatest ? "unknown" : intranetStale ? "critical" : "good";
-  const intranetValue =
-    intranetLatest && intranetLatest.RxMbps !== null && intranetLatest.TxMbps !== null
-      ? `${intranetLatest.RxMbps.toFixed(2)} / ${intranetLatest.TxMbps.toFixed(2)} Mbps`
-      : "No data";
-  const intranetSparkline = intranetRows
-    .filter((r) => r.RxMbps !== null && r.TxMbps !== null)
-    .map((r) => ({ value: (r.RxMbps as number) + (r.TxMbps as number) }))
+  // --- Intranet: Sophos Port1 interface bandwidth (sparkline history only; live value
+  // comes from interfaceKpi("Port1", ...) below) ---
+  const intranetSparkline = intranetHistoryRes.recordset
+    .filter((r) => r.Rx !== null && r.Tx !== null)
+    .map((r) => ({ value: kbitsToMbps(Number(r.Rx)) + kbitsToMbps(Number(r.Tx)) }))
     .reverse();
 
   // --- Web Filter / Router events / Router web / Router clients ---
@@ -304,7 +299,7 @@ export default async function DashboardHome() {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 8);
 
-  const internetKpi = interfaceKpi("Port1", "Internet", Globe);
+  const intranetKpi = interfaceKpi("Port1", "Intranet", Router);
   const wlanKpi = interfaceKpi("Port2", "WLAN", Wifi);
 
   return (
@@ -343,14 +338,6 @@ export default async function DashboardHome() {
           sparkline={diskHistory.map((value) => ({ value }))}
         />
         <KpiCard
-          icon={internetKpi.icon}
-          title={`${internetKpi.label} Usage`}
-          value={internetKpi.value}
-          sub={internetKpi.sub}
-          status={internetKpi.status}
-          sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
-        />
-        <KpiCard
           icon={wlanKpi.icon}
           title={`${wlanKpi.label} Usage`}
           value={wlanKpi.value}
@@ -359,11 +346,11 @@ export default async function DashboardHome() {
           sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
         />
         <KpiCard
-          icon={Router}
-          title="Intranet Usage"
-          value={intranetValue}
-          sub={intranetStale ? "No recent data" : "Rx / Tx (LAN · latest)"}
-          status={intranetStatus}
+          icon={intranetKpi.icon}
+          title={`${intranetKpi.label} Usage`}
+          value={intranetKpi.value}
+          sub={intranetKpi.sub}
+          status={intranetKpi.status}
           sparkline={intranetSparkline}
         />
         <KpiCard
