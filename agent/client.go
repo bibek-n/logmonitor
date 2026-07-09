@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-const AgentVersion = "0.1.0"
+// AgentVersion defaults to "dev" for local builds; CI overrides it via
+// `-ldflags "-X main.AgentVersion=<tag>"` so a running agent's version compare
+// (see update.go) reflects the actual release tag it was built from.
+var AgentVersion = "dev"
 
 type Client struct {
 	ServerURL string
@@ -85,7 +88,8 @@ func (c *Client) authRequest(method, path string, body io.Reader, contentType st
 }
 
 func (c *Client) Heartbeat() (*HeartbeatResponse, error) {
-	req, err := c.authRequest("POST", "/api/agent/heartbeat", nil, "")
+	body, _ := json.Marshal(map[string]string{"agentVersion": AgentVersion, "currentUser": CurrentLoggedInUser()})
+	req, err := c.authRequest("POST", "/api/agent/heartbeat", bytes.NewReader(body), "application/json")
 	if err != nil {
 		return nil, err
 	}
@@ -106,17 +110,38 @@ func (c *Client) Heartbeat() (*HeartbeatResponse, error) {
 }
 
 type MetricsPayload struct {
-	CpuPct        float64 `json:"cpuPct"`
-	MemPct        float64 `json:"memPct"`
-	DiskPct       float64 `json:"diskPct"`
-	NetRxMbps     float64 `json:"netRxMbps"`
-	NetTxMbps     float64 `json:"netTxMbps"`
-	UptimeSeconds int64   `json:"uptimeSeconds"`
+	CpuPct                float64 `json:"cpuPct"`
+	MemPct                float64 `json:"memPct"`
+	DiskPct               float64 `json:"diskPct"`
+	NetRxMbps             float64 `json:"netRxMbps"`
+	NetTxMbps             float64 `json:"netTxMbps"`
+	UptimeSeconds         int64   `json:"uptimeSeconds"`
+	SwapPct               float64 `json:"swapPct"`
+	DiskReadMBps          float64 `json:"diskReadMBps"`
+	DiskWriteMBps         float64 `json:"diskWriteMBps"`
+	DiskIops              float64 `json:"diskIops"`
+	ProcessCount          int     `json:"processCount"`
+	ThreadCount           int     `json:"threadCount"`
+	HandleCount           int     `json:"handleCount"`
+	LoadAvg1              float64 `json:"loadAvg1"`
+	LoadAvg5              float64 `json:"loadAvg5"`
+	LoadAvg15             float64 `json:"loadAvg15"`
+	GpuUsagePct           float64 `json:"gpuUsagePct"`
+	BatteryPct            float64 `json:"batteryPct"`
+	BatteryHealth         string  `json:"batteryHealth"`
+	BatteryCycleCount     int     `json:"batteryCycleCount"`
+	PowerAdapterConnected *bool   `json:"powerAdapterConnected"`
+	CpuTempC              float64 `json:"cpuTempC"`
 }
 
-func (c *Client) PostMetrics(m MetricsPayload) error {
-	body, _ := json.Marshal(m)
-	req, err := c.authRequest("POST", "/api/agent/metrics", bytes.NewReader(body), "application/json")
+// postJSON is the shared helper for every new best-effort snapshot upload — each just
+// marshals its payload and posts it under device auth, same as PostMetrics already did.
+func (c *Client) postJSON(path string, payload interface{}) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	req, err := c.authRequest("POST", path, bytes.NewReader(body), "application/json")
 	if err != nil {
 		return err
 	}
@@ -126,9 +151,43 @@ func (c *Client) PostMetrics(m MetricsPayload) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("metrics upload failed: HTTP %d", resp.StatusCode)
+		return fmt.Errorf("POST %s failed: HTTP %d", path, resp.StatusCode)
 	}
 	return nil
+}
+
+func (c *Client) PostMetrics(m MetricsPayload) error { return c.postJSON("/api/agent/metrics", m) }
+
+func (c *Client) PostHardware(h HardwareInfo) error { return c.postJSON("/api/agent/hardware", h) }
+
+func (c *Client) PostSecurityStatus(s SecurityStatus) error {
+	return c.postJSON("/api/agent/security-status", s)
+}
+
+func (c *Client) PostNetworkInfo(n NetworkInfo) error {
+	return c.postJSON("/api/agent/network-info", n)
+}
+
+func (c *Client) PostProcesses(p []ProcessInfo) error {
+	return c.postJSON("/api/agent/processes", map[string]interface{}{"processes": p})
+}
+
+func (c *Client) PostServices(s []ServiceInfo) error {
+	return c.postJSON("/api/agent/services", map[string]interface{}{"services": s})
+}
+
+func (c *Client) PostSoftware(s []SoftwareInfo) error {
+	return c.postJSON("/api/agent/software", map[string]interface{}{"software": s})
+}
+
+func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {
+	return c.postJSON("/api/agent/usb-event", map[string]interface{}{
+		"eventType":         eventType,
+		"deviceName":        d.Name,
+		"vendorId":          d.VendorID,
+		"serialNumber":      d.SerialNumber,
+		"storageCapacityGB": d.CapacityGB,
+	})
 }
 
 // UploadScreenshot sends plaintext PNG bytes over HTTPS (TLS provides transport
@@ -140,6 +199,7 @@ func (c *Client) UploadScreenshot(pngBytes []byte, capturedBy string) error {
 	}
 	req.Header.Set("X-Captured-By", capturedBy)
 	req.Header.Set("X-Captured-At", time.Now().UTC().Format(time.RFC3339))
+	req.Header.Set("X-Current-User", CurrentLoggedInUser())
 
 	resp, err := c.http.Do(req)
 	if err != nil {

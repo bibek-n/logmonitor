@@ -22,8 +22,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const result = await db
     .request()
     .input("id", sql.Int, screenshotId)
-    .query<{ FilePath: string; DeletedAt: string | null; CapturedAt: string }>(
-      "SELECT FilePath, DeletedAt, CapturedAt FROM Screenshots WHERE Id = @id"
+    .query<{ FilePath: string; DeletedAt: string | null; CapturedAt: string; Format: string }>(
+      "SELECT FilePath, DeletedAt, CapturedAt, Format FROM Screenshots WHERE Id = @id"
     );
   const screenshot = result.recordset[0];
   if (!screenshot || screenshot.DeletedAt) {
@@ -44,9 +44,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const encrypted = await readScreenshotFile(screenshot.FilePath);
   const plain = decryptScreenshot(encrypted);
 
-  const headers: Record<string, string> = { "Content-Type": "image/png" };
+  const ext = screenshot.Format === "jpeg" ? "jpg" : "png";
+  const headers: Record<string, string> = { "Content-Type": screenshot.Format === "jpeg" ? "image/jpeg" : "image/png" };
   if (download) {
-    headers["Content-Disposition"] = `attachment; filename="screenshot-${screenshotId}-${screenshot.CapturedAt}.png"`;
+    headers["Content-Disposition"] = `attachment; filename="screenshot-${screenshotId}-${screenshot.CapturedAt}.${ext}"`;
   }
 
   return new NextResponse(new Uint8Array(plain), { headers });

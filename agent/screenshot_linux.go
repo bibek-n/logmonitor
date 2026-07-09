@@ -13,7 +13,10 @@ import (
 // entirely (simpler cross-compilation, no build toolchain needed on the target), at the
 // cost of requiring one of these tools to be installed. Capture only works when there's
 // an active graphical session; a headless server has nothing to capture and this
-// deliberately returns a clear error rather than silently no-op'ing.
+// deliberately returns a clear error rather than silently no-op'ing. Multi-monitor
+// desktops don't need explicit compositing here the way Windows does — X11 combines
+// multiple physical displays into one root window (via Xinerama/RandR) by default, so
+// "-window root" already captures the full multi-monitor desktop as a single image.
 func CaptureScreenshot() ([]byte, error) {
 	tmpFile, err := os.CreateTemp("", "logmonitor-agent-*.png")
 	if err != nil {

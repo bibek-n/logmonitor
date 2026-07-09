@@ -1,7 +1,30 @@
 import { notFound } from "next/navigation";
 import { getDb, sql } from "@/lib/db";
 import { getAdminSession } from "@/lib/requireAdmin";
-import { DeviceDetail, type DeviceDetailData, type MetricPoint, type ScreenshotRow } from "@/components/endpointAgents/DeviceDetail";
+import {
+  DeviceDetail,
+  type DeviceDetailData,
+  type MetricPoint,
+  type ScreenshotRow,
+  type HardwareInfo,
+  type SecurityStatus,
+  type NetworkInfo,
+  type ProcessRow,
+  type ServiceRow,
+  type SoftwareRow,
+  type DeviceAlertRow,
+  type UsbEventRow,
+} from "@/components/endpointAgents/DeviceDetail";
+
+function parseJsonArray<T>(json: string | null | undefined): T[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -109,12 +132,75 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
     consentAcceptedAt: device.ConsentAcceptedAt,
   };
 
+  const [hardwareResult, securityResult, networkResult, processResult, serviceResult, softwareResult, alertsResult, usbResult] =
+    await Promise.all([
+      db.request().input("deviceId", sql.VarChar, deviceId).query<HardwareInfo>(`
+        SELECT CpuModel AS cpuModel, CpuManufacturer AS cpuManufacturer, CpuCores AS cpuCores, CpuThreads AS cpuThreads,
+          CpuClockMhz AS cpuClockMhz, MemoryTotalMB AS memoryTotalMB, DiskModel AS diskModel, DiskType AS diskType,
+          DiskCapacityGB AS diskCapacityGB, GpuName AS gpuName, OsEdition AS osEdition, OsBuild AS osBuild,
+          KernelVersion AS kernelVersion, Architecture AS architecture
+        FROM DeviceHardwareInfo WHERE DeviceId = @deviceId
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<SecurityStatus>(`
+        SELECT AntivirusStatus AS antivirusStatus, DefenderStatus AS defenderStatus, FirewallEnabled AS firewallEnabled,
+          FirewallRulesCount AS firewallRulesCount, BitLockerStatus AS bitLockerStatus, LuksStatus AS luksStatus,
+          SecureBootEnabled AS secureBootEnabled, TpmVersion AS tpmVersion, SELinuxStatus AS selinuxStatus,
+          AppArmorStatus AS apparmorStatus, FailedLoginCount24h AS failedLoginCount24h
+        FROM DeviceSecurityStatus WHERE DeviceId = @deviceId
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<{
+        currentIp: string | null; publicIp: string | null; gatewayIp: string | null; dnsServers: string | null;
+        wifiSsid: string | null; vpnActive: boolean | null; ethernetConnected: boolean | null;
+        openPortsJson: string | null; listeningPortsJson: string | null;
+      }>(`
+        SELECT CurrentIp AS currentIp, PublicIp AS publicIp, GatewayIp AS gatewayIp, DnsServers AS dnsServers,
+          WifiSsid AS wifiSsid, VpnActive AS vpnActive, EthernetConnected AS ethernetConnected,
+          OpenPortsJson AS openPortsJson, ListeningPortsJson AS listeningPortsJson
+        FROM DeviceNetworkInfo WHERE DeviceId = @deviceId
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<{ ProcessesJson: string }>(
+        "SELECT ProcessesJson FROM DeviceProcessSnapshot WHERE DeviceId = @deviceId"
+      ),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<{ ServicesJson: string }>(
+        "SELECT ServicesJson FROM DeviceServiceSnapshot WHERE DeviceId = @deviceId"
+      ),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<{ SoftwareJson: string }>(
+        "SELECT SoftwareJson FROM DeviceSoftwareSnapshot WHERE DeviceId = @deviceId"
+      ),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<DeviceAlertRow>(`
+        SELECT TOP 20 Id AS id, AlertType AS alertType, Severity AS severity, Message AS message,
+          TriggeredAt AS triggeredAt, ResolvedAt AS resolvedAt
+        FROM DeviceAlerts WHERE DeviceId = @deviceId ORDER BY TriggeredAt DESC
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<UsbEventRow>(`
+        SELECT TOP 20 EventType AS eventType, DeviceName AS deviceName, SerialNumber AS serialNumber,
+          StorageCapacityGB AS storageCapacityGB, DetectedAt AS detectedAt
+        FROM DeviceUsbEvents WHERE DeviceId = @deviceId ORDER BY DetectedAt DESC
+      `),
+    ]);
+
+  const network: NetworkInfo | null = networkResult.recordset[0]
+    ? {
+        ...networkResult.recordset[0],
+        openPorts: parseJsonArray<number>(networkResult.recordset[0].openPortsJson),
+        listeningPorts: parseJsonArray<number>(networkResult.recordset[0].listeningPortsJson),
+      }
+    : null;
+
   return (
     <DeviceDetail
       device={data}
       metrics={metrics}
       screenshots={screenshots}
       staffOptions={staffResult.recordset.map((s) => ({ id: s.Id, name: s.Name }))}
+      hardware={hardwareResult.recordset[0] ?? null}
+      security={securityResult.recordset[0] ?? null}
+      network={network}
+      processes={parseJsonArray<ProcessRow>(processResult.recordset[0]?.ProcessesJson)}
+      services={parseJsonArray<ServiceRow>(serviceResult.recordset[0]?.ServicesJson)}
+      software={parseJsonArray<SoftwareRow>(softwareResult.recordset[0]?.SoftwareJson)}
+      alerts={alertsResult.recordset}
+      usbEvents={usbResult.recordset}
     />
   );
 }

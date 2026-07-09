@@ -4,9 +4,24 @@ package main
 
 import (
 	"log"
+	"os/exec"
 
 	"github.com/kardianos/service"
 )
+
+// configureRestartOnFailure tells the Windows Service Control Manager to relaunch this
+// service automatically whenever it exits non-zero — which is exactly how update.go
+// triggers a restart onto the newly-swapped binary (or a rolled-back one). Best-effort:
+// called both at install time and on every service start, so agents installed before
+// this existed self-heal without requiring a reinstall.
+func configureRestartOnFailure() {
+	err := exec.Command("sc", "failure", svcConfig.Name,
+		"reset=", "86400",
+		"actions=", "restart/5000/restart/5000/restart/5000").Run()
+	if err != nil {
+		log.Printf("could not configure service auto-restart (non-fatal): %v", err)
+	}
+}
 
 var svcConfig = &service.Config{
 	Name:        "LogMonitorAgent",
@@ -41,6 +56,7 @@ func RunService() error {
 	if err != nil {
 		return err
 	}
+	configureRestartOnFailure()
 	return s.Run()
 }
 
@@ -54,6 +70,7 @@ func InstallService() error {
 	if err := s.Install(); err != nil {
 		return err
 	}
+	configureRestartOnFailure()
 	log.Println("Service installed.")
 	return s.Start()
 }

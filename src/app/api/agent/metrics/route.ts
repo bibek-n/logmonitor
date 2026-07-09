@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/agentAuth";
+import { raiseAlertIfNew, resolveAlert } from "@/lib/deviceAlerts";
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+function int(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
+}
+function bit(v: unknown): boolean | null {
+  return typeof v === "boolean" ? v : null;
+}
+
+const HIGH_USAGE_THRESHOLD = 90;
+
+async function checkThreshold(deviceId: string, alertType: string, value: number | null, label: string) {
+  if (value === null) return;
+  if (value > HIGH_USAGE_THRESHOLD) {
+    await raiseAlertIfNew(deviceId, alertType, "critical", `${label} usage is at ${value.toFixed(0)}% (>${HIGH_USAGE_THRESHOLD}%).`);
+  } else {
+    await resolveAlert(deviceId, alertType);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -17,20 +35,54 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
+  const cpuPct = num(body.cpuPct);
+  const memPct = num(body.memPct);
+  const diskPct = num(body.diskPct);
+
   const db = await getDb();
   await db
     .request()
     .input("deviceId", sql.VarChar, device.deviceId)
-    .input("cpuPct", sql.Float, num(body.cpuPct))
-    .input("memPct", sql.Float, num(body.memPct))
-    .input("diskPct", sql.Float, num(body.diskPct))
+    .input("cpuPct", sql.Float, cpuPct)
+    .input("memPct", sql.Float, memPct)
+    .input("diskPct", sql.Float, diskPct)
     .input("netRxMbps", sql.Float, num(body.netRxMbps))
     .input("netTxMbps", sql.Float, num(body.netTxMbps))
     .input("uptimeSeconds", sql.BigInt, num(body.uptimeSeconds))
+    .input("swapPct", sql.Float, num(body.swapPct))
+    .input("diskReadMBps", sql.Float, num(body.diskReadMBps))
+    .input("diskWriteMBps", sql.Float, num(body.diskWriteMBps))
+    .input("diskIops", sql.Float, num(body.diskIops))
+    .input("processCount", sql.Int, int(body.processCount))
+    .input("threadCount", sql.Int, int(body.threadCount))
+    .input("handleCount", sql.Int, int(body.handleCount))
+    .input("loadAvg1", sql.Float, num(body.loadAvg1))
+    .input("loadAvg5", sql.Float, num(body.loadAvg5))
+    .input("loadAvg15", sql.Float, num(body.loadAvg15))
+    .input("gpuUsagePct", sql.Float, num(body.gpuUsagePct))
+    .input("batteryPct", sql.Float, num(body.batteryPct))
+    .input("batteryHealth", sql.NVarChar, body.batteryHealth || null)
+    .input("batteryCycleCount", sql.Int, int(body.batteryCycleCount))
+    .input("powerAdapterConnected", sql.Bit, bit(body.powerAdapterConnected))
+    .input("cpuTempC", sql.Float, num(body.cpuTempC))
     .query(`
-      INSERT INTO DeviceMetrics (DeviceId, CpuPct, MemPct, DiskPct, NetRxMbps, NetTxMbps, UptimeSeconds)
-      VALUES (@deviceId, @cpuPct, @memPct, @diskPct, @netRxMbps, @netTxMbps, @uptimeSeconds)
+      INSERT INTO DeviceMetrics (
+        DeviceId, CpuPct, MemPct, DiskPct, NetRxMbps, NetTxMbps, UptimeSeconds,
+        SwapPct, DiskReadMBps, DiskWriteMBps, DiskIops, ProcessCount, ThreadCount, HandleCount,
+        LoadAvg1, LoadAvg5, LoadAvg15, GpuUsagePct, BatteryPct, BatteryHealth, BatteryCycleCount,
+        PowerAdapterConnected, CpuTempC
+      )
+      VALUES (
+        @deviceId, @cpuPct, @memPct, @diskPct, @netRxMbps, @netTxMbps, @uptimeSeconds,
+        @swapPct, @diskReadMBps, @diskWriteMBps, @diskIops, @processCount, @threadCount, @handleCount,
+        @loadAvg1, @loadAvg5, @loadAvg15, @gpuUsagePct, @batteryPct, @batteryHealth, @batteryCycleCount,
+        @powerAdapterConnected, @cpuTempC
+      )
     `);
+
+  await checkThreshold(device.deviceId, "cpu_high", cpuPct, "CPU");
+  await checkThreshold(device.deviceId, "mem_high", memPct, "Memory");
+  await checkThreshold(device.deviceId, "disk_high", diskPct, "Disk");
 
   return NextResponse.json({ ok: true });
 }

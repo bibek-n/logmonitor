@@ -21,6 +21,7 @@
     "migrate:websites": "tsx scripts/migrate-websites.ts",
     "migrate:speedtestresults": "tsx scripts/migrate-speedtest-results.ts",
     "migrate:endpointagents": "tsx scripts/migrate-endpointagents.ts",
+    "migrate:endpointagents-phase2": "tsx scripts/migrate-endpointagents-phase2.ts",
     "import:oui": "tsx scripts/import-oui.ts",
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",
@@ -44,6 +45,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.9.2",
+    "sharp": "^0.35.3",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2"
   },

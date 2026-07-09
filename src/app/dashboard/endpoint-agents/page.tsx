@@ -25,6 +25,19 @@ interface DeviceQueryRow {
   NetTxMbps: number | null;
   UptimeSeconds: number | null;
   LastScreenshotAt: string | null;
+  FirewallEnabled: boolean | null;
+  AntivirusStatus: string | null;
+  DefenderStatus: string | null;
+}
+
+function computeHealthScore(r: DeviceQueryRow): number {
+  let score = 100;
+  if (r.CpuPct != null) score -= r.CpuPct > 90 ? 20 : r.CpuPct > 75 ? 8 : 0;
+  if (r.MemPct != null) score -= r.MemPct > 90 ? 20 : r.MemPct > 75 ? 8 : 0;
+  if (r.DiskPct != null) score -= r.DiskPct > 90 ? 15 : r.DiskPct > 75 ? 6 : 0;
+  if (r.FirewallEnabled === false) score -= 15;
+  if (r.AntivirusStatus === "disabled" || r.DefenderStatus === "disabled") score -= 20;
+  return Math.max(0, Math.round(score));
 }
 
 export default async function EndpointAgentsPage() {
@@ -46,7 +59,8 @@ export default async function EndpointAgentsPage() {
       d.LastHeartbeat, d.LastIp, d.ScreenshotIntervalMinutes, d.PrivacyMode,
       s.Name AS StaffName,
       metrics.CpuPct, metrics.MemPct, metrics.DiskPct, metrics.NetRxMbps, metrics.NetTxMbps, metrics.UptimeSeconds,
-      shot.CapturedAt AS LastScreenshotAt
+      shot.CapturedAt AS LastScreenshotAt,
+      sec.FirewallEnabled, sec.AntivirusStatus, sec.DefenderStatus
     FROM Devices d
     LEFT JOIN Staff s ON s.Id = d.StaffId
     OUTER APPLY (
@@ -57,6 +71,7 @@ export default async function EndpointAgentsPage() {
       SELECT TOP 1 CapturedAt FROM Screenshots sc
       WHERE sc.DeviceId = d.DeviceId AND sc.DeletedAt IS NULL ORDER BY CapturedAt DESC
     ) shot
+    LEFT JOIN DeviceSecurityStatus sec ON sec.DeviceId = d.DeviceId
     ORDER BY d.Hostname
   `);
 
@@ -82,6 +97,7 @@ export default async function EndpointAgentsPage() {
       netTxMbps: r.NetTxMbps,
       uptimeSeconds: r.UptimeSeconds,
       lastScreenshotAt: r.LastScreenshotAt,
+      healthScore: computeHealthScore(r),
     };
   });
 

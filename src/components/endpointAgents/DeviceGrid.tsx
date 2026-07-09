@@ -27,6 +27,7 @@ export interface DeviceRow {
   netTxMbps: number | null;
   uptimeSeconds: number | null;
   lastScreenshotAt: string | null;
+  healthScore: number;
 }
 
 function formatUptime(seconds: number | null): string {
@@ -95,7 +96,12 @@ function DeviceCard({ device }: { device: DeviceRow }) {
             {device.hostname}
           </Link>
         </div>
-        <Badge tone={device.os === "windows" ? "info" : "success"}>{device.os}</Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge tone={device.healthScore >= 80 ? "success" : device.healthScore >= 50 ? "warning" : "danger"}>
+            {device.healthScore}
+          </Badge>
+          <Badge tone={device.os === "windows" ? "info" : "success"}>{device.os}</Badge>
+        </div>
       </div>
 
       <div style={{ fontSize: "0.78rem", color: "var(--ink-secondary)", display: "flex", flexDirection: "column", gap: 2 }}>

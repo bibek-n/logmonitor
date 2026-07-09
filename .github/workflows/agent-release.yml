@@ -41,7 +41,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o "${{ matrix.out }}" .
+        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -56,6 +56,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum * > checksums.txt
 
       - name: Publish release
         uses: softprops/action-gh-release@v2

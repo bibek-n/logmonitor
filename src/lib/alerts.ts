@@ -21,6 +21,12 @@ export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
         'IP conflict on ' + IpAddress + ' (' + ISNULL(MacAddress, 'unknown MAC') + ')' AS Detail
       FROM RouterClients
       WHERE Status = 'conflict'
+      UNION ALL
+      SELECT da.TriggeredAt AS EventTime, da.Severity,
+        d.Hostname + ': ' + da.Message AS Detail
+      FROM DeviceAlerts da
+      JOIN Devices d ON d.DeviceId = da.DeviceId
+      WHERE da.ResolvedAt IS NULL
     ) alerts
     ORDER BY EventTime DESC
   `);

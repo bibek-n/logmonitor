@@ -16,12 +16,23 @@ export async function POST(req: NextRequest) {
 
   const db = await getDb();
   const ip = clientIp(req);
+  const body = await req.json().catch(() => ({}));
+  const agentVersion = typeof body?.agentVersion === "string" ? body.agentVersion : null;
+  const currentUser = typeof body?.currentUser === "string" && body.currentUser ? body.currentUser : null;
 
   await db
     .request()
     .input("deviceId", sql.VarChar, device.deviceId)
     .input("ip", sql.VarChar, ip)
-    .query("UPDATE Devices SET LastHeartbeat = SYSUTCDATETIME(), LastIp = @ip WHERE DeviceId = @deviceId");
+    .input("agentVersion", sql.NVarChar, agentVersion)
+    .input("currentUser", sql.NVarChar, currentUser)
+    .query(`
+      UPDATE Devices
+      SET LastHeartbeat = SYSUTCDATETIME(), LastIp = @ip,
+        AgentVersion = COALESCE(@agentVersion, AgentVersion),
+        CurrentUser = COALESCE(@currentUser, CurrentUser)
+      WHERE DeviceId = @deviceId
+    `);
 
   const pendingResult = await db
     .request()

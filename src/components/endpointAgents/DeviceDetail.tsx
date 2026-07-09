@@ -7,6 +7,99 @@ import { Download, Trash2, X, ShieldOff } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DeviceDetailExtras } from "@/components/endpointAgents/DeviceDetailExtras";
+
+export interface HardwareInfo {
+  cpuModel: string | null;
+  cpuManufacturer: string | null;
+  cpuCores: number | null;
+  cpuThreads: number | null;
+  cpuClockMhz: number | null;
+  memoryTotalMB: number | null;
+  diskModel: string | null;
+  diskType: string | null;
+  diskCapacityGB: number | null;
+  gpuName: string | null;
+  osEdition: string | null;
+  osBuild: string | null;
+  kernelVersion: string | null;
+  architecture: string | null;
+}
+
+export interface SecurityStatus {
+  antivirusStatus: string | null;
+  defenderStatus: string | null;
+  firewallEnabled: boolean | null;
+  firewallRulesCount: number | null;
+  bitLockerStatus: string | null;
+  luksStatus: string | null;
+  secureBootEnabled: boolean | null;
+  tpmVersion: string | null;
+  selinuxStatus: string | null;
+  apparmorStatus: string | null;
+  failedLoginCount24h: number | null;
+}
+
+export interface NetworkInfo {
+  currentIp: string | null;
+  publicIp: string | null;
+  gatewayIp: string | null;
+  dnsServers: string | null;
+  wifiSsid: string | null;
+  vpnActive: boolean | null;
+  ethernetConnected: boolean | null;
+  openPorts: number[];
+  listeningPorts: number[];
+}
+
+export interface ProcessRow {
+  pid: number;
+  ppid: number;
+  name: string;
+  cpuPercent: number;
+  memPercent: number;
+  owner: string;
+  startTime: number;
+  cmdline: string;
+  status: string;
+  exePath: string;
+  sha256: string;
+}
+
+export interface ServiceRow {
+  name: string;
+  displayName: string;
+  status: string;
+  startupType: string;
+  execPath: string;
+  account: string;
+}
+
+export interface SoftwareRow {
+  name: string;
+  version: string;
+  publisher: string;
+  installDate: string;
+  installPath: string;
+  sizeMB: number;
+}
+
+export interface DeviceAlertRow {
+  id: number;
+  alertType: string;
+  severity: string;
+  message: string;
+  triggeredAt: string;
+  resolvedAt: string | null;
+}
+
+export interface UsbEventRow {
+  eventType: string;
+  deviceName: string | null;
+  serialNumber: string | null;
+  storageCapacityGB: number | null;
+  detectedAt: string;
+}
 
 export interface DeviceDetailData {
   deviceId: string;
@@ -271,11 +364,27 @@ export function DeviceDetail({
   device,
   metrics,
   screenshots,
+  hardware,
+  security,
+  network,
+  processes,
+  services,
+  software,
+  alerts,
+  usbEvents,
 }: {
   device: DeviceDetailData;
   metrics: MetricPoint[];
   screenshots: ScreenshotRow[];
   staffOptions: { id: number; name: string }[];
+  hardware: HardwareInfo | null;
+  security: SecurityStatus | null;
+  network: NetworkInfo | null;
+  processes: ProcessRow[];
+  services: ServiceRow[];
+  software: SoftwareRow[];
+  alerts: DeviceAlertRow[];
+  usbEvents: UsbEventRow[];
 }) {
   return (
     <div>
@@ -315,6 +424,19 @@ export function DeviceDetail({
       </div>
 
       <ScreenshotHistory screenshots={screenshots} />
+
+      <div className="mt-4">
+        <DeviceDetailExtras
+          hardware={hardware}
+          security={security}
+          network={network}
+          processes={processes}
+          services={services}
+          software={software}
+          alerts={alerts}
+          usbEvents={usbEvents}
+        />
+      </div>
     </div>
   );
 }
