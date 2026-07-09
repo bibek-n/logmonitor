@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Endpoint agent screenshot storage — never commit captured screenshots
+agent-storage/
+
+# Go build artifacts (agent binaries are built by CI, not committed)
+agent/logmonitor-agent-*
+agent/*.exe
+agent/agent
+
+# IIS / iisnode runtime logs
+iisnode/
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
