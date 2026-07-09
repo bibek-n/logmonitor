@@ -3,7 +3,7 @@ import { NodeSSH } from "node-ssh";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { getDb, sql } from "../src/lib/db";
-import { parseMonitorTraffic } from "../src/lib/mikrotikParser";
+import { parseMonitorTraffic, parseSystemResource, parseSystemHealth } from "../src/lib/mikrotikParser";
 import { classifyOS } from "../src/lib/deviceType";
 
 const execAsync = promisify(exec);
@@ -115,6 +115,36 @@ async function pollOnce() {
       bandwidthCount++;
     }
     console.log(`[${new Date().toISOString()}] Polled bandwidth for ${bandwidthCount} interfaces.`);
+
+    const resourceResult = await ssh.execCommand("/system resource print");
+    const healthResult = await ssh.execCommand("/system health print");
+    const resource = parseSystemResource(resourceResult.stdout);
+    const health = parseSystemHealth(healthResult.stdout);
+
+    await db
+      .request()
+      .input("uptimeSeconds", sql.BigInt, resource.uptimeSeconds)
+      .input("version", sql.NVarChar, resource.version)
+      .input("boardName", sql.NVarChar, resource.boardName)
+      .input("cpuLoadPct", sql.Float, resource.cpuLoadPct)
+      .input("cpuCount", sql.Int, resource.cpuCount)
+      .input("cpuFrequencyMhz", sql.Float, resource.cpuFrequencyMhz)
+      .input("freeMemoryMB", sql.Float, resource.freeMemoryMB)
+      .input("totalMemoryMB", sql.Float, resource.totalMemoryMB)
+      .input("freeDiskMB", sql.Float, resource.freeDiskMB)
+      .input("totalDiskMB", sql.Float, resource.totalDiskMB)
+      .input("temperature", sql.Float, health.temperature)
+      .input("voltage", sql.Float, health.voltage)
+      .query(`
+        INSERT INTO RouterHealth (
+          UptimeSeconds, Version, BoardName, CpuLoadPct, CpuCount, CpuFrequencyMhz,
+          FreeMemoryMB, TotalMemoryMB, FreeDiskMB, TotalDiskMB, Temperature, Voltage
+        ) VALUES (
+          @uptimeSeconds, @version, @boardName, @cpuLoadPct, @cpuCount, @cpuFrequencyMhz,
+          @freeMemoryMB, @totalMemoryMB, @freeDiskMB, @totalDiskMB, @temperature, @voltage
+        )
+      `);
+    console.log(`[${new Date().toISOString()}] Polled router health (CPU ${resource.cpuLoadPct ?? "?"}%, temp ${health.temperature ?? "?"}C).`);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Failed to poll router clients:`, err);
   } finally {

@@ -64,6 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Router,
     items: [
       { href: "/dashboard/router-clients", label: "Router Clients", icon: Laptop2 },
+      { href: "/dashboard/router-health", label: "Router Health", icon: HeartPulse },
       { href: "/dashboard/router-logs", label: "Router Logs", icon: ScrollText },
       { href: "/dashboard/router-web", label: "Router Web Connections", icon: Globe },
     ],

@@ -124,3 +124,90 @@ export function parseRouterDurationToSeconds(duration: string | null): number | 
   }
   return total;
 }
+
+// Parses the plain "key: value" block RouterOS prints for non-terse `print` commands
+// (e.g. `/system resource print`, `/system health print`) — one field per line, colon
+// after the key, arbitrary leading whitespace before it.
+function parseKeyValueBlock(output: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const line of output.split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (key) fields[key] = value;
+  }
+  return fields;
+}
+
+function parseSizeToMB(v: string | undefined): number | null {
+  if (!v) return null;
+  const match = /^([\d.]+)\s*(KiB|MiB|GiB)$/i.exec(v.trim());
+  if (!match) return null;
+  const value = Number(match[1]);
+  switch (match[2].toLowerCase()) {
+    case "kib":
+      return value / 1024;
+    case "mib":
+      return value;
+    case "gib":
+      return value * 1024;
+    default:
+      return null;
+  }
+}
+
+function parsePercent(v: string | undefined): number | null {
+  if (!v) return null;
+  const n = Number(v.replace("%", ""));
+  return Number.isNaN(n) ? null : n;
+}
+
+export interface RouterResource {
+  uptimeSeconds: number | null;
+  version: string | null;
+  boardName: string | null;
+  cpuLoadPct: number | null;
+  cpuCount: number | null;
+  cpuFrequencyMhz: number | null;
+  freeMemoryMB: number | null;
+  totalMemoryMB: number | null;
+  freeDiskMB: number | null;
+  totalDiskMB: number | null;
+}
+
+// Parses `/system resource print` output — RouterOS-version-agnostic best-effort: every
+// field is independently optional since exact fields available vary slightly by board.
+export function parseSystemResource(output: string): RouterResource {
+  const f = parseKeyValueBlock(output);
+  const freqMatch = f["cpu-frequency"] ? /^([\d.]+)/.exec(f["cpu-frequency"]) : null;
+  return {
+    uptimeSeconds: parseRouterDurationToSeconds(f.uptime ?? null),
+    version: f.version ?? null,
+    boardName: f["board-name"] ?? null,
+    cpuLoadPct: parsePercent(f["cpu-load"]),
+    cpuCount: f["cpu-count"] ? Number(f["cpu-count"]) : null,
+    cpuFrequencyMhz: freqMatch ? Number(freqMatch[1]) : null,
+    freeMemoryMB: parseSizeToMB(f["free-memory"]),
+    totalMemoryMB: parseSizeToMB(f["total-memory"]),
+    freeDiskMB: parseSizeToMB(f["free-hdd-space"]),
+    totalDiskMB: parseSizeToMB(f["total-hdd-space"]),
+  };
+}
+
+export interface RouterHealth {
+  voltage: number | null;
+  temperature: number | null;
+}
+
+// Parses `/system health print` — voltage/temperature reporting depends on the specific
+// hardware having the sensors at all, so both are nullable, not an error when absent.
+export function parseSystemHealth(output: string): RouterHealth {
+  const f = parseKeyValueBlock(output);
+  const voltageMatch = f.voltage ? /^([\d.]+)/.exec(f.voltage) : null;
+  const tempMatch = f.temperature ? /^([\d.]+)/.exec(f.temperature) : null;
+  return {
+    voltage: voltageMatch ? Number(voltageMatch[1]) : null,
+    temperature: tempMatch ? Number(tempMatch[1]) : null,
+  };
+}

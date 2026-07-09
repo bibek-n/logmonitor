@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 interface HostRow {
   SrcIp: string;
   SrcMac: string | null;
+  LastDomain: string | null;
   Total: number;
   LastSeen: string;
 }
@@ -15,6 +16,7 @@ export default async function RouterWebIndexPage() {
   const result = await db.query<HostRow>(`
     SELECT SrcIp,
       (SELECT TOP 1 SrcMac FROM RouterWebLogs r2 WHERE r2.SrcIp = r1.SrcIp AND SrcMac IS NOT NULL ORDER BY ReceivedAt DESC) AS SrcMac,
+      (SELECT TOP 1 ReverseDns FROM RouterWebLogs r3 WHERE r3.SrcIp = r1.SrcIp AND ReverseDns IS NOT NULL ORDER BY ReceivedAt DESC) AS LastDomain,
       COUNT(*) AS Total,
       MAX(ReceivedAt) AS LastSeen
     FROM RouterWebLogs r1
@@ -43,6 +45,7 @@ export default async function RouterWebIndexPage() {
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ padding: "0.5rem" }}>Internal IP</th>
                 <th style={{ padding: "0.5rem" }}>MAC Address</th>
+                <th style={{ padding: "0.5rem" }}>Last Domain</th>
                 <th style={{ padding: "0.5rem" }}>Connections</th>
                 <th style={{ padding: "0.5rem" }}>Last Seen</th>
               </tr>
@@ -56,6 +59,7 @@ export default async function RouterWebIndexPage() {
                     </Link>
                   </td>
                   <td style={{ padding: "0.5rem" }}>{h.SrcMac ?? "-"}</td>
+                  <td style={{ padding: "0.5rem" }}>{h.LastDomain ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{h.Total}</td>
                   <td style={{ padding: "0.5rem" }}>{new Date(h.LastSeen).toLocaleString()}</td>
                 </tr>

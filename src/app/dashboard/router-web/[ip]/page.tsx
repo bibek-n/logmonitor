@@ -72,7 +72,8 @@ export default async function RouterWebHostPage({
                 <thead>
                   <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
                     <th style={{ padding: "0.4rem" }}>Time</th>
-                    <th style={{ padding: "0.4rem" }}>Destination</th>
+                    <th style={{ padding: "0.4rem" }}>Destination IP</th>
+                    <th style={{ padding: "0.4rem" }}>Domain</th>
                     <th style={{ padding: "0.4rem" }}>Port</th>
                     <th style={{ padding: "0.4rem" }}>Protocol</th>
                   </tr>
@@ -83,12 +84,8 @@ export default async function RouterWebHostPage({
                       <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
                         {new Date(r.ReceivedAt).toLocaleString()}
                       </td>
-                      <td style={{ padding: "0.4rem" }}>
-                        {r.ReverseDns ?? r.DstIp ?? "-"}
-                        {r.ReverseDns && (
-                          <span style={{ color: "var(--ink-muted)", fontSize: "0.75rem" }}> ({r.DstIp})</span>
-                        )}
-                      </td>
+                      <td style={{ padding: "0.4rem" }}>{r.DstIp ?? "-"}</td>
+                      <td style={{ padding: "0.4rem" }}>{r.ReverseDns ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.DstPort ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.Protocol ?? "-"}</td>
                     </tr>
