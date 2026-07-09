@@ -37,6 +37,7 @@ import {
   EyeOff,
   Monitor,
   KeyRound,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 
@@ -141,6 +142,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Monitor,
     items: [
       { href: "/dashboard/endpoint-agents", label: "Agent Dashboard", icon: Monitor },
+      { href: "/dashboard/endpoint-agents/download", label: "Download Agent", icon: Download },
       { href: "/dashboard/endpoint-agents/enroll", label: "Enroll Device", icon: KeyRound },
       { href: "/dashboard/endpoint-agents/audit-log", label: "Screenshot Audit Log", icon: History },
     ],
