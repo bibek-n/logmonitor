@@ -3,7 +3,13 @@ import { NodeSSH } from "node-ssh";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { getDb, sql } from "../src/lib/db";
-import { parseMonitorTraffic, parseSystemResource, parseSystemHealth } from "../src/lib/mikrotikParser";
+import {
+  parseMonitorTraffic,
+  parseSystemResource,
+  parseSystemHealth,
+  parseInterfaceList,
+  parseActiveUsers,
+} from "../src/lib/mikrotikParser";
 import { classifyOS } from "../src/lib/deviceType";
 
 const execAsync = promisify(exec);
@@ -145,6 +151,55 @@ async function pollOnce() {
         )
       `);
     console.log(`[${new Date().toISOString()}] Polled router health (CPU ${resource.cpuLoadPct ?? "?"}%, temp ${health.temperature ?? "?"}C).`);
+
+    const ifaceResult = await ssh.execCommand("/interface print terse");
+    const interfaces = parseInterfaceList(ifaceResult.stdout);
+    for (const iface of interfaces) {
+      await db
+        .request()
+        .input("name", sql.NVarChar, iface.name)
+        .input("defaultName", sql.NVarChar, iface.defaultName)
+        .input("type", sql.NVarChar, iface.type)
+        .input("running", sql.Bit, iface.running)
+        .input("disabled", sql.Bit, iface.disabled)
+        .input("slave", sql.Bit, iface.slave)
+        .input("mtu", sql.NVarChar, iface.mtu)
+        .input("macAddress", sql.VarChar, iface.macAddress)
+        .input("comment", sql.NVarChar, iface.comment)
+        .input("lastLinkUpTime", sql.DateTime2, iface.lastLinkUpTime)
+        .input("lastLinkDownTime", sql.DateTime2, iface.lastLinkDownTime)
+        .input("linkDowns", sql.Int, iface.linkDowns)
+        .query(`
+          MERGE RouterInterfaces AS target
+          USING (SELECT @name AS Name) AS src
+          ON target.Name = src.Name
+          WHEN MATCHED THEN UPDATE SET
+            DefaultName = @defaultName, Type = @type, Running = @running, Disabled = @disabled,
+            Slave = @slave, Mtu = @mtu, MacAddress = @macAddress, Comment = @comment,
+            LastLinkUpTime = @lastLinkUpTime, LastLinkDownTime = @lastLinkDownTime,
+            LinkDowns = @linkDowns, UpdatedAt = SYSUTCDATETIME()
+          WHEN NOT MATCHED THEN INSERT
+            (Name, DefaultName, Type, Running, Disabled, Slave, Mtu, MacAddress, Comment,
+             LastLinkUpTime, LastLinkDownTime, LinkDowns)
+            VALUES (@name, @defaultName, @type, @running, @disabled, @slave, @mtu, @macAddress,
+             @comment, @lastLinkUpTime, @lastLinkDownTime, @linkDowns);
+        `);
+    }
+    console.log(`[${new Date().toISOString()}] Polled ${interfaces.length} router interfaces.`);
+
+    const usersResult = await ssh.execCommand("/user active print terse");
+    const activeUsers = parseActiveUsers(usersResult.stdout);
+    await db.query("DELETE FROM RouterActiveUsers");
+    for (const user of activeUsers) {
+      await db
+        .request()
+        .input("name", sql.NVarChar, user.name)
+        .input("address", sql.VarChar, user.address)
+        .input("via", sql.NVarChar, user.via)
+        .input("loginTime", sql.DateTime2, user.loginTime)
+        .query("INSERT INTO RouterActiveUsers (Name, Address, Via, LoginTime) VALUES (@name, @address, @via, @loginTime)");
+    }
+    console.log(`[${new Date().toISOString()}] Polled ${activeUsers.length} active router users.`);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Failed to poll router clients:`, err);
   } finally {

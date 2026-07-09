@@ -137,6 +137,28 @@ func detectWifiSSID() string {
 	return strings.TrimSpace(out)
 }
 
+// PrimaryMacAddress returns the hardware address of the first up, non-loopback
+// interface with one — used at enrollment so the server can cross-reference this
+// device against MAC addresses already seen by the MikroTik/Sophos pollers (see
+// src/lib/deviceMatch.ts), letting an admin match a newly-enrolled agent to a known
+// employee PC / staff record.
+func PrimaryMacAddress() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if len(iface.HardwareAddr) == 0 {
+			continue
+		}
+		return iface.HardwareAddr.String()
+	}
+	return ""
+}
+
 var vpnInterfacePrefixes = []string{"tun", "tap", "wg", "ppp", "vpn", "utun"}
 
 // detectInterfaceState is a heuristic, not a guarantee — it flags common VPN adapter

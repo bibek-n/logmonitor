@@ -6,7 +6,7 @@ const VALID_OS = new Set(["windows", "linux"]);
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  const { enrollmentToken, hostname, os, osVersion, agentVersion, consentAccepted } = body ?? {};
+  const { enrollmentToken, hostname, os, osVersion, agentVersion, consentAccepted, macAddress } = body ?? {};
 
   if (typeof enrollmentToken !== "string" || !enrollmentToken) {
     return NextResponse.json({ ok: false, error: "Missing enrollmentToken" }, { status: 400 });
@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
     .input("osVersion", sql.NVarChar, osVersion ?? null)
     .input("apiKeyHash", sql.NVarChar, apiKeyHash)
     .input("agentVersion", sql.NVarChar, agentVersion ?? null)
+    .input("macAddress", sql.VarChar, typeof macAddress === "string" && macAddress ? macAddress : null)
     .query(`
-      INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, ConsentAcceptedAt)
-      VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, SYSUTCDATETIME())
+      INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, ConsentAcceptedAt)
+      VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, SYSUTCDATETIME())
     `);
 
   await db

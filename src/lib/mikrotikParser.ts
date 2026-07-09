@@ -211,3 +211,125 @@ export function parseSystemHealth(output: string): RouterHealth {
     temperature: tempMatch ? Number(tempMatch[1]) : null,
   };
 }
+
+const ROUTEROS_MONTHS: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
+// Parses RouterOS's "mon/dd/yyyy hh:mm:ss" timestamp format (e.g. "jul/09/2026 18:02:21"),
+// as seen in `last-link-up-time` and `/user active print` output.
+export function parseRouterOsTimestamp(s: string | undefined): Date | null {
+  if (!s) return null;
+  const m = /^(\w{3})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const month = ROUTEROS_MONTHS[m[1].toLowerCase()];
+  if (month === undefined) return null;
+  return new Date(Number(m[3]), month, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6]));
+}
+
+// Splits a terse `print terse` line into its leading "<index> <flags>" prefix and the
+// key=value body — the first token containing "=" marks where the body starts. Used by
+// both interface and active-user terse parsing (and already informally by DHCP lease
+// parsing, which has no flags column so doesn't need this split).
+function splitTerseLine(line: string): { flags: string; fields: Record<string, string> } {
+  const kvStart = line.search(/\S+=/);
+  const prefix = kvStart === -1 ? line : line.slice(0, kvStart);
+  const body = kvStart === -1 ? "" : line.slice(kvStart);
+  const flags = prefix.replace(/^\s*\d+\s*/, "").trim();
+
+  const fields: Record<string, string> = {};
+  const kv = /(\S+?)=(?:"([^"]*)"|(\S*))/g;
+  let m: RegExpExecArray | null;
+  while ((m = kv.exec(body)) !== null) {
+    fields[m[1]] = m[2] !== undefined ? m[2] : m[3] ?? "";
+  }
+  return { flags, fields };
+}
+
+export interface InterfaceStatus {
+  name: string;
+  defaultName: string | null;
+  type: string | null;
+  running: boolean;
+  disabled: boolean;
+  slave: boolean;
+  mtu: string | null;
+  macAddress: string | null;
+  comment: string | null;
+  lastLinkUpTime: Date | null;
+  lastLinkDownTime: Date | null;
+  linkDowns: number | null;
+}
+
+// last-link-up-time/last-link-down-time are unquoted values containing a space
+// ("last-link-up-time=jul/09/2026 16:57:18"), same tokenizer gap as `when=` above —
+// extracted directly from the raw line rather than trusting splitTerseLine's fields map.
+const LAST_LINK_UP_REGEX = /\blast-link-up-time=(\w{3}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2})/;
+const LAST_LINK_DOWN_REGEX = /\blast-link-down-time=(\w{3}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2})/;
+
+// Parses `/interface print terse` — every physical/logical interface (ether ports, the
+// internet_port bridge, unused sfp, etc.), including flags (R=running, S=slave/bridge
+// member, X=disabled) and link-flap history, which is genuinely useful health signal
+// (e.g. an interface with 70 link-downs indicates a flaky physical connection).
+export function parseInterfaceList(output: string): InterfaceStatus[] {
+  const results: InterfaceStatus[] = [];
+  for (const line of output.split("\n")) {
+    if (!line.trim()) continue;
+    const { flags, fields } = splitTerseLine(line);
+    if (!fields.name) continue;
+
+    const upMatch = LAST_LINK_UP_REGEX.exec(line);
+    const downMatch = LAST_LINK_DOWN_REGEX.exec(line);
+
+    results.push({
+      name: fields.name,
+      defaultName: fields["default-name"] ?? null,
+      type: fields.type ?? null,
+      running: flags.includes("R"),
+      disabled: flags.includes("X"),
+      slave: flags.includes("S"),
+      mtu: fields.mtu ?? null,
+      macAddress: fields["mac-address"] ?? null,
+      comment: fields.comment ?? null,
+      lastLinkUpTime: upMatch ? parseRouterOsTimestamp(upMatch[1]) : null,
+      lastLinkDownTime: downMatch ? parseRouterOsTimestamp(downMatch[1]) : null,
+      linkDowns: fields["link-downs"] ? Number(fields["link-downs"]) : null,
+    });
+  }
+  return results;
+}
+
+export interface ActiveUser {
+  name: string;
+  address: string | null;
+  via: string | null;
+  loginTime: Date | null;
+}
+
+// Parses `/user active print terse` — who's currently logged into the router itself
+// (admin/API/ssh sessions), a meaningful security/health signal distinct from DHCP
+// clients (which are network devices, not router management sessions).
+// `when=` is the one field here whose value isn't quoted and contains a space
+// ("when=jul/09/2026 18:02:21 name=admin ..."), which breaks the generic
+// splitTerseLine/KV tokenizer (it treats unquoted values as single whitespace-delimited
+// tokens, so "18:02:21" gets silently dropped since it has no "="). Extracted directly
+// from the raw line instead, sidestepping that tokenizer assumption for this one field.
+const WHEN_REGEX = /\bwhen=(\w{3}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2})/;
+
+export function parseActiveUsers(output: string): ActiveUser[] {
+  const results: ActiveUser[] = [];
+  for (const line of output.split("\n")) {
+    if (!line.trim()) continue;
+    const { fields } = splitTerseLine(line);
+    if (!fields.name) continue;
+    const whenMatch = WHEN_REGEX.exec(line);
+    results.push({
+      name: fields.name,
+      address: fields.address ?? null,
+      via: fields.via ?? null,
+      loginTime: whenMatch ? parseRouterOsTimestamp(whenMatch[1]) : null,
+    });
+  }
+  return results;
+}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDb, sql } from "@/lib/db";
 import { getAdminSession } from "@/lib/requireAdmin";
+import { matchDeviceByMac } from "@/lib/deviceMatch";
 import {
   DeviceDetail,
   type DeviceDetailData,
@@ -56,13 +57,14 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       StaffName: string | null;
       LastHeartbeat: string | null;
       LastIp: string | null;
+      MacAddress: string | null;
       ScreenshotIntervalMinutes: number | null;
       PrivacyMode: boolean;
       EnrolledAt: string;
       ConsentAcceptedAt: string | null;
     }>(`
       SELECT d.DeviceId, d.Hostname, d.OS, d.OsVersion, d.AgentVersion, d.Department, d.StaffId, s.Name AS StaffName,
-        d.LastHeartbeat, d.LastIp, d.ScreenshotIntervalMinutes, d.PrivacyMode, d.EnrolledAt, d.ConsentAcceptedAt
+        d.LastHeartbeat, d.LastIp, d.MacAddress, d.ScreenshotIntervalMinutes, d.PrivacyMode, d.EnrolledAt, d.ConsentAcceptedAt
       FROM Devices d
       LEFT JOIN Staff s ON s.Id = d.StaffId
       WHERE d.DeviceId = @deviceId
@@ -125,12 +127,15 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
     staffId: device.StaffId,
     staffName: device.StaffName,
     lastIp: device.LastIp,
+    macAddress: device.MacAddress,
     online: device.LastHeartbeat ? Date.now() - new Date(device.LastHeartbeat).getTime() <= 90000 : false,
     screenshotIntervalMinutes: device.ScreenshotIntervalMinutes,
     privacyMode: device.PrivacyMode,
     enrolledAt: device.EnrolledAt,
     consentAcceptedAt: device.ConsentAcceptedAt,
   };
+
+  const macMatch = await matchDeviceByMac(device.MacAddress);
 
   const [hardwareResult, securityResult, networkResult, processResult, serviceResult, softwareResult, alertsResult, usbResult] =
     await Promise.all([
@@ -201,6 +206,7 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       software={parseJsonArray<SoftwareRow>(softwareResult.recordset[0]?.SoftwareJson)}
       alerts={alertsResult.recordset}
       usbEvents={usbResult.recordset}
+      macMatch={macMatch}
     />
   );
 }

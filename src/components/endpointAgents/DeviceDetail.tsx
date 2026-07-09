@@ -111,11 +111,30 @@ export interface DeviceDetailData {
   staffId: number | null;
   staffName: string | null;
   lastIp: string | null;
+  macAddress: string | null;
   online: boolean;
   screenshotIntervalMinutes: number | null;
   privacyMode: boolean;
   enrolledAt: string;
   consentAcceptedAt: string | null;
+}
+
+// Mirrors src/lib/deviceMatch.ts's shapes without importing that module directly — it
+// pulls in getDb() and other server-only code that has no business in a client bundle.
+export interface NetworkMatch {
+  source: "mikrotik" | "sophos";
+  ip: string | null;
+  hostname: string | null;
+}
+
+export interface StaffMatch {
+  id: number;
+  name: string;
+}
+
+export interface DeviceMacMatch {
+  networkMatches: NetworkMatch[];
+  suggestedStaff: StaffMatch | null;
 }
 
 export interface MetricPoint {
@@ -149,11 +168,12 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function SettingsPanel({ device }: { device: DeviceDetailData }) {
+function SettingsPanel({ device, staffOptions }: { device: DeviceDetailData; staffOptions: { id: number; name: string }[] }) {
   const router = useRouter();
   const [interval, setInterval_] = useState(device.screenshotIntervalMinutes?.toString() ?? "");
   const [privacyMode, setPrivacyMode] = useState(device.privacyMode);
   const [department, setDepartment] = useState(device.department ?? "");
+  const [staffId, setStaffId] = useState(device.staffId?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -168,6 +188,7 @@ function SettingsPanel({ device }: { device: DeviceDetailData }) {
           screenshotIntervalMinutes: interval === "" ? null : Number(interval),
           privacyMode,
           department: department === "" ? null : department,
+          staffId: staffId === "" ? null : Number(staffId),
         }),
       });
       if (res.ok) {
@@ -182,6 +203,21 @@ function SettingsPanel({ device }: { device: DeviceDetailData }) {
   return (
     <Card className="flex flex-col gap-3">
       <h2 style={{ fontSize: "0.95rem", margin: 0 }}>Settings</h2>
+      <div className="flex flex-col gap-1">
+        <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Assigned staff member</label>
+        <select
+          value={staffId}
+          onChange={(e) => setStaffId(e.target.value)}
+          style={{ padding: "0.5rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)" }}
+        >
+          <option value="">Unassigned</option>
+          {staffOptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="flex flex-col gap-1">
         <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Screenshot interval</label>
         <select
@@ -213,6 +249,84 @@ function SettingsPanel({ device }: { device: DeviceDetailData }) {
       <Button size="sm" onClick={save} disabled={saving}>
         {saving ? "Saving..." : saved ? "Saved" : "Save settings"}
       </Button>
+    </Card>
+  );
+}
+
+function EmployeeMatchCard({
+  device,
+  macMatch,
+  staffOptions,
+}: {
+  device: DeviceDetailData;
+  macMatch: DeviceMacMatch;
+  staffOptions: { id: number; name: string }[];
+}) {
+  const router = useRouter();
+  const [assigning, setAssigning] = useState(false);
+
+  async function assignSuggested() {
+    if (!macMatch.suggestedStaff) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/admin/devices/${device.deviceId}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId: macMatch.suggestedStaff.id }),
+      });
+      if (res.ok) router.refresh();
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  if (!device.macAddress) {
+    return (
+      <Card>
+        <h2 style={{ fontSize: "0.95rem", marginTop: 0, marginBottom: "0.5rem" }}>Employee Match</h2>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem", margin: 0 }}>
+          This agent hasn&apos;t reported a MAC address yet (older agent version, or not yet re-enrolled).
+        </p>
+      </Card>
+    );
+  }
+
+  const staffAlreadyAssigned = staffOptions.find((s) => s.id === device.staffId);
+
+  return (
+    <Card className="flex flex-col gap-2">
+      <h2 style={{ fontSize: "0.95rem", marginTop: 0, marginBottom: "0.25rem" }}>Employee Match</h2>
+      <div style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>
+        MAC address: <span style={{ color: "var(--ink)", fontFamily: "monospace" }}>{device.macAddress}</span>
+      </div>
+
+      {macMatch.networkMatches.length === 0 ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem", margin: 0 }}>
+          Not currently seen on the MikroTik or Sophos network by this MAC.
+        </p>
+      ) : (
+        macMatch.networkMatches.map((m) => (
+          <div key={m.source} style={{ fontSize: "0.82rem" }}>
+            Seen on <strong>{m.source === "mikrotik" ? "MikroTik" : "Sophos"}</strong>: {m.hostname ?? "unknown host"} (
+            {m.ip ?? "-"})
+          </div>
+        ))
+      )}
+
+      {staffAlreadyAssigned ? (
+        <Badge tone="success">Assigned to {staffAlreadyAssigned.name}</Badge>
+      ) : macMatch.suggestedStaff ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge tone="info">Suggested match: {macMatch.suggestedStaff.name}</Badge>
+          <Button size="sm" onClick={assignSuggested} disabled={assigning}>
+            {assigning ? "Assigning..." : `Assign to ${macMatch.suggestedStaff.name}`}
+          </Button>
+        </div>
+      ) : (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", margin: 0 }}>
+          This MAC isn&apos;t linked to any Staff record yet — assign manually in Settings if known.
+        </p>
+      )}
     </Card>
   );
 }
@@ -364,6 +478,7 @@ export function DeviceDetail({
   device,
   metrics,
   screenshots,
+  staffOptions,
   hardware,
   security,
   network,
@@ -372,6 +487,7 @@ export function DeviceDetail({
   software,
   alerts,
   usbEvents,
+  macMatch,
 }: {
   device: DeviceDetailData;
   metrics: MetricPoint[];
@@ -385,6 +501,7 @@ export function DeviceDetail({
   software: SoftwareRow[];
   alerts: DeviceAlertRow[];
   usbEvents: UsbEventRow[];
+  macMatch: DeviceMacMatch;
 }) {
   return (
     <div>
@@ -419,8 +536,11 @@ export function DeviceDetail({
       </div>
 
       <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)" }}>
-        <MetricsChart metrics={metrics} />
-        <SettingsPanel device={device} />
+        <div className="flex flex-col gap-4">
+          <MetricsChart metrics={metrics} />
+          <EmployeeMatchCard device={device} macMatch={macMatch} staffOptions={staffOptions} />
+        </div>
+        <SettingsPanel device={device} staffOptions={staffOptions} />
       </div>
 
       <ScreenshotHistory screenshots={screenshots} />

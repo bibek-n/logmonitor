@@ -49,6 +49,7 @@ func Enroll(serverURL, token, hostname, osVersion string) (*EnrollResponse, erro
 		"osVersion":       osVersion,
 		"agentVersion":    AgentVersion,
 		"consentAccepted": true,
+		"macAddress":      PrimaryMacAddress(),
 	})
 
 	resp, err := http.Post(serverURL+"/api/agent/enroll", "application/json", bytes.NewReader(body))

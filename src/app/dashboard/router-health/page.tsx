@@ -19,14 +19,46 @@ interface HealthRow {
   Voltage: number | null;
 }
 
+interface InterfaceRow {
+  Name: string;
+  Type: string | null;
+  Running: boolean;
+  Disabled: boolean;
+  Slave: boolean;
+  MacAddress: string | null;
+  Comment: string | null;
+  LastLinkUpTime: string | null;
+  LastLinkDownTime: string | null;
+  LinkDowns: number | null;
+}
+
+interface ActiveUserRow {
+  Id: number;
+  Name: string;
+  Address: string | null;
+  Via: string | null;
+  LoginTime: string | null;
+}
+
+// Includes seconds (not just d/h/m) — at a 30s poll interval, a coarser format shows
+// the exact same string for many consecutive rows in a row, which reads as static/fake
+// even though the underlying value is genuinely ticking upward every cycle.
 function formatUptime(seconds: number | null): string {
   if (seconds == null) return "-";
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  const secs = Math.floor(seconds % 60);
+  if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
+  if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+}
+
+function formatUpSince(seconds: number | null, asOf: string | null): string {
+  if (seconds == null || !asOf) return "-";
+  const since = new Date(new Date(asOf).getTime() - seconds * 1000);
+  return since.toLocaleString();
 }
 
 function StatTile({ label, value, status }: { label: string; value: string | number; status: string }) {
@@ -56,6 +88,16 @@ export default async function RouterHealthPage() {
 
   const historyResult = await db.query<HealthRow>("SELECT TOP 100 * FROM RouterHealth ORDER BY ReceivedAt DESC");
   const history = historyResult.recordset;
+
+  const interfacesResult = await db.query<InterfaceRow>(
+    "SELECT Name, Type, Running, Disabled, Slave, MacAddress, Comment, LastLinkUpTime, LastLinkDownTime, LinkDowns FROM RouterInterfaces ORDER BY Name"
+  );
+  const interfaces = interfacesResult.recordset;
+
+  const activeUsersResult = await db.query<ActiveUserRow>(
+    "SELECT Id, Name, Address, Via, LoginTime FROM RouterActiveUsers ORDER BY LoginTime DESC"
+  );
+  const activeUsers = activeUsersResult.recordset;
 
   const memUsedPct =
     latest?.FreeMemoryMB != null && latest?.TotalMemoryMB
@@ -103,8 +145,87 @@ export default async function RouterHealthPage() {
           <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem" }}>
             {latest.CpuCount ?? "?"} CPU cores @ {latest.CpuFrequencyMhz ?? "?"} MHz &middot;{" "}
             {latest.TotalMemoryMB != null ? `${(latest.TotalMemoryMB / 1024).toFixed(2)} GB RAM` : ""} &middot;{" "}
-            {latest.TotalDiskMB != null ? `${(latest.TotalDiskMB / 1024).toFixed(2)} GB storage` : ""}
+            {latest.TotalDiskMB != null ? `${(latest.TotalDiskMB / 1024).toFixed(2)} GB storage` : ""} &middot; up since{" "}
+            {formatUpSince(latest.UptimeSeconds, latest.ReceivedAt)}
           </p>
+
+          <div className="dash-panel">
+            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Interfaces</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                    <th style={{ padding: "0.4rem" }}>Name</th>
+                    <th style={{ padding: "0.4rem" }}>Type</th>
+                    <th style={{ padding: "0.4rem" }}>Status</th>
+                    <th style={{ padding: "0.4rem" }}>MAC Address</th>
+                    <th style={{ padding: "0.4rem" }}>Last Up</th>
+                    <th style={{ padding: "0.4rem" }}>Last Down</th>
+                    <th style={{ padding: "0.4rem" }}>Link Downs</th>
+                    <th style={{ padding: "0.4rem" }}>Comment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {interfaces.map((i) => {
+                    const status = i.Disabled ? "unknown" : i.Running ? "good" : "warning";
+                    return (
+                      <tr key={i.Name} style={{ borderBottom: "1px solid var(--grid)" }}>
+                        <td style={{ padding: "0.4rem" }}>
+                          {i.Name}
+                          {i.Slave && <span style={{ color: "var(--ink-muted)", fontSize: "0.72rem" }}> (slave)</span>}
+                        </td>
+                        <td style={{ padding: "0.4rem" }}>{i.Type ?? "-"}</td>
+                        <td style={{ padding: "0.4rem" }}>
+                          <span className={`status-dot status-${status}`} style={{ marginRight: "0.4rem" }} />
+                          {i.Disabled ? "Disabled" : i.Running ? "Running" : "Down"}
+                        </td>
+                        <td style={{ padding: "0.4rem" }}>{i.MacAddress ?? "-"}</td>
+                        <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                          {i.LastLinkUpTime ? new Date(i.LastLinkUpTime).toLocaleString() : "-"}
+                        </td>
+                        <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                          {i.LastLinkDownTime ? new Date(i.LastLinkDownTime).toLocaleString() : "-"}
+                        </td>
+                        <td style={{ padding: "0.4rem" }}>{i.LinkDowns ?? "-"}</td>
+                        <td style={{ padding: "0.4rem" }}>{i.Comment ?? "-"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="dash-panel">
+            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Active Router Sessions</h2>
+            <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+              Who&apos;s currently logged into the router itself (admin/SSH/API/Winbox) — distinct from DHCP clients.
+            </p>
+            {activeUsers.length === 0 ? (
+              <p style={{ color: "var(--ink-muted)" }}>No active sessions.</p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                    <th style={{ padding: "0.4rem" }}>User</th>
+                    <th style={{ padding: "0.4rem" }}>Address</th>
+                    <th style={{ padding: "0.4rem" }}>Via</th>
+                    <th style={{ padding: "0.4rem" }}>Since</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeUsers.map((u) => (
+                    <tr key={u.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                      <td style={{ padding: "0.4rem" }}>{u.Name}</td>
+                      <td style={{ padding: "0.4rem" }}>{u.Address ?? "-"}</td>
+                      <td style={{ padding: "0.4rem" }}>{u.Via ?? "-"}</td>
+                      <td style={{ padding: "0.4rem" }}>{u.LoginTime ? new Date(u.LoginTime).toLocaleString() : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
 
           <div className="dash-panel">
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Recent History</h2>

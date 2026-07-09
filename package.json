@@ -24,6 +24,8 @@
     "migrate:endpointagents-phase2": "tsx scripts/migrate-endpointagents-phase2.ts",
     "migrate:sophosevents": "tsx scripts/migrate-sophosevents.ts",
     "migrate:routerhealth": "tsx scripts/migrate-routerhealth.ts",
+    "migrate:routerinterfaces": "tsx scripts/migrate-routerinterfaces.ts",
+    "migrate:devicemac": "tsx scripts/migrate-devicemac.ts",
     "import:oui": "tsx scripts/import-oui.ts",
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",
