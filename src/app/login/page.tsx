@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { Suspense, useState, FormEvent } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const idleLogout = searchParams.get("reason") === "idle";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -37,6 +39,11 @@ export default function LoginPage() {
     <div className="center-screen">
       <div className="card">
         <h1>Log Monitor</h1>
+        {idleLogout && !error && (
+          <div className="error" style={{ background: "var(--warning, #f59e0b)" }}>
+            You were signed out after 15 minutes of inactivity. Please sign in again.
+          </div>
+        )}
         {error && <div className="error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
@@ -67,5 +74,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/authOptions";
 import SidebarShell from "@/components/SidebarShell";
 import LogoutButton from "@/components/LogoutButton";
 import Header from "@/components/Header";
+import IdleLogout from "@/components/IdleLogout";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -11,6 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="dash-shell">
+      <IdleLogout />
       <SidebarShell>
         <div className="dash-user">
           <div className="name">
