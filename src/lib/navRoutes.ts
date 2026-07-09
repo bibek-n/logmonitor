@@ -75,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/sophos-clients", label: "Sophos Clients", icon: Wifi },
       { href: "/dashboard/web-filter", label: "Sophos Web Filter", icon: Filter },
       { href: "/dashboard/system-health", label: "Sophos System Health", icon: Activity },
+      { href: "/dashboard/sophos-events", label: "Sophos Events", icon: ScrollText },
     ],
   },
   {

@@ -63,15 +63,24 @@ async function pingProbe(ip: string): Promise<{ hostname: string | null; ttl: nu
   }
 }
 
+// Probing every device is the actual bottleneck (not the loop interval below) — each
+// `ping -a` spawns a child process, and doing that one device at a time for 70+ devices
+// took several minutes by itself. Running them concurrently is what makes a 30s poll
+// interval actually meaningful instead of being dwarfed by a multi-minute walk.
 async function pollOnce() {
   const db = await getDb();
   const arpMap = await walkArpTable();
 
+  const probed = await Promise.all(
+    Array.from(arpMap.entries()).map(async ([ip, mac]) => {
+      const { hostname, ttl } = await pingProbe(ip);
+      return { ip, mac, hostname, os: classifyOS(hostname, ttl) };
+    })
+  );
+
   let hostnamesResolved = 0;
-  for (const [ip, mac] of arpMap) {
-    const { hostname, ttl } = await pingProbe(ip);
+  for (const { ip, mac, hostname, os } of probed) {
     if (hostname) hostnamesResolved++;
-    const os = classifyOS(hostname, ttl);
 
     await db
       .request()

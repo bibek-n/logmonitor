@@ -85,6 +85,37 @@ async function handleSystemHealth(raw: string, fields: Record<string, string>) {
     `);
 }
 
+// Sophos "Events" log type covers Admin/Authentication/System sub-categories
+// (distinguished by log_component) — admin console changes, firewall login/logout
+// (including the user portal/captive portal), and system-level events like reboots or
+// HA failover. Previously silently dropped by this listener.
+async function handleSophosEvent(raw: string, fields: Record<string, string>) {
+  let logDate: string | null = fields.date ?? null;
+  let logTime: string | null = fields.time ?? null;
+  if (!logDate && fields.timestamp) {
+    const [d, t] = fields.timestamp.split("T");
+    logDate = d ?? null;
+    logTime = t ? t.replace(/[+-]\d{4}$/, "") : null;
+  }
+
+  const db = await getDb();
+  await db
+    .request()
+    .input("logDate", sql.VarChar, logDate)
+    .input("logTime", sql.VarChar, logTime)
+    .input("deviceName", sql.NVarChar, fields.device_name ?? null)
+    .input("logComponent", sql.NVarChar, fields.log_component ?? null)
+    .input("logSubtype", sql.NVarChar, fields.log_subtype ?? null)
+    .input("fieldsJson", sql.NVarChar, JSON.stringify(fields))
+    .input("rawMessage", sql.NVarChar, raw)
+    .query(`
+      INSERT INTO SophosEventLogs
+        (LogDate, LogTime, DeviceName, LogComponent, LogSubtype, Fields, RawMessage)
+      VALUES
+        (@logDate, @logTime, @deviceName, @logComponent, @logSubtype, @fieldsJson, @rawMessage)
+    `);
+}
+
 async function handleRouterLog(raw: string) {
   const p = parseMikrotikLog(raw);
   const db = await getDb();
@@ -139,8 +170,10 @@ server.on("message", async (msg, rinfo) => {
       await handleWebFilter(raw, parseSophosLog(raw));
     } else if (logType === "System Health") {
       await handleSystemHealth(raw, fields);
+    } else if (logType === "Events") {
+      await handleSophosEvent(raw, fields);
     }
-    // Other log types (Firewall, Events, etc.) are ignored for now.
+    // Other log types (Firewall, IPS, etc.) are still ignored for now.
   } catch (err) {
     console.error(`Failed to process syslog message from ${rinfo.address}:`, err);
     console.error("Raw message:", raw);

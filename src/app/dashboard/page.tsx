@@ -99,8 +99,16 @@ export default async function DashboardHome() {
         (SELECT COUNT(*) FROM RouterWebLogs WHERE ReceivedAt >= DATEADD(HOUR, -48, SYSUTCDATETIME()) AND ReceivedAt < DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Prior24h,
         (SELECT COUNT(DISTINCT SrcIp) FROM RouterWebLogs WHERE SrcIp IS NOT NULL) AS DistinctIps
     `),
-    db.query<{ Total: number; Bound: number }>(`
-      SELECT COUNT(*) AS Total, SUM(CASE WHEN Status = 'bound' THEN 1 ELSE 0 END) AS Bound
+    // The MikroTik poller only ever upserts leases it currently sees — a device that
+    // drops off the router's active lease list is never revisited, so its row (and
+    // Status='bound') is frozen forever at whatever it last was. Counting all rows
+    // (or all Status='bound' rows) is therefore a slowly-growing historical tally, not
+    // a real-time connected count — filtering by recent UpdatedAt (90s = 3x the 30s
+    // poll interval) is what actually reflects "connected right now".
+    db.query<{ ConnectedNow: number; TotalKnown: number }>(`
+      SELECT
+        SUM(CASE WHEN Status = 'bound' AND UpdatedAt >= DATEADD(SECOND, -90, SYSUTCDATETIME()) THEN 1 ELSE 0 END) AS ConnectedNow,
+        COUNT(*) AS TotalKnown
       FROM RouterClients
     `),
     // One query per range x per interface (Port2/WLAN is the headline chart) — capped at 500
@@ -372,8 +380,8 @@ export default async function DashboardHome() {
         <KpiCard
           icon={Laptop}
           title="Connected Devices"
-          value={`${routerClientsStats?.Total ?? 0}`}
-          sub={`${routerClientsStats?.Bound ?? 0} currently bound`}
+          value={`${routerClientsStats?.ConnectedNow ?? 0}`}
+          sub={`${routerClientsStats?.TotalKnown ?? 0} known devices total`}
           status={routerStatus}
         />
       </div>
