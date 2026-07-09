@@ -99,17 +99,27 @@ export default async function DashboardHome() {
         (SELECT COUNT(*) FROM RouterWebLogs WHERE ReceivedAt >= DATEADD(HOUR, -48, SYSUTCDATETIME()) AND ReceivedAt < DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Prior24h,
         (SELECT COUNT(DISTINCT SrcIp) FROM RouterWebLogs WHERE SrcIp IS NOT NULL) AS DistinctIps
     `),
-    // The MikroTik poller only ever upserts leases it currently sees — a device that
-    // drops off the router's active lease list is never revisited, so its row (and
-    // Status='bound') is frozen forever at whatever it last was. Counting all rows
-    // (or all Status='bound' rows) is therefore a slowly-growing historical tally, not
-    // a real-time connected count — filtering by recent UpdatedAt (90s = 3x the 30s
-    // poll interval) is what actually reflects "connected right now".
+    // Combines both network sources (MikroTik RouterClients + Sophos ARP-walk
+    // SophosClients), deduped by MAC — a device connected via one network wouldn't be
+    // counted at all if we only looked at the other, and this app tracks two distinct
+    // client populations (192.168.20.x router-side vs 192.168.1.x Sophos LAN). Neither
+    // poller ever revisits/deletes a lease once it drops off, so filtering by recent
+    // UpdatedAt (90s = 3x the 30s poll interval) is what actually reflects "connected
+    // right now" rather than a slowly-growing historical tally.
     db.query<{ ConnectedNow: number; TotalKnown: number }>(`
       SELECT
-        SUM(CASE WHEN Status = 'bound' AND UpdatedAt >= DATEADD(SECOND, -90, SYSUTCDATETIME()) THEN 1 ELSE 0 END) AS ConnectedNow,
-        COUNT(*) AS TotalKnown
-      FROM RouterClients
+        (SELECT COUNT(*) FROM (
+          SELECT UPPER(MacAddress) AS Mac FROM RouterClients
+            WHERE MacAddress IS NOT NULL AND Status = 'bound' AND UpdatedAt >= DATEADD(SECOND, -90, SYSUTCDATETIME())
+          UNION
+          SELECT UPPER(MacAddress) AS Mac FROM SophosClients
+            WHERE MacAddress IS NOT NULL AND UpdatedAt >= DATEADD(SECOND, -90, SYSUTCDATETIME())
+        ) live) AS ConnectedNow,
+        (SELECT COUNT(*) FROM (
+          SELECT UPPER(MacAddress) AS Mac FROM RouterClients WHERE MacAddress IS NOT NULL
+          UNION
+          SELECT UPPER(MacAddress) AS Mac FROM SophosClients WHERE MacAddress IS NOT NULL
+        ) known) AS TotalKnown
     `),
     // One query per range x per interface (Port2/WLAN is the headline chart) — capped at 500
     // rows per range so a heavily-polled window doesn't balloon the payload.
