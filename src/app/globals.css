@@ -488,3 +488,18 @@ button.submit:disabled {
 .status-dot.status-serious { background: var(--serious); }
 .status-dot.status-critical { background: var(--critical); }
 .status-dot.status-unknown { background: var(--ink-muted); }
+
+@keyframes settings-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes settings-field-highlight {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: color-mix(in srgb, var(--primary) 22%, transparent); }
+}
+
+.settings-field-highlight {
+  animation: settings-field-highlight 1.4s ease;
+  border-radius: 10px;
+}

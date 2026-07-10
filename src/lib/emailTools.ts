@@ -56,7 +56,7 @@ export async function mxMailServerTest(domain: string): Promise<string> {
 }
 
 // --- SMTP Server Test ---
-function readSmtpReply(socket: net.Socket, timeoutMs = 10000): Promise<string> {
+export function readSmtpReply(socket: net.Socket, timeoutMs = 10000): Promise<string> {
   return new Promise((resolve, reject) => {
     let buf = "";
     const onData = (d: Buffer) => {
@@ -190,7 +190,11 @@ export interface DeliveryTestOptions {
 // plain net/tls socket handling (same pattern as smtpServerTest) has proven reliable. Speaking
 // the protocol directly also means every step's exact server response is visible for diagnosis.
 
-function connectRaw(host: string, port: number): Promise<net.Socket> {
+// Exported so other callers (e.g. src/lib/notifyEmail.ts) can compose their own SMTP
+// sends on top of these same proven-reliable primitives without duplicating the
+// STARTTLS/AUTH LOGIN dance — these functions themselves are unchanged, just made
+// available outside this module.
+export function connectRaw(host: string, port: number): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port });
     socket.setTimeout(15000);
@@ -203,7 +207,7 @@ function connectRaw(host: string, port: number): Promise<net.Socket> {
   });
 }
 
-function connectTlsDirect(host: string, port: number): Promise<tls.TLSSocket> {
+export function connectTlsDirect(host: string, port: number): Promise<tls.TLSSocket> {
   return new Promise((resolve, reject) => {
     const socket = tls.connect({ host, port, servername: host, rejectUnauthorized: false });
     socket.setTimeout(15000);
@@ -216,25 +220,25 @@ function connectTlsDirect(host: string, port: number): Promise<tls.TLSSocket> {
   });
 }
 
-function upgradeToTls(socket: net.Socket, host: string): Promise<tls.TLSSocket> {
+export function upgradeToTls(socket: net.Socket, host: string): Promise<tls.TLSSocket> {
   return new Promise((resolve, reject) => {
     const secureSocket = tls.connect({ socket, servername: host, rejectUnauthorized: false }, () => resolve(secureSocket));
     secureSocket.once("error", (err) => reject(err));
   });
 }
 
-async function sendCmd(socket: net.Socket, cmd: string): Promise<string> {
+export async function sendCmd(socket: net.Socket, cmd: string): Promise<string> {
   socket.write(cmd);
   return readSmtpReply(socket);
 }
 
-function replyCode(reply: string): number {
+export function replyCode(reply: string): number {
   const lines = reply.trim().split(/\r\n/);
   const match = /^(\d{3})/.exec(lines[lines.length - 1]);
   return match ? Number(match[1]) : 0;
 }
 
-function dotStuff(text: string): string {
+export function dotStuff(text: string): string {
   return text
     .split("\r\n")
     .map((line) => (line.startsWith(".") ? "." + line : line))

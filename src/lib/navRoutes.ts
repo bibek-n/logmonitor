@@ -38,6 +38,11 @@ import {
   Monitor,
   KeyRound,
   Download,
+  Image as ImageIcon,
+  Ticket,
+  Inbox,
+  Layers,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +61,7 @@ export interface NavGroup {
 export const TOP_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/staff", label: "Staff", icon: Users },
+  { href: "/dashboard/settings", label: "Company Settings", icon: Settings },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -147,6 +153,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/endpoint-agents/download", label: "Download Agent", icon: Download },
       { href: "/dashboard/endpoint-agents/enroll", label: "Enroll Device", icon: KeyRound },
       { href: "/dashboard/endpoint-agents/audit-log", label: "Screenshot Audit Log", icon: History },
+    ],
+  },
+  {
+    label: "Website",
+    icon: Layers,
+    items: [
+      { href: "/dashboard/website/slider", label: "Slider Management", icon: ImageIcon },
+      { href: "/dashboard/website/tickets", label: "Support Tickets", icon: Ticket },
+      { href: "/dashboard/website/contact-messages", label: "Contact Messages", icon: Inbox },
     ],
   },
 ];

@@ -13,6 +13,12 @@ out/
 # Endpoint agent screenshot storage — never commit captured screenshots
 agent-storage/
 
+# Support ticket attachments — user-submitted files, never commit
+ticket-attachments/
+
+# Public website uploads (slider images) — admin-uploaded at runtime, never commit
+public/uploads/
+
 # Go build artifacts (agent binaries are built by CI, not committed)
 agent/logmonitor-agent-*
 agent/*.exe
