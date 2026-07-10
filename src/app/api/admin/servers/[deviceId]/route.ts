@@ -44,3 +44,58 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ de
 
   return NextResponse.json({ ok: true });
 }
+
+// Tables with a foreign key on Devices(DeviceId) — deleted in dependency order before the
+// Devices row itself so this never trips an FK constraint violation. ScreenshotAuditLog
+// references Screenshots.Id (not Devices directly), so it must go before Screenshots.
+// EnrollmentTokens.PreCreatedDeviceId/UsedByDeviceId have no FK constraint (by design —
+// tokens are allowed to outlive/orphan from a deleted device), so nothing to clean there.
+const CHILD_TABLE_DELETES = [
+  "DELETE FROM ScreenshotAuditLog WHERE ScreenshotId IN (SELECT Id FROM Screenshots WHERE DeviceId = @deviceId)",
+  "DELETE FROM Screenshots WHERE DeviceId = @deviceId",
+  "DELETE FROM PendingScreenshotRequests WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceMetrics WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceHardwareInfo WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceSecurityStatus WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceNetworkInfo WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceProcessSnapshot WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceServiceSnapshot WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceSoftwareSnapshot WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceUsbEvents WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceAlerts WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceDisks WHERE DeviceId = @deviceId",
+  "DELETE FROM DeviceNetworkInterfaces WHERE DeviceId = @deviceId",
+  "DELETE FROM ServerLogEntries WHERE DeviceId = @deviceId",
+];
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ deviceId: string }> }) {
+  const admin = await requireAdmin();
+  if (!isAdminSession(admin)) return admin;
+
+  const { deviceId } = await params;
+  const db = await getDb();
+
+  const existing = await db
+    .request()
+    .input("deviceId", sql.VarChar, deviceId)
+    .query<{ DeviceName: string | null; Hostname: string }>("SELECT DeviceName, Hostname FROM Devices WHERE DeviceId = @deviceId AND DeviceType = 'Server'");
+  const server = existing.recordset[0];
+  if (!server) {
+    return NextResponse.json({ ok: false, error: "Server not found" }, { status: 404 });
+  }
+
+  for (const query of CHILD_TABLE_DELETES) {
+    await db.request().input("deviceId", sql.VarChar, deviceId).query(query);
+  }
+  await db.request().input("deviceId", sql.VarChar, deviceId).query("DELETE FROM Devices WHERE DeviceId = @deviceId");
+
+  await logAdminAction({
+    admin,
+    section: "servers",
+    action: "delete_server",
+    details: `${server.DeviceName ?? server.Hostname ?? deviceId}`,
+    req,
+  });
+
+  return NextResponse.json({ ok: true });
+}

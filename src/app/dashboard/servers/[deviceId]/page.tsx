@@ -5,6 +5,7 @@ import { getAdminSession } from "@/lib/requireAdmin";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { FileText } from "lucide-react";
+import { ServerDetailActions } from "@/components/servers/ServerDetailActions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,16 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[device.LifecycleStatus] ?? "neutral"}>{device.LifecycleStatus}</Badge>
           <Badge tone={isOnline(device.LastHeartbeat) ? "success" : "neutral"}>{isOnline(device.LastHeartbeat) ? "Online" : "Offline"}</Badge>
+          <ServerDetailActions
+            server={{
+              DeviceId: device.DeviceId,
+              DeviceName: device.DeviceName,
+              ServerRole: device.ServerRole,
+              StaticIpAddress: device.StaticIpAddress,
+              MacAddress: device.MacAddress,
+              LifecycleStatus: device.LifecycleStatus,
+            }}
+          />
         </div>
       </div>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
