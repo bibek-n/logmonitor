@@ -18,6 +18,8 @@ const LANGUAGE_OPTIONS = [
   { label: "Spanish", value: "es" },
   { label: "French", value: "fr" },
   { label: "German", value: "de" },
+  { label: "Nepali (नेपाली)", value: "ne" },
+  { label: "Hindi (हिन्दी)", value: "hi" },
 ];
 const DATE_FORMAT_OPTIONS = ["YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY", "DD-MMM-YYYY"].map((v) => ({ label: v, value: v }));
 const TIME_FORMAT_OPTIONS = [

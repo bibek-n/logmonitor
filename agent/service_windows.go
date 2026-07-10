@@ -23,10 +23,17 @@ func configureRestartOnFailure() {
 	}
 }
 
+// Arguments is the fix for "service did not respond to the start or control request in a
+// timely fashion" — without it, the SCM launches the registered binary with NO arguments,
+// main() hits `len(os.Args) < 2`, prints usage, and exits immediately (before ever calling
+// s.Run()/program.Start()), so the SCM never sees a running-status response and times out.
+// Explicitly telling the SCM to launch "agent.exe run" routes it into RunService(), which
+// correctly performs the SCM handshake.
 var svcConfig = &service.Config{
 	Name:        "LogMonitorAgent",
 	DisplayName: "Log Monitor Endpoint Agent",
 	Description: "Reports system metrics and (if enabled) screenshots to the Log Monitor dashboard. Requires local consent, accepted at install time.",
+	Arguments:   []string{"run"},
 }
 
 type program struct {
