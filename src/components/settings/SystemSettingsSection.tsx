@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -37,6 +38,7 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 
 export function SystemSettingsSection({ initialData, appVersion }: { initialData: SystemSettingsData | null; appVersion: string }) {
   const toast = useToast();
+  const router = useRouter();
   const t = useTranslations("settings.system");
   const TIME_FORMAT_OPTIONS = [
     { label: t("timeFormat24h"), value: "24h" },
@@ -66,6 +68,11 @@ export function SystemSettingsSection({ initialData, appVersion }: { initialData
         type: form.maintenanceModeEnabled ? "info" : "success",
         message: form.maintenanceModeEnabled ? t("maintenanceOnToast") : t("settingsSavedToast"),
       });
+      // The dashboard's locale/timezone/date-format are all resolved once, server-side, in
+      // dashboard/layout.tsx (NextIntlClientProvider's messages + locale) — router.refresh()
+      // re-runs that Server Component so a language/format change shows up immediately
+      // instead of only after the user manually reloads the page.
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
