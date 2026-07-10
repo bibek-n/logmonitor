@@ -4,7 +4,9 @@ package main
 
 import (
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/kardianos/service"
 )
@@ -82,11 +84,26 @@ func InstallService() error {
 	return s.Start()
 }
 
+// UninstallService stops and removes the Windows service registration, and cleans up the
+// ProgramData config/log-state directory. It deliberately does NOT delete the agent.exe
+// binary itself — Windows locks a running executable, so self-deletion here would be
+// unreliable; the file is wherever the admin downloaded/placed it and can be removed by
+// hand once this command finishes (this process needs to exit for the lock to release).
 func UninstallService() error {
 	s, err := service.New(&program{}, svcConfig)
 	if err != nil {
 		return err
 	}
 	_ = s.Stop()
-	return s.Uninstall()
+	if err := s.Uninstall(); err != nil {
+		return err
+	}
+
+	configDir := filepath.Dir(ConfigPath())
+	if err := os.RemoveAll(configDir); err != nil {
+		log.Printf("could not remove config directory %s (non-fatal): %v", configDir, err)
+	}
+
+	log.Println("Service uninstalled and config removed. You can now delete the agent.exe file.")
+	return nil
 }

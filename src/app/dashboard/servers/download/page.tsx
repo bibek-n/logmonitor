@@ -154,6 +154,30 @@ export default async function ServersDownloadAgentPage() {
           fallbackName="logmonitor-agent-linux-arm64"
         />
       </div>
+
+      <Card className="mt-4 flex flex-col gap-2">
+        <h2 style={{ fontSize: "0.95rem", marginTop: 0, marginBottom: 0 }}>Removing an installed agent</h2>
+        <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: 0 }}>
+          <strong>Windows</strong> (as administrator, using the same <code>agent.exe</code> you installed with):
+        </p>
+        <pre style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.6rem 0.75rem", fontSize: "0.78rem", margin: 0 }}>
+          agent.exe uninstall
+        </pre>
+        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: 0 }}>
+          Stops and removes the service and its config folder. The .exe itself is left in place (Windows locks a
+          running executable) — delete it by hand once the command finishes.
+        </p>
+        <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: 0 }}>
+          <strong>Linux</strong> (as root):
+        </p>
+        <pre style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.6rem 0.75rem", fontSize: "0.78rem", margin: 0 }}>
+          sudo /usr/local/bin/logmonitor-agent uninstall
+        </pre>
+        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: 0 }}>
+          One command: stops and disables the systemd unit, removes the unit file, deletes its config directory
+          (including shipped log state), and removes the binary. Requires v0.4.1 or later.
+        </p>
+      </Card>
     </div>
   );
 }

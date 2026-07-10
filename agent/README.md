@@ -50,5 +50,27 @@ use and expires after 24 hours.
 
 ## Uninstall
 
-**Windows**: `agent.exe uninstall` (as administrator).
-**Linux**: `sudo systemctl disable --now logmonitor-agent && sudo rm /usr/local/bin/logmonitor-agent`
+**Windows** (as administrator, using the same `agent.exe` you installed with):
+
+```
+agent.exe uninstall
+```
+
+Stops and removes the `LogMonitorAgent` service and deletes its config directory
+(`%ProgramData%\LogMonitorAgent`). The `agent.exe` file itself is left in place — Windows
+locks a running executable, so delete it by hand once the command finishes.
+
+**Linux** (as root):
+
+```
+sudo /usr/local/bin/logmonitor-agent uninstall
+```
+
+Stops and disables the `logmonitor-agent` systemd unit, removes the unit file, reloads
+systemd, deletes `/etc/logmonitor-agent` (config + log-shipping state), and removes the
+binary itself. One command, nothing left behind.
+
+If you're on an agent version older than v0.4.1, `uninstall` didn't work on Linux and
+Windows service installs could fail with "service did not respond to the start or control
+request in a timely fashion" — download the latest release first if you hit either of
+those.
