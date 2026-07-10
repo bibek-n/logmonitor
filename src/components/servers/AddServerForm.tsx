@@ -57,8 +57,8 @@ export function AddServerForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.deviceName.trim() || !form.hostname.trim()) {
-      setError("Device Name and Hostname are required.");
+    if (!form.deviceName.trim()) {
+      setError("Device Name is required.");
       return;
     }
     setError(null);
@@ -126,8 +126,8 @@ export function AddServerForm() {
             <input style={fieldStyle} value={form.deviceName} onChange={(e) => set("deviceName", e.target.value)} placeholder="Prod Web Server 1" />
           </div>
           <div>
-            <label style={labelStyle}>Hostname *</label>
-            <input style={fieldStyle} value={form.hostname} onChange={(e) => set("hostname", e.target.value)} placeholder="web01.internal" />
+            <label style={labelStyle}>Hostname</label>
+            <input style={fieldStyle} value={form.hostname} onChange={(e) => set("hostname", e.target.value)} placeholder="Auto-filled once the agent connects" />
           </div>
           <div>
             <label style={labelStyle}>IP Address</label>

@@ -84,10 +84,12 @@ export default async function ServersPage() {
                 <tr key={s.DeviceId} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "0.6rem 0.9rem" }}>
                     <Link href={`/dashboard/servers/${s.DeviceId}`} style={{ color: "var(--primary)" }}>
-                      {s.DeviceName ?? s.Hostname}
+                      {s.DeviceName || s.Hostname || "(unnamed)"}
                     </Link>
                   </td>
-                  <td style={{ padding: "0.6rem 0.9rem" }}>{s.Hostname}</td>
+                  <td style={{ padding: "0.6rem 0.9rem", color: s.Hostname ? undefined : "var(--ink-muted)" }}>
+                    {s.Hostname || "Pending enrollment"}
+                  </td>
                   <td style={{ padding: "0.6rem 0.9rem" }}>{s.StaticIpAddress ?? s.LastIp ?? "—"}</td>
                   <td style={{ padding: "0.6rem 0.9rem" }}>{s.ServerRole ?? "—"}</td>
                   <td style={{ padding: "0.6rem 0.9rem", textTransform: "capitalize" }}>{s.OS}</td>

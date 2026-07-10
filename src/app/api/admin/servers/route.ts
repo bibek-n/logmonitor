@@ -37,13 +37,19 @@ export async function POST(req: NextRequest) {
   const status = typeof body?.status === "string" ? body.status : "Pending";
   const macAddress = typeof body?.macAddress === "string" ? body.macAddress.trim() : "";
 
-  if (!deviceName || !hostname) {
-    return NextResponse.json({ ok: false, error: "Device Name and Hostname are required." }, { status: 400 });
+  if (!deviceName) {
+    return NextResponse.json({ ok: false, error: "Device Name is required." }, { status: 400 });
   }
   if (!VALID_OS.has(operatingSystem)) {
     return NextResponse.json({ ok: false, error: "Operating System must be windows or linux." }, { status: 400 });
   }
   const lifecycleStatus = VALID_STATUS.has(status) ? status : "Pending";
+  // Hostname and MAC Address are optional at registration — both get filled in
+  // automatically from the real values the agent reports at enroll time (see
+  // /api/agent/enroll's PreCreatedDeviceId branch, which overwrites Hostname
+  // unconditionally and MacAddress via COALESCE). Hostname's column is NOT NULL, so an
+  // empty string is the "not yet known" placeholder until then.
+  const hostnameValue = hostname || "";
 
   const deviceId = generateDeviceId();
   // Placeholder — no real agent has enrolled yet, so no real API key exists. This random
@@ -56,7 +62,7 @@ export async function POST(req: NextRequest) {
     .request()
     .input("deviceId", sql.VarChar, deviceId)
     .input("deviceName", sql.NVarChar, deviceName)
-    .input("hostname", sql.NVarChar, hostname)
+    .input("hostname", sql.NVarChar, hostnameValue)
     .input("os", sql.VarChar, operatingSystem)
     .input("apiKeyHash", sql.NVarChar, placeholderApiKeyHash)
     .input("staticIpAddress", sql.VarChar, ipAddress || null)
@@ -78,7 +84,7 @@ export async function POST(req: NextRequest) {
     .input("preCreatedDeviceId", sql.VarChar, deviceId)
     .query("INSERT INTO EnrollmentTokens (Token, CreatedByUserId, ExpiresAt, PreCreatedDeviceId) VALUES (@token, @createdBy, @expiresAt, @preCreatedDeviceId)");
 
-  await logAdminAction({ admin, section: "servers", action: "create_server", details: `${deviceName} (${hostname})`, req });
+  await logAdminAction({ admin, section: "servers", action: "create_server", details: `${deviceName}${hostnameValue ? ` (${hostnameValue})` : ""}`, req });
 
   return NextResponse.json({ ok: true, deviceId, token, expiresAt: expiresAt.toISOString() });
 }

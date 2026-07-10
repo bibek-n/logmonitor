@@ -66,14 +66,14 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: "0.25rem" }}>
-        <h1 style={{ fontSize: "1.4rem", margin: 0 }}>{device.DeviceName ?? device.Hostname}</h1>
+        <h1 style={{ fontSize: "1.4rem", margin: 0 }}>{device.DeviceName || device.Hostname || "(unnamed)"}</h1>
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[device.LifecycleStatus] ?? "neutral"}>{device.LifecycleStatus}</Badge>
           <Badge tone={isOnline(device.LastHeartbeat) ? "success" : "neutral"}>{isOnline(device.LastHeartbeat) ? "Online" : "Offline"}</Badge>
         </div>
       </div>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
-        {device.Hostname} · {device.ServerRole ?? "No role set"} ·{" "}
+        {device.Hostname || "Pending enrollment"} · {device.ServerRole ?? "No role set"} ·{" "}
         <Link href={`/dashboard/servers/${deviceId}/logs`} style={{ color: "var(--primary)" }}>
           <FileText size={12} style={{ display: "inline", marginRight: 4 }} />
           View Logs ({logCount})
