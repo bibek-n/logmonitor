@@ -37,6 +37,7 @@
     "migrate:admin-audit-log": "tsx scripts/migrate-admin-audit-log.ts",
     "migrate:backup-history": "tsx scripts/migrate-backup-history.ts",
     "migrate:login-otp": "tsx scripts/migrate-login-otp.ts",
+    "migrate:servers": "tsx scripts/migrate-servers.ts",
     "import:oui": "tsx scripts/import-oui.ts",
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",

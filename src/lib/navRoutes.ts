@@ -43,6 +43,7 @@ import {
   Inbox,
   Layers,
   Settings,
+  PlusCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -153,6 +154,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/endpoint-agents/download", label: "Download Agent", icon: Download },
       { href: "/dashboard/endpoint-agents/enroll", label: "Enroll Device", icon: KeyRound },
       { href: "/dashboard/endpoint-agents/audit-log", label: "Screenshot Audit Log", icon: History },
+    ],
+  },
+  {
+    label: "Servers",
+    icon: Server,
+    items: [
+      { href: "/dashboard/servers", label: "Server List", icon: Server },
+      { href: "/dashboard/servers/add", label: "Add Server", icon: PlusCircle },
+      { href: "/dashboard/servers/download", label: "Download Agent", icon: Download },
     ],
   },
   {

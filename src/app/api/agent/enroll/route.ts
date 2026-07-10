@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
   const tokenResult = await db
     .request()
     .input("token", sql.VarChar, enrollmentToken)
-    .query<{ Id: number; ExpiresAt: string; UsedAt: string | null }>(
-      "SELECT Id, ExpiresAt, UsedAt FROM EnrollmentTokens WHERE Token = @token"
+    .query<{ Id: number; ExpiresAt: string; UsedAt: string | null; PreCreatedDeviceId: string | null }>(
+      "SELECT Id, ExpiresAt, UsedAt, PreCreatedDeviceId FROM EnrollmentTokens WHERE Token = @token"
     );
   const tokenRow = tokenResult.recordset[0];
   if (!tokenRow) {
@@ -40,23 +40,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Enrollment token expired" }, { status: 401 });
   }
 
-  const deviceId = generateDeviceId();
   const apiKey = generateApiKey();
   const apiKeyHash = hashApiKey(apiKey);
+  const macValue = typeof macAddress === "string" && macAddress ? macAddress : null;
 
-  await db
-    .request()
-    .input("deviceId", sql.VarChar, deviceId)
-    .input("hostname", sql.NVarChar, hostname)
-    .input("os", sql.VarChar, os)
-    .input("osVersion", sql.NVarChar, osVersion ?? null)
-    .input("apiKeyHash", sql.NVarChar, apiKeyHash)
-    .input("agentVersion", sql.NVarChar, agentVersion ?? null)
-    .input("macAddress", sql.VarChar, typeof macAddress === "string" && macAddress ? macAddress : null)
-    .query(`
-      INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, ConsentAcceptedAt)
-      VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, SYSUTCDATETIME())
-    `);
+  // Server enrollment tokens are minted against a device row the admin already created
+  // (Dashboard > Servers > Add Server) — reconcile that same row instead of inserting a
+  // new one. Plain workstation tokens (PreCreatedDeviceId null) keep today's behavior
+  // byte-for-byte: a brand-new Devices row, entirely agent-supplied.
+  let deviceId: string;
+  if (tokenRow.PreCreatedDeviceId) {
+    deviceId = tokenRow.PreCreatedDeviceId;
+    await db
+      .request()
+      .input("deviceId", sql.VarChar, deviceId)
+      .input("hostname", sql.NVarChar, hostname)
+      .input("os", sql.VarChar, os)
+      .input("osVersion", sql.NVarChar, osVersion ?? null)
+      .input("apiKeyHash", sql.NVarChar, apiKeyHash)
+      .input("agentVersion", sql.NVarChar, agentVersion ?? null)
+      .input("macAddress", sql.VarChar, macValue)
+      .query(`
+        UPDATE Devices SET
+          Hostname = @hostname, OS = @os, OsVersion = @osVersion, ApiKeyHash = @apiKeyHash,
+          AgentVersion = @agentVersion, MacAddress = COALESCE(@macAddress, MacAddress),
+          ConsentAcceptedAt = SYSUTCDATETIME(), EnrolledAt = SYSUTCDATETIME(),
+          LifecycleStatus = CASE WHEN LifecycleStatus = 'Pending' THEN 'Active' ELSE LifecycleStatus END
+        WHERE DeviceId = @deviceId
+      `);
+  } else {
+    deviceId = generateDeviceId();
+    await db
+      .request()
+      .input("deviceId", sql.VarChar, deviceId)
+      .input("hostname", sql.NVarChar, hostname)
+      .input("os", sql.VarChar, os)
+      .input("osVersion", sql.NVarChar, osVersion ?? null)
+      .input("apiKeyHash", sql.NVarChar, apiKeyHash)
+      .input("agentVersion", sql.NVarChar, agentVersion ?? null)
+      .input("macAddress", sql.VarChar, macValue)
+      .query(`
+        INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, ConsentAcceptedAt)
+        VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, SYSUTCDATETIME())
+      `);
+  }
 
   await db
     .request()

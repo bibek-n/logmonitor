@@ -181,6 +181,10 @@ func (c *Client) PostSoftware(s []SoftwareInfo) error {
 	return c.postJSON("/api/agent/software", map[string]interface{}{"software": s})
 }
 
+func (c *Client) PostLogs(entries []LogEntry) error {
+	return c.postJSON("/api/agent/logs", map[string]interface{}{"entries": entries})
+}
+
 func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {
 	return c.postJSON("/api/agent/usb-event", map[string]interface{}{
 		"eventType":         eventType,

@@ -2,7 +2,6 @@ package main
 
 import (
 	"os/exec"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -11,6 +10,15 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 )
+
+// DiskInfo describes one physical disk — CollectHardwareInfo now enumerates all disks
+// (not just the first) for the Servers feature's multi-disk inventory.
+type DiskInfo struct {
+	Index      int     `json:"index"`
+	Model      string  `json:"model"`
+	Type       string  `json:"type"` // "ssd" | "hdd" | "unknown"
+	CapacityGB float64 `json:"capacityGB"`
+}
 
 // HardwareInfo is mostly static (collected once at start and re-sent daily) — every
 // field is best-effort. A missing sensor/tool (e.g. no lspci on a minimal Linux image)
@@ -23,14 +31,30 @@ type HardwareInfo struct {
 	CpuThreads      int     `json:"cpuThreads"`
 	CpuClockMhz     float64 `json:"cpuClockMhz"`
 	MemoryTotalMB   int64   `json:"memoryTotalMB"`
+	// Primary disk kept for backward compatibility with DeviceHardwareInfo's single-disk
+	// columns — always mirrors Disks[0] when present.
 	DiskModel       string  `json:"diskModel"`
-	DiskType        string  `json:"diskType"` // "ssd" | "hdd" | "unknown"
+	DiskType        string  `json:"diskType"`
 	DiskCapacityGB  float64 `json:"diskCapacityGB"`
+	Disks           []DiskInfo             `json:"disks"`
+	Interfaces      []NetworkInterfaceInfo `json:"interfaces"`
 	GpuName         string  `json:"gpuName"`
 	OsEdition       string  `json:"osEdition"`
 	OsBuild         string  `json:"osBuild"`
 	KernelVersion   string  `json:"kernelVersion"`
 	Architecture    string  `json:"architecture"`
+
+	// Server-oriented deep identity fields (Servers feature) — best-effort, empty when
+	// the platform/permissions don't expose them.
+	MotherboardManufacturer string `json:"motherboardManufacturer"`
+	MotherboardModel        string `json:"motherboardModel"`
+	MotherboardSerial       string `json:"motherboardSerial"`
+	BiosManufacturer        string `json:"biosManufacturer"`
+	BiosVersion             string `json:"biosVersion"`
+	BiosReleaseDate         string `json:"biosReleaseDate"`
+	SystemManufacturer      string `json:"systemManufacturer"`
+	SystemModel             string `json:"systemModel"`
+	SerialNumber            string `json:"serialNumber"`
 }
 
 func runOut(name string, args ...string) string {
@@ -70,63 +94,77 @@ func CollectHardwareInfo() HardwareInfo {
 	collectDiskInfo(&hw)
 	collectGpuInfo(&hw)
 	collectOsEdition(&hw)
+	collectSystemIdentity(&hw)
+	hw.Interfaces = CollectAllInterfaces()
 
 	return hw
 }
 
-var diskSizeRe = regexp.MustCompile(`(\d+)`)
-
 func collectDiskInfo(hw *HardwareInfo) {
 	if runtime.GOOS == "windows" {
+		// Format-Table-free CSV-ish output, one physical disk per block separated by a marker,
+		// so multiple disks can be parsed without ambiguity.
 		out := runOut("powershell", "-NoProfile", "-Command",
-			"Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 -Property Model,MediaType,Size | Format-List")
+			"Get-CimInstance -ClassName Win32_DiskDrive | ForEach-Object { \"$($_.Index)|$($_.Model)|$($_.MediaType)|$($_.Size)\" }")
 		if out == "" {
 			return
 		}
 		for _, line := range strings.Split(out, "\n") {
 			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "Model") {
-				hw.DiskModel = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-			} else if strings.HasPrefix(line, "MediaType") {
-				mt := strings.ToLower(line)
-				if strings.Contains(mt, "ssd") {
-					hw.DiskType = "ssd"
-				} else if strings.Contains(mt, "fixed") || strings.Contains(mt, "hdd") {
-					hw.DiskType = "hdd"
-				} else {
-					hw.DiskType = "unknown"
-				}
-			} else if strings.HasPrefix(line, "Size") {
-				if m := diskSizeRe.FindString(line); m != "" {
-					if bytes, err := strconv.ParseFloat(m, 64); err == nil {
-						hw.DiskCapacityGB = bytes / (1024 * 1024 * 1024)
-					}
+			if line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, "|", 4)
+			if len(parts) != 4 {
+				continue
+			}
+			idx, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+			disk := DiskInfo{Index: idx, Model: strings.TrimSpace(parts[1])}
+			mt := strings.ToLower(parts[2])
+			switch {
+			case strings.Contains(mt, "ssd"):
+				disk.Type = "ssd"
+			case strings.Contains(mt, "fixed") || strings.Contains(mt, "hdd"):
+				disk.Type = "hdd"
+			default:
+				disk.Type = "unknown"
+			}
+			if bytes, err := strconv.ParseFloat(strings.TrimSpace(parts[3]), 64); err == nil {
+				disk.CapacityGB = bytes / (1024 * 1024 * 1024)
+			}
+			hw.Disks = append(hw.Disks, disk)
+		}
+	} else {
+		// Linux: enumerate every non-loop/ram block device under /sys/block.
+		entries := runOut("sh", "-c", "ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram)'")
+		if entries == "" {
+			return
+		}
+		for i, dev := range strings.Fields(entries) {
+			disk := DiskInfo{Index: i}
+			rotational := runOut("cat", "/sys/block/"+dev+"/queue/rotational")
+			switch rotational {
+			case "0":
+				disk.Type = "ssd"
+			case "1":
+				disk.Type = "hdd"
+			default:
+				disk.Type = "unknown"
+			}
+			disk.Model = runOut("cat", "/sys/block/"+dev+"/device/model")
+			if sizeSectors := runOut("cat", "/sys/block/"+dev+"/size"); sizeSectors != "" {
+				if sectors, err := strconv.ParseFloat(sizeSectors, 64); err == nil {
+					disk.CapacityGB = (sectors * 512) / (1024 * 1024 * 1024)
 				}
 			}
+			hw.Disks = append(hw.Disks, disk)
 		}
-		return
 	}
 
-	// Linux: best-effort, first non-loop/ram block device under /sys/block.
-	entries := runOut("sh", "-c", "ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram)' | head -1")
-	dev := strings.TrimSpace(entries)
-	if dev == "" {
-		return
-	}
-	rotational := runOut("cat", "/sys/block/"+dev+"/queue/rotational")
-	switch rotational {
-	case "0":
-		hw.DiskType = "ssd"
-	case "1":
-		hw.DiskType = "hdd"
-	default:
-		hw.DiskType = "unknown"
-	}
-	hw.DiskModel = runOut("cat", "/sys/block/"+dev+"/device/model")
-	if sizeSectors := runOut("cat", "/sys/block/"+dev+"/size"); sizeSectors != "" {
-		if sectors, err := strconv.ParseFloat(sizeSectors, 64); err == nil {
-			hw.DiskCapacityGB = (sectors * 512) / (1024 * 1024 * 1024)
-		}
+	if len(hw.Disks) > 0 {
+		hw.DiskModel = hw.Disks[0].Model
+		hw.DiskType = hw.Disks[0].Type
+		hw.DiskCapacityGB = hw.Disks[0].CapacityGB
 	}
 }
 
@@ -153,4 +191,55 @@ func collectOsEdition(hw *HardwareInfo) {
 	}
 	out := runOut("sh", "-c", ". /etc/os-release 2>/dev/null; echo \"$PRETTY_NAME\"")
 	hw.OsEdition = out
+}
+
+// collectSystemIdentity fills in motherboard/BIOS/serial-number fields — new for the
+// Servers feature (Devices.SerialNumber/MotherboardSerial/BiosVersion existed since
+// Phase 2 but were never actually populated by any agent code until now).
+func collectSystemIdentity(hw *HardwareInfo) {
+	if runtime.GOOS == "windows" {
+		hw.MotherboardManufacturer = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BaseBoard).Manufacturer")
+		hw.MotherboardModel = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BaseBoard).Product")
+		hw.MotherboardSerial = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BaseBoard).SerialNumber")
+		hw.BiosManufacturer = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BIOS).Manufacturer")
+		hw.BiosVersion = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BIOS).SMBIOSBIOSVersion")
+		if raw := runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BIOS).ReleaseDate"); raw != "" {
+			hw.BiosReleaseDate = raw
+		}
+		hw.SystemManufacturer = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_ComputerSystem).Manufacturer")
+		hw.SystemModel = runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_ComputerSystem).Model")
+		// BIOS serial is the standard, reliable cross-vendor serial number; product UUID
+		// is a fallback when BIOS serial is blank (common on VMs / some OEM images).
+		if serial := runOut("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance -ClassName Win32_BIOS).SerialNumber"); serial != "" && !strings.EqualFold(serial, "To be filled by O.E.M.") {
+			hw.SerialNumber = serial
+		} else {
+			hw.SerialNumber = runOut("powershell", "-NoProfile", "-Command",
+				"(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID")
+		}
+		return
+	}
+
+	// Linux: DMI sysfs entries, root or sudo required for some fields (e.g. product_serial)
+	// on many distros — best-effort, blank if unreadable.
+	hw.MotherboardManufacturer = runOut("cat", "/sys/class/dmi/id/board_vendor")
+	hw.MotherboardModel = runOut("cat", "/sys/class/dmi/id/board_name")
+	hw.MotherboardSerial = runOut("cat", "/sys/class/dmi/id/board_serial")
+	hw.BiosManufacturer = runOut("cat", "/sys/class/dmi/id/bios_vendor")
+	hw.BiosVersion = runOut("cat", "/sys/class/dmi/id/bios_version")
+	hw.BiosReleaseDate = runOut("cat", "/sys/class/dmi/id/bios_date")
+	hw.SystemManufacturer = runOut("cat", "/sys/class/dmi/id/sys_vendor")
+	hw.SystemModel = runOut("cat", "/sys/class/dmi/id/product_name")
+	hw.SerialNumber = runOut("cat", "/sys/class/dmi/id/product_serial")
+	if hw.SerialNumber == "" {
+		hw.SerialNumber = runOut("cat", "/sys/class/dmi/id/product_uuid")
+	}
 }

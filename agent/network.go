@@ -5,11 +5,79 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	gopsnet "github.com/shirou/gopsutil/v3/net"
 )
+
+// NetworkInterfaceInfo describes one network interface — used for the Servers feature's
+// multi-NIC inventory (CollectNetworkInfo's CurrentIp/etc. remain the "primary interface"
+// summary used by workstation monitoring; this is the fuller per-interface list).
+type NetworkInterfaceInfo struct {
+	Name        string   `json:"name"`
+	MacAddress  string   `json:"macAddress"`
+	IpAddresses []string `json:"ipAddresses"`
+	IsUp        bool     `json:"isUp"`
+	SpeedMbps   int      `json:"speedMbps"`
+}
+
+// CollectAllInterfaces enumerates every network interface (not just the primary one),
+// best-effort — a speed of 0 means "unknown", not "no link".
+func CollectAllInterfaces() []NetworkInterfaceInfo {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+
+	var result []NetworkInterfaceInfo
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		info := NetworkInterfaceInfo{
+			Name:       iface.Name,
+			MacAddress: iface.HardwareAddr.String(),
+			IsUp:       iface.Flags&net.FlagUp != 0,
+		}
+		if addrs, err := iface.Addrs(); err == nil {
+			for _, a := range addrs {
+				if ipNet, ok := a.(*net.IPNet); ok {
+					info.IpAddresses = append(info.IpAddresses, ipNet.IP.String())
+				}
+			}
+		}
+		info.SpeedMbps = interfaceSpeedMbps(iface.Name)
+		result = append(result, info)
+	}
+	return result
+}
+
+func interfaceSpeedMbps(name string) int {
+	if runtime.GOOS == "windows" {
+		out := runOut("powershell", "-NoProfile", "-Command",
+			"(Get-NetAdapter -Name '"+name+"' -ErrorAction SilentlyContinue).LinkSpeed")
+		// LinkSpeed is like "1 Gbps" or "100 Mbps" — normalize to Mbps.
+		fields := strings.Fields(out)
+		if len(fields) != 2 {
+			return 0
+		}
+		value, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil {
+			return 0
+		}
+		if strings.EqualFold(fields[1], "Gbps") {
+			return int(value * 1000)
+		}
+		return int(value)
+	}
+	speed := runOut("cat", "/sys/class/net/"+name+"/speed")
+	if v, err := strconv.Atoi(speed); err == nil && v > 0 {
+		return v
+	}
+	return 0
+}
 
 type NetworkInfo struct {
 	CurrentIp         string `json:"currentIp"`

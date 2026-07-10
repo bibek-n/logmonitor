@@ -14,6 +14,7 @@ const (
 	hardwareInterval  = 24 * time.Hour
 	usbPollInterval   = 30 * time.Second
 	updateInterval    = 1 * time.Hour
+	logsInterval      = 60 * time.Second
 )
 
 // Run is the agent's main loop: heartbeat + basic metrics every heartbeatIntervalSeconds,
@@ -29,7 +30,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 
 	var screenshotMonitoringActive bool
 	var lastIntervalCapture time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUsbPoll, lastUpdateCheck time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUsbPoll, lastUpdateCheck, lastLogs time.Time
 	knownUsbDevices := map[string]UsbDeviceInfo{}
 
 	ticker := time.NewTicker(interval)
@@ -117,6 +118,14 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			if now.Sub(lastUpdateCheck) >= updateInterval {
 				CheckForUpdate(AgentVersion)
 				lastUpdateCheck = now
+			}
+			if now.Sub(lastLogs) >= logsInterval {
+				if entries := CollectNewLogLines(); len(entries) > 0 {
+					if err := client.PostLogs(entries); err != nil {
+						log.Printf("log shipping failed: %v", err)
+					}
+				}
+				lastLogs = now
 			}
 		}
 	}
