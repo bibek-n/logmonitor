@@ -231,5 +231,92 @@
     "metaTitle": "Under Maintenance — Log Monitor",
     "title": "Under Maintenance",
     "defaultMessage": "We're currently performing scheduled maintenance. Please check back shortly."
+  },
+  "sidebar": {
+    "arrangeMenu": "Arrange menu",
+    "doneArranging": "Done arranging",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "collapse": "Collapse",
+    "searchMainGroup": "Main",
+    "top": {
+      "overview": "Overview",
+      "staff": "Staff",
+      "companySettings": "Company Settings"
+    },
+    "groups": {
+      "mikrotikRouter": {
+        "label": "Mikrotik Router",
+        "items": { "routerClients": "Router Clients", "routerHealth": "Router Health", "routerLogs": "Router Logs", "routerWeb": "Router Web Connections" }
+      },
+      "sophosFirewall": {
+        "label": "Sophos Firewall",
+        "items": { "sophosClients": "Sophos Clients", "webFilter": "Sophos Web Filter", "systemHealth": "Sophos System Health", "sophosEvents": "Sophos Events" }
+      },
+      "networkTools": {
+        "label": "Network Tools",
+        "items": { "ping": "Ping", "traceroute": "Traceroute", "host": "Host", "dnsCheck": "DNS Check", "nslookup": "Nslookup", "ntpTest": "NTP Server Test", "reverseDns": "Reverse DNS Tool", "dnsPropagation": "DNS Propagation Checker", "mtr": "MTR Tool" }
+      },
+      "auditWebsites": {
+        "label": "Audit Websites & SSL Certificates",
+        "items": { "websites": "Websites", "healthCheck": "Website Health Check", "sslChecker": "SSL/TLS Certificate Checker", "headerViewer": "HTTP / HTTPS Response Header Viewer", "gaTagFinder": "GA Tag Finder" }
+      },
+      "emailDelivery": {
+        "label": "Test Email Delivery",
+        "items": { "mxTest": "MX Mail Server Test", "smtpTest": "SMTP Server Test", "spfDkimDmarc": "SPF, DKIM & DMARC Checker", "deliveryTest": "Email Delivery Test", "dnsblLookup": "DNSBL Spam Database Lookup", "uriblLookup": "URIBL Spam Database Lookup" }
+      },
+      "speedTest": {
+        "label": "Speed Test",
+        "items": { "history": "Speed Test History", "nepal": "Nepal Server Speed Test", "international": "International Server Speed Test", "localIp": "Local IP Speed Test" }
+      },
+      "whatIsMyIp": {
+        "label": "What Is My IP",
+        "items": { "myIp": "What Is My IP", "ipLookup": "IP Lookup", "whoisLookup": "WHOIS Lookup", "blacklistCheck": "Blacklist Check", "ipv6Test": "IPv6 Test", "proxyVpnDetection": "Proxy / VPN Detection" }
+      },
+      "endpointAgents": {
+        "label": "Endpoint Agents",
+        "items": { "agentDashboard": "Agent Dashboard", "downloadAgent": "Download Agent", "enrollDevice": "Enroll Device", "screenshotAuditLog": "Screenshot Audit Log" }
+      },
+      "servers": {
+        "label": "Servers",
+        "items": { "serverList": "Server List", "addServer": "Add Server", "downloadAgent": "Download Agent" }
+      },
+      "website": {
+        "label": "Website",
+        "items": { "sliderManagement": "Slider Management", "supportTickets": "Support Tickets", "contactMessages": "Contact Messages" }
+      }
+    }
+  },
+  "header": {
+    "searchPlaceholder": "Search pages, tools, reports...",
+    "noMatches": "No matches.",
+    "recentAlerts": "Recent Alerts",
+    "noAlerts": "No alerts.",
+    "refreshTitle": "Refresh data",
+    "notificationsTitle": "Notifications",
+    "breadcrumbRoot": "Dashboard",
+    "overviewFallback": "Overview"
+  },
+  "dashboardHome": {
+    "title": "Overview",
+    "subtitle": "Sophos firewall · MikroTik router · System health & web filter monitoring",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "diskUsage": "Disk Usage",
+    "wlanLabel": "WLAN",
+    "intranetLabel": "Intranet",
+    "usageTitle": "{label} Usage",
+    "firewallEvents": "Firewall Events",
+    "routerConnections": "Router Connections",
+    "connectedDevices": "Connected Devices",
+    "noData": "No data",
+    "systemUserSub": "System {system} · User {user}",
+    "pctUsed": "{pct}% used",
+    "rxTxLatest": "Rx / Tx (latest)",
+    "noRecentData": "No recent data",
+    "internalIpsTotal24h": "{count} internal IPs total (24h)",
+    "knownDevicesTotal": "{count} known devices total",
+    "deviceStatusTitle": "Device Status",
+    "deviceFirstSeen": "{name}''s device first seen on the network"
   }
 }

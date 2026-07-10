@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { getDb, sql } from "@/lib/db";
 import { kbitsToMbps } from "@/components/BandwidthChart";
 import { getStaffWithStatus } from "@/lib/staffStatus";
@@ -48,6 +49,7 @@ const BANDWIDTH_RANGES: { key: BandwidthRange; hours: number }[] = [
 ];
 
 export default async function DashboardHome() {
+  const t = await getTranslations("dashboardHome");
   const db = await getDb();
 
   const [
@@ -250,8 +252,8 @@ export default async function DashboardHome() {
     const status: KpiStatus = !entry ? "unknown" : stale ? "critical" : "good";
     const rx = entry?.fields.receivedkbits ? kbitsToMbps(Number(entry.fields.receivedkbits)) : null;
     const tx = entry?.fields.transmittedkbits ? kbitsToMbps(Number(entry.fields.transmittedkbits)) : null;
-    const value = rx !== null && tx !== null ? `${rx.toFixed(1)} / ${tx.toFixed(1)} Mbps` : "No data";
-    return { label, icon, value, sub: stale ? "No recent data" : "Rx / Tx (latest)", status };
+    const value = rx !== null && tx !== null ? `${rx.toFixed(1)} / ${tx.toFixed(1)} Mbps` : t("noData");
+    return { label, icon, value, sub: stale ? t("noRecentData") : t("rxTxLatest"), status };
   }
 
   const bandwidthData = {} as Record<BandwidthRange, BandwidthDatum[]>;
@@ -310,46 +312,46 @@ export default async function DashboardHome() {
       .slice(0, 6)
       .map((s) => ({
         time: (s.firstSeen as Date).toISOString(),
-        label: `${s.Name}'s device first seen on the network`,
+        label: t("deviceFirstSeen", { name: s.Name }),
         kind: (s.isOnline ? "staff-online" : "staff-offline") as TimelineEvent["kind"],
       })),
   ]
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 8);
 
-  const intranetKpi = interfaceKpi("Port1", "Intranet", Router);
-  const wlanKpi = interfaceKpi("Port2", "WLAN", Wifi);
+  const intranetKpi = interfaceKpi("Port1", t("intranetLabel"), Router);
+  const wlanKpi = interfaceKpi("Port2", t("wlanLabel"), Wifi);
 
   return (
     <div className="mx-auto" style={{ maxWidth: 1600 }}>
-      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>Overview</h1>
+      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
-        Sophos firewall &middot; MikroTik router &middot; System health &amp; web filter monitoring
+        {t("subtitle")}
       </p>
 
       <div className="grid gap-6 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         <KpiCard
           icon={Cpu}
-          title="CPU Usage"
-          value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : "No data"}
-          sub={latestCpuFields.system ? `System ${latestCpuFields.system} · User ${latestCpuFields.user}` : undefined}
+          title={t("cpuUsage")}
+          value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : t("noData")}
+          sub={latestCpuFields.system ? t("systemUserSub", { system: latestCpuFields.system, user: latestCpuFields.user }) : undefined}
           status={cpuStatus}
           trendPct={trendPct(cpuUsage, cpuPrev)}
           sparkline={cpuHistory.map((value) => ({ value }))}
         />
         <KpiCard
           icon={MemoryStick}
-          title="Memory Usage"
-          value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : "No data"}
-          sub={memPct !== null ? `${memPct.toFixed(1)}% used` : undefined}
+          title={t("memoryUsage")}
+          value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : t("noData")}
+          sub={memPct !== null ? t("pctUsed", { pct: memPct.toFixed(1) }) : undefined}
           status={memStatus}
           trendPct={trendPct(memPct, memPrev)}
           sparkline={memHistory.map((value) => ({ value }))}
         />
         <KpiCard
           icon={HardDrive}
-          title="Disk Usage"
-          value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : "No data"}
+          title={t("diskUsage")}
+          value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : t("noData")}
           sub={worstDiskEntry?.name}
           status={diskStatus}
           trendPct={trendPct(worstDiskPctNow, diskPrev)}
@@ -357,7 +359,7 @@ export default async function DashboardHome() {
         />
         <KpiCard
           icon={wlanKpi.icon}
-          title={`${wlanKpi.label} Usage`}
+          title={t("usageTitle", { label: wlanKpi.label })}
           value={wlanKpi.value}
           sub={wlanKpi.sub}
           status={wlanKpi.status}
@@ -365,7 +367,7 @@ export default async function DashboardHome() {
         />
         <KpiCard
           icon={intranetKpi.icon}
-          title={`${intranetKpi.label} Usage`}
+          title={t("usageTitle", { label: intranetKpi.label })}
           value={intranetKpi.value}
           sub={intranetKpi.sub}
           status={intranetKpi.status}
@@ -373,25 +375,25 @@ export default async function DashboardHome() {
         />
         <KpiCard
           icon={ShieldCheck}
-          title="Firewall Events"
+          title={t("firewallEvents")}
           value={`${webFilterStats?.Last24h ?? 0}`}
-          sub={`${webFilterStats?.DistinctIps ?? 0} internal IPs total (24h)`}
+          sub={t("internalIpsTotal24h", { count: webFilterStats?.DistinctIps ?? 0 })}
           status={(webFilterStats?.Last24h ?? 0) > 0 ? "good" : "unknown"}
           trendPct={trendPct(webFilterStats?.Last24h ?? null, webFilterStats?.Prior24h ?? null)}
         />
         <KpiCard
           icon={Network}
-          title="Router Connections"
+          title={t("routerConnections")}
           value={`${routerWebStats?.Total ?? 0}`}
-          sub={`${routerWebStats?.DistinctIps ?? 0} internal IPs total (24h)`}
+          sub={t("internalIpsTotal24h", { count: routerWebStats?.DistinctIps ?? 0 })}
           status={(routerWebStats?.Total ?? 0) > 0 ? "good" : "unknown"}
           trendPct={trendPct(routerWebStats?.Total ?? null, routerWebStats?.Prior24h ?? null)}
         />
         <KpiCard
           icon={Laptop}
-          title="Connected Devices"
+          title={t("connectedDevices")}
           value={`${routerClientsStats?.ConnectedNow ?? 0}`}
-          sub={`${routerClientsStats?.TotalKnown ?? 0} known devices total`}
+          sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
           status={routerStatus}
         />
       </div>
@@ -400,7 +402,7 @@ export default async function DashboardHome() {
         <BandwidthPanel data={bandwidthData} sparseRanges={["7D", "30D"]} />
       </div>
 
-      <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Device Status</h2>
+      <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>{t("deviceStatusTitle")}</h2>
       <div className="mb-6">
         <DeviceStatusRow total={staff.length} online={staffOnline} offline={staffOffline} attention={attentionCount} />
       </div>

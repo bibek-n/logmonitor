@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowUpDown, ChevronUp, ChevronDown, Check } from "lucide-react";
 import { TOP_ITEMS, NAV_GROUPS, type NavItem, type NavGroup } from "@/lib/navRoutes";
 import { loadNavOrder, saveNavOrder, applyOrder, moveItem, type SidebarOrder } from "@/lib/navOrder";
@@ -14,6 +15,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
   const pathname = usePathname();
+  const t = useTranslations("sidebar");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [order, setOrder] = useState<SidebarOrder>({ topOrder: [], groupOrder: [], itemOrder: {} });
   const [reorderMode, setReorderMode] = useState(false);
@@ -69,7 +71,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
         <button
           type="button"
           onClick={() => setReorderMode((v) => !v)}
-          title={reorderMode ? "Done arranging menu" : "Arrange menu order"}
+          title={reorderMode ? t("doneArranging") : t("arrangeMenu")}
           style={{
             display: "flex",
             alignItems: "center",
@@ -86,7 +88,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
           }}
         >
           {reorderMode ? <Check size={13} /> : <ArrowUpDown size={13} />}
-          {reorderMode ? "Done arranging" : "Arrange menu"}
+          {reorderMode ? t("doneArranging") : t("arrangeMenu")}
         </button>
       )}
 
@@ -97,11 +99,11 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
             <Link
               href={item.href}
               className={isActive(item.href) ? "active" : ""}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(`top.${item.key}`) : undefined}
               style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}
             >
               <Icon size={17} style={{ flexShrink: 0 }} />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{t(`top.${item.key}`)}</span>}
             </Link>
             {reorderMode && !collapsed && (
               <div className="flex flex-col" style={{ flexShrink: 0 }}>
@@ -133,7 +135,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
                     ? expandGroupAndRail(group.label)
                     : setCollapsedGroups((c) => ({ ...c, [group.label]: !c[group.label] }))
                 }
-                title={collapsed ? group.label : undefined}
+                title={collapsed ? t(`groups.${group.key}.label`) : undefined}
                 style={{
                   justifyContent: collapsed ? "center" : "flex-start",
                   color: groupHasActiveItem ? "var(--primary)" : undefined,
@@ -144,7 +146,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
                 <GroupIcon size={16} style={{ flexShrink: 0 }} />
                 {!collapsed && (
                   <>
-                    <span style={{ flex: 1 }}>{group.label}</span>
+                    <span style={{ flex: 1 }}>{t(`groups.${group.key}.label`)}</span>
                     {!reorderMode && <span className={`chevron ${isGroupCollapsed ? "collapsed" : ""}`}>&#9662;</span>}
                   </>
                 )}
@@ -172,7 +174,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
                         style={{ display: "flex", alignItems: "center", gap: "0.55rem", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}
                       >
                         <Icon size={14} style={{ flexShrink: 0 }} />
-                        <span>{item.label}</span>
+                        <span>{t(`groups.${group.key}.items.${item.key}`)}</span>
                       </Link>
                       {reorderMode && (
                         <div className="flex flex-col" style={{ flexShrink: 0 }}>

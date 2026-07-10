@@ -2,12 +2,14 @@
 
 import { useEffect, useState, ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { ChevronsLeft, ChevronsRight, Activity } from "lucide-react";
 import Sidebar from "./Sidebar";
 
 const SIDEBAR_COLLAPSE_KEY = "logmonitor-sidebar-collapsed";
 
 export default function SidebarShell({ children }: { children: ReactNode }) {
+  const t = useTranslations("sidebar");
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -54,7 +56,7 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
       <button
         type="button"
         onClick={toggleRail}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
         style={{
           display: "flex",
           alignItems: "center",
@@ -74,7 +76,7 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
         {collapsed ? <ChevronsRight size={15} /> : (
           <>
             <ChevronsLeft size={15} />
-            <span>Collapse</span>
+            <span>{t("collapse")}</span>
           </>
         )}
       </button>

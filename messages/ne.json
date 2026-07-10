@@ -231,5 +231,92 @@
     "metaTitle": "मर्मत अन्तर्गत — लग मोनिटर",
     "title": "मर्मत अन्तर्गत",
     "defaultMessage": "हामी हाल तालिकाबद्ध मर्मत गरिरहेका छौं। कृपया केही समयपछि फेरि जाँच गर्नुहोस्।"
+  },
+  "sidebar": {
+    "arrangeMenu": "मेनु मिलाउनुहोस्",
+    "doneArranging": "सम्पन्न",
+    "collapseSidebar": "साइडबार खुम्च्याउनुहोस्",
+    "expandSidebar": "साइडबार विस्तार गर्नुहोस्",
+    "collapse": "खुम्च्याउनुहोस्",
+    "searchMainGroup": "मुख्य",
+    "top": {
+      "overview": "अवलोकन",
+      "staff": "कर्मचारी",
+      "companySettings": "कम्पनी सेटिङहरू"
+    },
+    "groups": {
+      "mikrotikRouter": {
+        "label": "माइक्रोटिक राउटर",
+        "items": { "routerClients": "राउटर क्लाइन्टहरू", "routerHealth": "राउटर स्वास्थ्य", "routerLogs": "राउटर लगहरू", "routerWeb": "राउटर वेब जडानहरू" }
+      },
+      "sophosFirewall": {
+        "label": "सोफोस फायरवाल",
+        "items": { "sophosClients": "सोफोस क्लाइन्टहरू", "webFilter": "सोफोस वेब फिल्टर", "systemHealth": "सोफोस प्रणाली स्वास्थ्य", "sophosEvents": "सोफोस घटनाहरू" }
+      },
+      "networkTools": {
+        "label": "नेटवर्क उपकरणहरू",
+        "items": { "ping": "पिङ", "traceroute": "ट्रेसरूट", "host": "होस्ट", "dnsCheck": "DNS जाँच", "nslookup": "Nslookup", "ntpTest": "NTP सर्भर परीक्षण", "reverseDns": "रिभर्स DNS उपकरण", "dnsPropagation": "DNS प्रसार जाँचकर्ता", "mtr": "MTR उपकरण" }
+      },
+      "auditWebsites": {
+        "label": "वेबसाइट र SSL प्रमाणपत्र अडिट",
+        "items": { "websites": "वेबसाइटहरू", "healthCheck": "वेबसाइट स्वास्थ्य जाँच", "sslChecker": "SSL/TLS प्रमाणपत्र जाँचकर्ता", "headerViewer": "HTTP / HTTPS प्रतिक्रिया हेडर भ्युअर", "gaTagFinder": "GA ट्याग फेला पार्ने" }
+      },
+      "emailDelivery": {
+        "label": "इमेल डेलिभरी परीक्षण",
+        "items": { "mxTest": "MX मेल सर्भर परीक्षण", "smtpTest": "SMTP सर्भर परीक्षण", "spfDkimDmarc": "SPF, DKIM र DMARC जाँचकर्ता", "deliveryTest": "इमेल डेलिभरी परीक्षण", "dnsblLookup": "DNSBL स्प्याम डाटाबेस खोज", "uriblLookup": "URIBL स्प्याम डाटाबेस खोज" }
+      },
+      "speedTest": {
+        "label": "स्पिड टेस्ट",
+        "items": { "history": "स्पिड टेस्ट इतिहास", "nepal": "नेपाल सर्भर स्पिड टेस्ट", "international": "अन्तर्राष्ट्रिय सर्भर स्पिड टेस्ट", "localIp": "लोकल IP स्पिड टेस्ट" }
+      },
+      "whatIsMyIp": {
+        "label": "मेरो IP के हो",
+        "items": { "myIp": "मेरो IP के हो", "ipLookup": "IP खोज", "whoisLookup": "WHOIS खोज", "blacklistCheck": "ब्ल्याकलिस्ट जाँच", "ipv6Test": "IPv6 परीक्षण", "proxyVpnDetection": "प्रोक्सी / VPN पत्ता लगाउने" }
+      },
+      "endpointAgents": {
+        "label": "एन्डपोइन्ट एजेन्टहरू",
+        "items": { "agentDashboard": "एजेन्ट ड्यासबोर्ड", "downloadAgent": "एजेन्ट डाउनलोड गर्नुहोस्", "enrollDevice": "उपकरण दर्ता गर्नुहोस्", "screenshotAuditLog": "स्क्रिनसट अडिट लग" }
+      },
+      "servers": {
+        "label": "सर्भरहरू",
+        "items": { "serverList": "सर्भर सूची", "addServer": "सर्भर थप्नुहोस्", "downloadAgent": "एजेन्ट डाउनलोड गर्नुहोस्" }
+      },
+      "website": {
+        "label": "वेबसाइट",
+        "items": { "sliderManagement": "स्लाइडर व्यवस्थापन", "supportTickets": "सहयोग टिकटहरू", "contactMessages": "सम्पर्क सन्देशहरू" }
+      }
+    }
+  },
+  "header": {
+    "searchPlaceholder": "पृष्ठ, उपकरण, रिपोर्टहरू खोज्नुहोस्...",
+    "noMatches": "कुनै मिलान भेटिएन।",
+    "recentAlerts": "हालैका अलर्टहरू",
+    "noAlerts": "कुनै अलर्ट छैन।",
+    "refreshTitle": "डाटा रिफ्रेस गर्नुहोस्",
+    "notificationsTitle": "सूचनाहरू",
+    "breadcrumbRoot": "ड्यासबोर्ड",
+    "overviewFallback": "अवलोकन"
+  },
+  "dashboardHome": {
+    "title": "अवलोकन",
+    "subtitle": "सोफोस फायरवाल · माइक्रोटिक राउटर · प्रणाली स्वास्थ्य र वेब फिल्टर अनुगमन",
+    "cpuUsage": "CPU प्रयोग",
+    "memoryUsage": "मेमोरी प्रयोग",
+    "diskUsage": "डिस्क प्रयोग",
+    "wlanLabel": "WLAN",
+    "intranetLabel": "इन्ट्रानेट",
+    "usageTitle": "{label} प्रयोग",
+    "firewallEvents": "फायरवाल घटनाहरू",
+    "routerConnections": "राउटर जडानहरू",
+    "connectedDevices": "जडान भएका उपकरणहरू",
+    "noData": "डाटा छैन",
+    "systemUserSub": "प्रणाली {system} · प्रयोगकर्ता {user}",
+    "pctUsed": "{pct}% प्रयोग भयो",
+    "rxTxLatest": "Rx / Tx (पछिल्लो)",
+    "noRecentData": "हालैको डाटा छैन",
+    "internalIpsTotal24h": "जम्मा {count} आन्तरिक IP हरू (२४ घण्टा)",
+    "knownDevicesTotal": "जम्मा {count} थाहा भएका उपकरणहरू",
+    "deviceStatusTitle": "उपकरण स्थिति",
+    "deviceFirstSeen": "{name} को उपकरण नेटवर्कमा पहिलो पटक देखियो"
   }
 }

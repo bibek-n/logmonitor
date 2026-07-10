@@ -231,5 +231,92 @@
     "metaTitle": "रखरखाव के अंतर्गत — लॉग मॉनिटर",
     "title": "रखरखाव के अंतर्गत",
     "defaultMessage": "हम वर्तमान में निर्धारित रखरखाव कर रहे हैं। कृपया कुछ ही समय में फिर से जांचें।"
+  },
+  "sidebar": {
+    "arrangeMenu": "मेनू व्यवस्थित करें",
+    "doneArranging": "पूर्ण",
+    "collapseSidebar": "साइडबार संक्षिप्त करें",
+    "expandSidebar": "साइडबार विस्तृत करें",
+    "collapse": "संक्षिप्त करें",
+    "searchMainGroup": "मुख्य",
+    "top": {
+      "overview": "अवलोकन",
+      "staff": "स्टाफ",
+      "companySettings": "कंपनी सेटिंग्स"
+    },
+    "groups": {
+      "mikrotikRouter": {
+        "label": "माइक्रोटिक राउटर",
+        "items": { "routerClients": "राउटर क्लाइंट", "routerHealth": "राउटर स्वास्थ्य", "routerLogs": "राउटर लॉग", "routerWeb": "राउटर वेब कनेक्शन" }
+      },
+      "sophosFirewall": {
+        "label": "सोफोस फ़ायरवॉल",
+        "items": { "sophosClients": "सोफोस क्लाइंट", "webFilter": "सोफोस वेब फ़िल्टर", "systemHealth": "सोफोस सिस्टम स्वास्थ्य", "sophosEvents": "सोफोस घटनाएं" }
+      },
+      "networkTools": {
+        "label": "नेटवर्क टूल्स",
+        "items": { "ping": "पिंग", "traceroute": "ट्रेसरूट", "host": "होस्ट", "dnsCheck": "DNS जांच", "nslookup": "Nslookup", "ntpTest": "NTP सर्वर परीक्षण", "reverseDns": "रिवर्स DNS टूल", "dnsPropagation": "DNS प्रसार जांचकर्ता", "mtr": "MTR टूल" }
+      },
+      "auditWebsites": {
+        "label": "वेबसाइट और SSL प्रमाणपत्र ऑडिट",
+        "items": { "websites": "वेबसाइटें", "healthCheck": "वेबसाइट स्वास्थ्य जांच", "sslChecker": "SSL/TLS प्रमाणपत्र जांचकर्ता", "headerViewer": "HTTP / HTTPS रिस्पॉन्स हेडर व्यूअर", "gaTagFinder": "GA टैग खोजक" }
+      },
+      "emailDelivery": {
+        "label": "ईमेल डिलीवरी परीक्षण",
+        "items": { "mxTest": "MX मेल सर्वर परीक्षण", "smtpTest": "SMTP सर्वर परीक्षण", "spfDkimDmarc": "SPF, DKIM और DMARC जांचकर्ता", "deliveryTest": "ईमेल डिलीवरी परीक्षण", "dnsblLookup": "DNSBL स्पैम डेटाबेस लुकअप", "uriblLookup": "URIBL स्पैम डेटाबेस लुकअप" }
+      },
+      "speedTest": {
+        "label": "स्पीड टेस्ट",
+        "items": { "history": "स्पीड टेस्ट इतिहास", "nepal": "नेपाल सर्वर स्पीड टेस्ट", "international": "अंतरराष्ट्रीय सर्वर स्पीड टेस्ट", "localIp": "लोकल IP स्पीड टेस्ट" }
+      },
+      "whatIsMyIp": {
+        "label": "मेरा IP क्या है",
+        "items": { "myIp": "मेरा IP क्या है", "ipLookup": "IP लुकअप", "whoisLookup": "WHOIS लुकअप", "blacklistCheck": "ब्लैकलिस्ट जांच", "ipv6Test": "IPv6 परीक्षण", "proxyVpnDetection": "प्रॉक्सी / VPN पहचान" }
+      },
+      "endpointAgents": {
+        "label": "एंडपॉइंट एजेंट",
+        "items": { "agentDashboard": "एजेंट डैशबोर्ड", "downloadAgent": "एजेंट डाउनलोड करें", "enrollDevice": "डिवाइस नामांकित करें", "screenshotAuditLog": "स्क्रीनशॉट ऑडिट लॉग" }
+      },
+      "servers": {
+        "label": "सर्वर",
+        "items": { "serverList": "सर्वर सूची", "addServer": "सर्वर जोड़ें", "downloadAgent": "एजेंट डाउनलोड करें" }
+      },
+      "website": {
+        "label": "वेबसाइट",
+        "items": { "sliderManagement": "स्लाइडर प्रबंधन", "supportTickets": "सहायता टिकट", "contactMessages": "संपर्क संदेश" }
+      }
+    }
+  },
+  "header": {
+    "searchPlaceholder": "पेज, टूल्स, रिपोर्ट खोजें...",
+    "noMatches": "कोई मिलान नहीं।",
+    "recentAlerts": "हाल की चेतावनियाँ",
+    "noAlerts": "कोई अलर्ट नहीं।",
+    "refreshTitle": "डेटा रीफ़्रेश करें",
+    "notificationsTitle": "सूचनाएं",
+    "breadcrumbRoot": "डैशबोर्ड",
+    "overviewFallback": "अवलोकन"
+  },
+  "dashboardHome": {
+    "title": "अवलोकन",
+    "subtitle": "सोफोस फ़ायरवॉल · माइक्रोटिक राउटर · सिस्टम स्वास्थ्य और वेब फ़िल्टर निगरानी",
+    "cpuUsage": "CPU उपयोग",
+    "memoryUsage": "मेमोरी उपयोग",
+    "diskUsage": "डिस्क उपयोग",
+    "wlanLabel": "WLAN",
+    "intranetLabel": "इंट्रानेट",
+    "usageTitle": "{label} उपयोग",
+    "firewallEvents": "फ़ायरवॉल घटनाएं",
+    "routerConnections": "राउटर कनेक्शन",
+    "connectedDevices": "कनेक्टेड डिवाइस",
+    "noData": "कोई डेटा नहीं",
+    "systemUserSub": "सिस्टम {system} · उपयोगकर्ता {user}",
+    "pctUsed": "{pct}% उपयोग हुआ",
+    "rxTxLatest": "Rx / Tx (नवीनतम)",
+    "noRecentData": "कोई हालिया डेटा नहीं",
+    "internalIpsTotal24h": "कुल {count} आंतरिक IP (24 घंटे)",
+    "knownDevicesTotal": "कुल {count} ज्ञात डिवाइस",
+    "deviceStatusTitle": "डिवाइस स्थिति",
+    "deviceFirstSeen": "{name} का डिवाइस नेटवर्क पर पहली बार देखा गया"
   }
 }

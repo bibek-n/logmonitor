@@ -231,5 +231,92 @@
     "metaTitle": "In Wartung — Log Monitor",
     "title": "In Wartung",
     "defaultMessage": "Wir führen derzeit planmäßige Wartungsarbeiten durch. Bitte schauen Sie in Kürze wieder vorbei."
+  },
+  "sidebar": {
+    "arrangeMenu": "Menü anordnen",
+    "doneArranging": "Fertig",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "collapse": "Einklappen",
+    "searchMainGroup": "Haupt",
+    "top": {
+      "overview": "Übersicht",
+      "staff": "Mitarbeiter",
+      "companySettings": "Unternehmenseinstellungen"
+    },
+    "groups": {
+      "mikrotikRouter": {
+        "label": "Mikrotik-Router",
+        "items": { "routerClients": "Router-Clients", "routerHealth": "Router-Zustand", "routerLogs": "Router-Protokolle", "routerWeb": "Router-Webverbindungen" }
+      },
+      "sophosFirewall": {
+        "label": "Sophos-Firewall",
+        "items": { "sophosClients": "Sophos-Clients", "webFilter": "Sophos-Webfilter", "systemHealth": "Sophos-Systemzustand", "sophosEvents": "Sophos-Ereignisse" }
+      },
+      "networkTools": {
+        "label": "Netzwerk-Tools",
+        "items": { "ping": "Ping", "traceroute": "Traceroute", "host": "Host", "dnsCheck": "DNS-Prüfung", "nslookup": "Nslookup", "ntpTest": "NTP-Servertest", "reverseDns": "Reverse-DNS-Tool", "dnsPropagation": "DNS-Ausbreitungsprüfer", "mtr": "MTR-Tool" }
+      },
+      "auditWebsites": {
+        "label": "Websites & SSL-Zertifikate prüfen",
+        "items": { "websites": "Websites", "healthCheck": "Website-Gesundheitsprüfung", "sslChecker": "SSL/TLS-Zertifikatsprüfer", "headerViewer": "HTTP-/HTTPS-Antwort-Header-Anzeige", "gaTagFinder": "GA-Tag-Finder" }
+      },
+      "emailDelivery": {
+        "label": "E-Mail-Zustellungstest",
+        "items": { "mxTest": "MX-Mailservertest", "smtpTest": "SMTP-Servertest", "spfDkimDmarc": "SPF-, DKIM- & DMARC-Prüfer", "deliveryTest": "E-Mail-Zustellungstest", "dnsblLookup": "DNSBL-Spamdatenbankabfrage", "uriblLookup": "URIBL-Spamdatenbankabfrage" }
+      },
+      "speedTest": {
+        "label": "Geschwindigkeitstest",
+        "items": { "history": "Geschwindigkeitstest-Verlauf", "nepal": "Geschwindigkeitstest Server Nepal", "international": "Geschwindigkeitstest Internationaler Server", "localIp": "Geschwindigkeitstest Lokale IP" }
+      },
+      "whatIsMyIp": {
+        "label": "Wie Lautet Meine IP",
+        "items": { "myIp": "Wie Lautet Meine IP", "ipLookup": "IP-Abfrage", "whoisLookup": "WHOIS-Abfrage", "blacklistCheck": "Blacklist-Prüfung", "ipv6Test": "IPv6-Test", "proxyVpnDetection": "Proxy-/VPN-Erkennung" }
+      },
+      "endpointAgents": {
+        "label": "Endpunkt-Agenten",
+        "items": { "agentDashboard": "Agenten-Dashboard", "downloadAgent": "Agent herunterladen", "enrollDevice": "Gerät registrieren", "screenshotAuditLog": "Screenshot-Audit-Protokoll" }
+      },
+      "servers": {
+        "label": "Server",
+        "items": { "serverList": "Serverliste", "addServer": "Server hinzufügen", "downloadAgent": "Agent herunterladen" }
+      },
+      "website": {
+        "label": "Website",
+        "items": { "sliderManagement": "Slider-Verwaltung", "supportTickets": "Support-Tickets", "contactMessages": "Kontaktnachrichten" }
+      }
+    }
+  },
+  "header": {
+    "searchPlaceholder": "Seiten, Tools, Berichte durchsuchen...",
+    "noMatches": "Keine Treffer.",
+    "recentAlerts": "Aktuelle Warnungen",
+    "noAlerts": "Keine Warnungen.",
+    "refreshTitle": "Daten aktualisieren",
+    "notificationsTitle": "Benachrichtigungen",
+    "breadcrumbRoot": "Dashboard",
+    "overviewFallback": "Übersicht"
+  },
+  "dashboardHome": {
+    "title": "Übersicht",
+    "subtitle": "Sophos-Firewall · MikroTik-Router · Systemzustands- und Webfilterüberwachung",
+    "cpuUsage": "CPU-Auslastung",
+    "memoryUsage": "Speichernutzung",
+    "diskUsage": "Festplattennutzung",
+    "wlanLabel": "WLAN",
+    "intranetLabel": "Intranet",
+    "usageTitle": "{label}-Nutzung",
+    "firewallEvents": "Firewall-Ereignisse",
+    "routerConnections": "Router-Verbindungen",
+    "connectedDevices": "Verbundene Geräte",
+    "noData": "Keine Daten",
+    "systemUserSub": "System {system} · Benutzer {user}",
+    "pctUsed": "{pct}% genutzt",
+    "rxTxLatest": "Rx / Tx (aktuell)",
+    "noRecentData": "Keine aktuellen Daten",
+    "internalIpsTotal24h": "{count} interne IPs insgesamt (24 Std.)",
+    "knownDevicesTotal": "{count} bekannte Geräte insgesamt",
+    "deviceStatusTitle": "Gerätestatus",
+    "deviceFirstSeen": "Gerät von {name} erstmals im Netzwerk gesehen"
   }
 }

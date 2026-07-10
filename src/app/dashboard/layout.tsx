@@ -1,8 +1,11 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, setRequestLocale } from "next-intl/server";
 import { authOptions } from "@/lib/authOptions";
 import { getDb } from "@/lib/db";
 import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from "@/lib/dateFormat";
+import { resolveLocale } from "@/i18n/routing";
 import SidebarShell from "@/components/SidebarShell";
 import LogoutButton from "@/components/LogoutButton";
 import Header from "@/components/Header";
@@ -34,23 +37,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   const displaySettings = await getDisplaySettings();
+  const locale = resolveLocale(displaySettings.locale);
+  // Populates the request-scoped locale so every Server Component under this layout can
+  // call getTranslations()/getMessages() with no args and still resolve correctly — the
+  // dashboard has no [locale] URL segment, so requestLocale would otherwise never be set.
+  setRequestLocale(locale);
+  const messages = await getMessages({ locale });
 
   return (
-    <div className="dash-shell">
-      <IdleLogout />
-      <SidebarShell>
-        <div className="dash-user">
-          <div className="name">
-            {session.user?.name}
-            <div className="role">{(session.user as { role?: string })?.role ?? "User"}</div>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <div className="dash-shell">
+        <IdleLogout />
+        <SidebarShell>
+          <div className="dash-user">
+            <div className="name">
+              {session.user?.name}
+              <div className="role">{(session.user as { role?: string })?.role ?? "User"}</div>
+            </div>
+            <LogoutButton />
           </div>
-          <LogoutButton />
+        </SidebarShell>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <Header userName={session.user?.name ?? "User"} displaySettings={displaySettings} />
+          <main className="dash-content">{children}</main>
         </div>
-      </SidebarShell>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <Header userName={session.user?.name ?? "User"} displaySettings={displaySettings} />
-        <main className="dash-content">{children}</main>
       </div>
-    </div>
+    </NextIntlClientProvider>
   );
 }

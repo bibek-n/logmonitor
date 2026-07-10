@@ -3,23 +3,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Search, Bell, RefreshCw, X } from "lucide-react";
-import { SEARCH_INDEX } from "@/lib/navRoutes";
+import { TOP_ITEMS, NAV_GROUPS } from "@/lib/navRoutes";
 import ThemeSwitcher from "./ThemeSwitcher";
 import type { AlertRow } from "@/lib/alerts";
 import { formatDate, formatTime, type DisplaySettings } from "@/lib/dateFormat";
 
-function useBreadcrumb(pathname: string): string[] {
+function useBreadcrumb(pathname: string, overviewFallback: string): string[] {
   return useMemo(() => {
     const parts = pathname.split("/").filter(Boolean).slice(1); // drop "dashboard"
-    if (parts.length === 0) return ["Overview"];
+    if (parts.length === 0) return [overviewFallback];
     return parts.map((p) =>
       p
         .split("-")
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" ")
     );
-  }, [pathname]);
+  }, [pathname, overviewFallback]);
 }
 
 function useClock() {
@@ -51,7 +52,9 @@ export default function HeaderClient({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const breadcrumb = useBreadcrumb(pathname);
+  const t = useTranslations("header");
+  const tSidebar = useTranslations("sidebar");
+  const breadcrumb = useBreadcrumb(pathname, t("overviewFallback"));
   const now = useClock();
 
   const [query, setQuery] = useState("");
@@ -61,11 +64,22 @@ export default function HeaderClient({
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  const searchIndex = useMemo(() => {
+    const mainGroup = tSidebar("searchMainGroup");
+    return [
+      ...TOP_ITEMS.map((i) => ({ href: i.href, label: tSidebar(`top.${i.key}`), group: mainGroup })),
+      ...NAV_GROUPS.flatMap((g) => {
+        const groupLabel = tSidebar(`groups.${g.key}.label`);
+        return g.items.map((i) => ({ href: i.href, label: tSidebar(`groups.${g.key}.items.${i.key}`), group: groupLabel }));
+      }),
+    ];
+  }, [tSidebar]);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return SEARCH_INDEX.filter((r) => r.label.toLowerCase().includes(q) || r.group.toLowerCase().includes(q)).slice(0, 8);
-  }, [query]);
+    return searchIndex.filter((r) => r.label.toLowerCase().includes(q) || r.group.toLowerCase().includes(q)).slice(0, 8);
+  }, [query, searchIndex]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -104,7 +118,7 @@ export default function HeaderClient({
           {breadcrumb[breadcrumb.length - 1]}
         </div>
         <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>
-          {["Dashboard", ...breadcrumb].join(" / ")}
+          {[t("breadcrumbRoot"), ...breadcrumb].join(" / ")}
         </div>
       </div>
 
@@ -118,7 +132,7 @@ export default function HeaderClient({
               setSearchOpen(true);
             }}
             onFocus={() => setSearchOpen(true)}
-            placeholder="Search pages, tools, reports..."
+            placeholder={t("searchPlaceholder")}
             style={{
               width: "100%",
               padding: "0.5rem 0.75rem 0.5rem 2rem",
@@ -155,7 +169,7 @@ export default function HeaderClient({
             }}
           >
             {results.length === 0 ? (
-              <div style={{ padding: "0.5rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>No matches.</div>
+              <div style={{ padding: "0.5rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>{t("noMatches")}</div>
             ) : (
               results.map((r) => (
                 <Link
@@ -193,7 +207,7 @@ export default function HeaderClient({
       <button
         type="button"
         onClick={handleRefresh}
-        title="Refresh data"
+        title={t("refreshTitle")}
         style={{
           display: "flex",
           alignItems: "center",
@@ -214,7 +228,7 @@ export default function HeaderClient({
         <button
           type="button"
           onClick={() => setNotifOpen((o) => !o)}
-          title="Notifications"
+          title={t("notificationsTitle")}
           style={{
             position: "relative",
             display: "flex",
@@ -263,10 +277,10 @@ export default function HeaderClient({
             }}
           >
             <div style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--ink)" }}>
-              Recent Alerts
+              {t("recentAlerts")}
             </div>
             {alerts.length === 0 ? (
-              <div style={{ padding: "0.5rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>No alerts.</div>
+              <div style={{ padding: "0.5rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>{t("noAlerts")}</div>
             ) : (
               alerts.map((a, i) => (
                 <div key={i} style={{ padding: "0.5rem", borderTop: "1px solid var(--border)", fontSize: "0.8rem" }}>

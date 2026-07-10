@@ -231,5 +231,92 @@
     "metaTitle": "En Mantenimiento — Log Monitor",
     "title": "En Mantenimiento",
     "defaultMessage": "Actualmente estamos realizando un mantenimiento programado. Por favor, vuelva a consultar en breve."
+  },
+  "sidebar": {
+    "arrangeMenu": "Organizar menú",
+    "doneArranging": "Listo",
+    "collapseSidebar": "Contraer barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "collapse": "Contraer",
+    "searchMainGroup": "Principal",
+    "top": {
+      "overview": "Resumen",
+      "staff": "Personal",
+      "companySettings": "Configuración de la Empresa"
+    },
+    "groups": {
+      "mikrotikRouter": {
+        "label": "Router Mikrotik",
+        "items": { "routerClients": "Clientes del Router", "routerHealth": "Estado del Router", "routerLogs": "Registros del Router", "routerWeb": "Conexiones Web del Router" }
+      },
+      "sophosFirewall": {
+        "label": "Firewall Sophos",
+        "items": { "sophosClients": "Clientes Sophos", "webFilter": "Filtro Web Sophos", "systemHealth": "Estado del Sistema Sophos", "sophosEvents": "Eventos Sophos" }
+      },
+      "networkTools": {
+        "label": "Herramientas de Red",
+        "items": { "ping": "Ping", "traceroute": "Traceroute", "host": "Host", "dnsCheck": "Verificación DNS", "nslookup": "Nslookup", "ntpTest": "Prueba de Servidor NTP", "reverseDns": "Herramienta DNS Inversa", "dnsPropagation": "Verificador de Propagación DNS", "mtr": "Herramienta MTR" }
+      },
+      "auditWebsites": {
+        "label": "Auditoría de Sitios Web y Certificados SSL",
+        "items": { "websites": "Sitios Web", "healthCheck": "Verificación de Salud del Sitio", "sslChecker": "Verificador de Certificados SSL/TLS", "headerViewer": "Visor de Encabezados HTTP / HTTPS", "gaTagFinder": "Buscador de Etiquetas GA" }
+      },
+      "emailDelivery": {
+        "label": "Prueba de Entrega de Correo",
+        "items": { "mxTest": "Prueba de Servidor MX", "smtpTest": "Prueba de Servidor SMTP", "spfDkimDmarc": "Verificador SPF, DKIM y DMARC", "deliveryTest": "Prueba de Entrega de Correo", "dnsblLookup": "Consulta de Base de Datos DNSBL", "uriblLookup": "Consulta de Base de Datos URIBL" }
+      },
+      "speedTest": {
+        "label": "Prueba de Velocidad",
+        "items": { "history": "Historial de Pruebas de Velocidad", "nepal": "Prueba de Velocidad Servidor Nepal", "international": "Prueba de Velocidad Servidor Internacional", "localIp": "Prueba de Velocidad IP Local" }
+      },
+      "whatIsMyIp": {
+        "label": "Cuál Es Mi IP",
+        "items": { "myIp": "Cuál Es Mi IP", "ipLookup": "Búsqueda de IP", "whoisLookup": "Búsqueda WHOIS", "blacklistCheck": "Verificación de Lista Negra", "ipv6Test": "Prueba de IPv6", "proxyVpnDetection": "Detección de Proxy / VPN" }
+      },
+      "endpointAgents": {
+        "label": "Agentes de Terminal",
+        "items": { "agentDashboard": "Panel de Agentes", "downloadAgent": "Descargar Agente", "enrollDevice": "Registrar Dispositivo", "screenshotAuditLog": "Registro de Auditoría de Capturas" }
+      },
+      "servers": {
+        "label": "Servidores",
+        "items": { "serverList": "Lista de Servidores", "addServer": "Agregar Servidor", "downloadAgent": "Descargar Agente" }
+      },
+      "website": {
+        "label": "Sitio Web",
+        "items": { "sliderManagement": "Gestión del Slider", "supportTickets": "Tickets de Soporte", "contactMessages": "Mensajes de Contacto" }
+      }
+    }
+  },
+  "header": {
+    "searchPlaceholder": "Buscar páginas, herramientas, informes...",
+    "noMatches": "Sin resultados.",
+    "recentAlerts": "Alertas Recientes",
+    "noAlerts": "Sin alertas.",
+    "refreshTitle": "Actualizar datos",
+    "notificationsTitle": "Notificaciones",
+    "breadcrumbRoot": "Panel",
+    "overviewFallback": "Resumen"
+  },
+  "dashboardHome": {
+    "title": "Resumen",
+    "subtitle": "Firewall Sophos · Router MikroTik · Monitoreo de salud del sistema y filtro web",
+    "cpuUsage": "Uso de CPU",
+    "memoryUsage": "Uso de Memoria",
+    "diskUsage": "Uso de Disco",
+    "wlanLabel": "WLAN",
+    "intranetLabel": "Intranet",
+    "usageTitle": "Uso de {label}",
+    "firewallEvents": "Eventos del Firewall",
+    "routerConnections": "Conexiones del Router",
+    "connectedDevices": "Dispositivos Conectados",
+    "noData": "Sin datos",
+    "systemUserSub": "Sistema {system} · Usuario {user}",
+    "pctUsed": "{pct}% usado",
+    "rxTxLatest": "Rx / Tx (más reciente)",
+    "noRecentData": "Sin datos recientes",
+    "internalIpsTotal24h": "{count} IPs internas en total (24h)",
+    "knownDevicesTotal": "{count} dispositivos conocidos en total",
+    "deviceStatusTitle": "Estado de Dispositivos",
+    "deviceFirstSeen": "Dispositivo de {name} visto por primera vez en la red"
   }
 }
