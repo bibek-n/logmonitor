@@ -8,10 +8,13 @@ function clientIp(req: NextRequest): string | null {
   return null;
 }
 
+// Always responds 200 (even on auth failure, via `ok: false`) — see the comment in
+// src/app/api/agent/enroll/route.ts for why: IIS replaces non-2xx bodies with a generic
+// HTML page, which would otherwise crash the Go agent's json.Decode on the response body.
 export async function POST(req: NextRequest) {
   const device = await authenticateDevice(req);
   if (!device) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Unauthorized" });
   }
 
   const db = await getDb();

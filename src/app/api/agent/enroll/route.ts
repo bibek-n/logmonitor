@@ -4,21 +4,26 @@ import { generateApiKey, generateDeviceId, hashApiKey } from "@/lib/agentAuth";
 
 const VALID_OS = new Set(["windows", "linux"]);
 
+// This route always responds 200 (even on logical failure, via `ok: false`) rather than a
+// real 4xx/5xx status — this app's IIS front end replaces any non-2xx response body with a
+// generic HTML error page, which would otherwise swallow the JSON error payload and hand
+// the Go agent's `json.Decode` an HTML document instead ("invalid character '<' looking
+// for beginning of value"). Same fix already applied to the OTP login routes.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const { enrollmentToken, hostname, os, osVersion, agentVersion, consentAccepted, macAddress } = body ?? {};
 
   if (typeof enrollmentToken !== "string" || !enrollmentToken) {
-    return NextResponse.json({ ok: false, error: "Missing enrollmentToken" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Missing enrollmentToken" });
   }
   if (typeof hostname !== "string" || !hostname) {
-    return NextResponse.json({ ok: false, error: "Missing hostname" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Missing hostname" });
   }
   if (typeof os !== "string" || !VALID_OS.has(os)) {
-    return NextResponse.json({ ok: false, error: "os must be 'windows' or 'linux'" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "os must be 'windows' or 'linux'" });
   }
   if (consentAccepted !== true) {
-    return NextResponse.json({ ok: false, error: "Enrollment requires consentAccepted=true" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Enrollment requires consentAccepted=true" });
   }
 
   const db = await getDb();
@@ -31,13 +36,13 @@ export async function POST(req: NextRequest) {
     );
   const tokenRow = tokenResult.recordset[0];
   if (!tokenRow) {
-    return NextResponse.json({ ok: false, error: "Invalid enrollment token" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Invalid enrollment token" });
   }
   if (tokenRow.UsedAt) {
-    return NextResponse.json({ ok: false, error: "Enrollment token already used" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Enrollment token already used" });
   }
   if (new Date(tokenRow.ExpiresAt).getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, error: "Enrollment token expired" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Enrollment token expired" });
   }
 
   const apiKey = generateApiKey();
