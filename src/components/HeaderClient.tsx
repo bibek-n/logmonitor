@@ -7,6 +7,7 @@ import { Search, Bell, RefreshCw, X } from "lucide-react";
 import { SEARCH_INDEX } from "@/lib/navRoutes";
 import ThemeSwitcher from "./ThemeSwitcher";
 import type { AlertRow } from "@/lib/alerts";
+import { formatDate, formatTime, type DisplaySettings } from "@/lib/dateFormat";
 
 function useBreadcrumb(pathname: string): string[] {
   return useMemo(() => {
@@ -39,7 +40,15 @@ const SEVERITY_COLOR: Record<string, string> = {
   emergency: "var(--danger)",
 };
 
-export default function HeaderClient({ userName, alerts }: { userName: string; alerts: AlertRow[] }) {
+export default function HeaderClient({
+  userName,
+  alerts,
+  displaySettings,
+}: {
+  userName: string;
+  alerts: AlertRow[];
+  displaySettings: DisplaySettings;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const breadcrumb = useBreadcrumb(pathname);
@@ -176,8 +185,8 @@ export default function HeaderClient({ userName, alerts }: { userName: string; a
       </div>
 
       {now && (
-        <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)", whiteSpace: "nowrap" }}>
-          {now.toLocaleDateString(undefined, { month: "short", day: "numeric" })} &middot; {now.toLocaleTimeString()}
+        <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)", whiteSpace: "nowrap" }} title={displaySettings.timezone}>
+          {formatDate(now, displaySettings)} &middot; {formatTime(now, displaySettings)}
         </div>
       )}
 
