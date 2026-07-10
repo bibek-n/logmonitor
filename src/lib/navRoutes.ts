@@ -66,7 +66,7 @@ export interface NavGroup {
 
 export const TOP_ITEMS: NavItem[] = [
   { href: "/dashboard", key: "overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/staff", key: "staff", label: "Staff", icon: Users },
+  { href: "/dashboard/staff", key: "staff", label: "Employees", icon: Users },
   { href: "/dashboard/settings", key: "companySettings", label: "Company Settings", icon: Settings },
 ];
 

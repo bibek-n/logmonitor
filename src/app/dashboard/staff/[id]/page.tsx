@@ -4,6 +4,7 @@ import { getDb, sql } from "@/lib/db";
 import { parseRouterDurationToSeconds } from "@/lib/mikrotikParser";
 import { classifyDevice } from "@/lib/deviceType";
 import { formatDuration } from "@/lib/staffStatus";
+import { Avatar } from "@/components/ui/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,12 @@ interface StaffRow {
   Id: number;
   Name: string;
   MacAddress: string | null;
+  Email: string | null;
+  Phone: string | null;
+  Department: string | null;
+  Position: string | null;
+  Address: string | null;
+  PhotoPath: string | null;
   RouterIp: string | null;
   Hostname: string | null;
   Status: string | null;
@@ -24,6 +31,13 @@ interface StaffRow {
   SophosOs: string | null;
   SophosFirstSeen: string | null;
   VendorName: string | null;
+}
+
+interface LinkedDevice {
+  DeviceId: string;
+  Hostname: string;
+  OS: string;
+  LastHeartbeat: string | null;
 }
 
 interface HistoricalIp {
@@ -74,7 +88,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     .request()
     .input("id", sql.Int, staffId)
     .query<StaffRow>(`
-      SELECT s.Id, s.Name, s.MacAddress,
+      SELECT s.Id, s.Name, s.MacAddress, s.Email, s.Phone, s.Department, s.Position, s.Address, s.PhotoPath,
         best.IpAddress AS RouterIp, best.Hostname, best.Status, best.LastSeenRaw, best.UpdatedAt AS RouterUpdatedAt, best.Os,
         best.FirstSeen AS RouterFirstSeen,
         sophosBest.IpAddress AS SophosIp, sophosBest.UpdatedAt AS SophosUpdatedAt, sophosBest.Hostname AS SophosHostname,
@@ -121,6 +135,17 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       `);
     isOnline = activeResult.recordset[0].Cnt > 0;
   }
+
+  // Reverse-lookup of the existing, already-working Devices.StaffId link (set from the
+  // Endpoint Agents device's own "Assigned staff member" field) — surfaced here purely for
+  // visibility, not re-editable from this page, so there's only one place that writes it.
+  const linkedDeviceResult = await db
+    .request()
+    .input("id", sql.Int, staffId)
+    .query<LinkedDevice>(
+      "SELECT DeviceId, Hostname, OS, LastHeartbeat FROM Devices WHERE StaffId = @id"
+    );
+  const linkedDevice = linkedDeviceResult.recordset[0] ?? null;
 
   const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : "warning";
   // MikroTik gives a precise "last seen X ago" from the lease; Sophos-side only tells us the
@@ -178,12 +203,59 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div>
-      <h1>{staffMember.Name}</h1>
-      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+      <div className="flex items-center gap-3">
+        <Avatar name={staffMember.Name} photoPath={staffMember.PhotoPath} size={48} />
+        <h1 style={{ margin: 0 }}>{staffMember.Name}</h1>
+      </div>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "0.25rem" }}>
         <Link href="/dashboard/staff" style={{ color: "var(--series-1)" }}>
-          &larr; All Staff
+          &larr; All Employees
         </Link>
       </p>
+
+      <div className="dash-panel">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", fontSize: "0.85rem" }}>
+          <span>
+            <span style={{ color: "var(--ink-muted)" }}>Email:</span> {staffMember.Email ?? "-"}
+          </span>
+          <span>
+            <span style={{ color: "var(--ink-muted)" }}>Cell Number:</span> {staffMember.Phone ?? "-"}
+          </span>
+          <span>
+            <span style={{ color: "var(--ink-muted)" }}>Department:</span> {staffMember.Department ?? "-"}
+          </span>
+          <span>
+            <span style={{ color: "var(--ink-muted)" }}>Position:</span> {staffMember.Position ?? "-"}
+          </span>
+          <span>
+            <span style={{ color: "var(--ink-muted)" }}>Address:</span> {staffMember.Address ?? "-"}
+          </span>
+        </div>
+      </div>
+
+      <div className="dash-panel">
+        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>Assigned Endpoint Agent</h2>
+        {linkedDevice ? (
+          <p style={{ fontSize: "0.85rem", margin: 0 }}>
+            <Link href={`/dashboard/endpoint-agents/${linkedDevice.DeviceId}`} style={{ color: "var(--series-1)" }}>
+              {linkedDevice.Hostname}
+            </Link>{" "}
+            <span style={{ color: "var(--ink-muted)" }}>
+              ({linkedDevice.OS}) &middot; last heartbeat{" "}
+              {linkedDevice.LastHeartbeat ? new Date(linkedDevice.LastHeartbeat).toLocaleString() : "never"}
+            </span>
+          </p>
+        ) : (
+          <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: 0 }}>
+            No PC linked yet. Install the endpoint agent on this employee&apos;s computer, then set{" "}
+            <Link href="/dashboard/endpoint-agents" style={{ color: "var(--series-1)" }}>
+              that device&apos;s
+            </Link>{" "}
+            &quot;Assigned staff member&quot; field to this employee to enable per-employee reports (CPU, RAM,
+            screenshots, software, processes).
+          </p>
+        )}
+      </div>
 
       <div className="dash-panel">
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", fontSize: "0.85rem" }}>

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getDb } from "@/lib/db";
-import { addStaff, removeStaff } from "./actions";
-import { getStaffWithStatus, formatDuration } from "@/lib/staffStatus";
+import { addStaff } from "./actions";
+import { getStaffWithStatus } from "@/lib/staffStatus";
 import DeviceSelect from "@/components/DeviceSelect";
+import { EmployeesTable, type EmployeeRow } from "@/components/staff/EmployeesTable";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,29 @@ export default async function StaffPage({
 
   const staff = await getStaffWithStatus();
 
+  const profileResult = await db.query<{
+    Id: number;
+    Email: string | null;
+    Phone: string | null;
+    Department: string | null;
+    Position: string | null;
+    Address: string | null;
+    PhotoPath: string | null;
+  }>("SELECT Id, Email, Phone, Department, Position, Address, PhotoPath FROM Staff");
+  const profileById = new Map(profileResult.recordset.map((p) => [p.Id, p]));
+  const employees: EmployeeRow[] = staff.map((s) => {
+    const profile = profileById.get(s.Id);
+    return {
+      ...s,
+      Email: profile?.Email ?? null,
+      Phone: profile?.Phone ?? null,
+      Department: profile?.Department ?? null,
+      Position: profile?.Position ?? null,
+      Address: profile?.Address ?? null,
+      PhotoPath: profile?.PhotoPath ?? null,
+    };
+  });
+
   const availableResult = await db.query<AvailableDevice>(`
     SELECT * FROM (
       SELECT IpAddress, MacAddress, Hostname, 'Mikrotik' AS Source
@@ -89,30 +113,31 @@ export default async function StaffPage({
   `);
   const available = availableResult.recordset;
 
-  const online = staff.filter((s) => s.isOnline).length;
-  const unassigned = staff.filter((s) => !s.MacAddress).length;
-  const offline = staff.length - online - unassigned;
+  const online = employees.filter((s) => s.isOnline).length;
+  const unassigned = employees.filter((s) => !s.MacAddress).length;
+  const offline = employees.length - online - unassigned;
 
   // Device type only means something once a device is assigned, so counts/filter exclude
-  // unassigned staff rather than lumping them into "Other".
-  const assigned = staff.filter((s) => s.MacAddress);
+  // unassigned employees rather than lumping them into "Other".
+  const assigned = employees.filter((s) => s.MacAddress);
   const pcCount = assigned.filter((s) => s.deviceType === "PC/Laptop").length;
   const mobileCount = assigned.filter((s) => s.deviceType === "Mobile").length;
   const otherCount = assigned.filter((s) => s.deviceType === "Other").length;
 
-  const visibleStaff = typeFilter ? staff.filter((s) => s.MacAddress && s.deviceType === typeFilter) : staff;
+  const visibleEmployees = typeFilter ? employees.filter((s) => s.MacAddress && s.deviceType === typeFilter) : employees;
 
   return (
     <div>
-      <h1>Staff</h1>
+      <h1>Employees</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-        A staff member is mapped to a <strong>MAC address</strong>, not an IP — the IP shown below is just the
+        An employee is mapped to a <strong>MAC address</strong>, not an IP — the IP shown below is just the
         device&apos;s <em>current</em> address, resolved live from the MikroTik router&apos;s DHCP leases or this
         server&apos;s ARP table for Sophos-side clients. Every IP that MAC has ever used is kept, so the activity
-        report on each staff member&apos;s page covers their full history even after an IP changes — not just today.
-        Everything here (Staff, device history, Web Filter, Router logs) is stored permanently in the SQL database,
-        nothing is held only in memory. Online/Offline and First Seen are based on network activity only — there&apos;s
-        no OS login time, and CPU/RAM/screen data isn&apos;t available without an endpoint agent installed on each PC.
+        report on each employee&apos;s page covers their full history even after an IP changes — not just today.
+        Everything here (Employees, device history, Web Filter, Router logs) is stored permanently in the SQL
+        database, nothing is held only in memory. Online/Offline and First Seen are based on network activity only —
+        there&apos;s no OS login time, and CPU/RAM/screen data isn&apos;t available without an endpoint agent
+        installed on each PC.
       </p>
 
       {error && (
@@ -131,7 +156,7 @@ export default async function StaffPage({
       )}
 
       <div className="stat-grid">
-        <StatTile label="Total Staff" value={staff.length} status="unknown" />
+        <StatTile label="Total Employees" value={employees.length} status="unknown" />
         <StatTile label="Online" value={online} status={online > 0 ? "good" : "unknown"} />
         <StatTile label="Offline" value={offline} status={offline > 0 ? "warning" : "good"} />
         <StatTile label="Unassigned Device" value={unassigned} status={unassigned > 0 ? "warning" : "good"} />
@@ -172,7 +197,7 @@ export default async function StaffPage({
       </div>
 
       <div className="dash-panel">
-        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Add Staff</h2>
+        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Add Employee</h2>
         <form action={addStaff} style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
             <label htmlFor="name">Name</label>
@@ -189,82 +214,17 @@ export default async function StaffPage({
       </div>
 
       <div className="dash-panel">
-        {staff.length === 0 ? (
-          <p style={{ color: "var(--ink-muted)" }}>No staff added yet.</p>
-        ) : visibleStaff.length === 0 ? (
+        {employees.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)" }}>No employees added yet.</p>
+        ) : visibleEmployees.length === 0 ? (
           <p style={{ color: "var(--ink-muted)" }}>
-            No staff with a &quot;{typeFilter}&quot; device.{" "}
+            No employees with a &quot;{typeFilter}&quot; device.{" "}
             <Link href="/dashboard/staff" style={{ color: "var(--series-1)" }}>
               Clear filter
             </Link>
           </p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "0.5rem" }}>Name</th>
-                <th style={{ padding: "0.5rem" }}>Status</th>
-                <th style={{ padding: "0.5rem" }}>Computer Name</th>
-                <th style={{ padding: "0.5rem" }}>Type</th>
-                <th style={{ padding: "0.5rem" }}>Operating System</th>
-                <th style={{ padding: "0.5rem" }}>IP Address</th>
-                <th style={{ padding: "0.5rem" }}>Last Seen</th>
-                <th style={{ padding: "0.5rem" }}>First Seen</th>
-                <th style={{ padding: "0.5rem" }}>MAC Address</th>
-                <th style={{ padding: "0.5rem" }}>Source</th>
-                <th style={{ padding: "0.5rem" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleStaff.map((s) => {
-                const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "warning";
-                return (
-                  <tr key={s.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
-                    <td style={{ padding: "0.5rem" }}>
-                      <span className={`status-dot status-${status}`} style={{ marginRight: "0.4rem" }} />
-                      <Link href={`/dashboard/staff/${s.Id}`} style={{ color: "var(--series-1)" }}>
-                        {s.Name}
-                      </Link>
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {!s.MacAddress ? "No device" : s.isOnline ? "Online" : "Offline"}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>{s.deviceName ?? "-"}</td>
-                    <td style={{ padding: "0.5rem" }}>{s.MacAddress ? s.deviceType : "-"}</td>
-                    <td style={{ padding: "0.5rem" }}>{s.os ?? "-"}</td>
-                    <td style={{ padding: "0.5rem" }}>{s.currentIp ?? "not currently online"}</td>
-                    <td style={{ padding: "0.5rem" }}>{s.lastSeen ? s.lastSeen.toLocaleString() : "-"}</td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {s.firstSeen ? `${formatDuration(s.firstSeen)} ago` : "-"}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>{s.MacAddress ?? "-"}</td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {s.source === "mikrotik" ? "MikroTik" : s.source === "sophos" ? "Sophos" : "-"}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      <form action={removeStaff}>
-                        <input type="hidden" name="id" value={s.Id} />
-                        <button
-                          type="submit"
-                          style={{
-                            background: "none",
-                            border: "1px solid var(--border)",
-                            color: "var(--ink-muted)",
-                            borderRadius: 6,
-                            padding: "0.25rem 0.6rem",
-                            fontSize: "0.78rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <EmployeesTable employees={visibleEmployees} />
         )}
       </div>
     </div>
