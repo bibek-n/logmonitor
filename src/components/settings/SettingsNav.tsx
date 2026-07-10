@@ -14,7 +14,8 @@ import {
   History,
   type LucideIcon,
 } from "lucide-react";
-import { SETTINGS_SECTIONS } from "@/lib/settingsSearchIndex";
+import { useTranslations } from "next-intl";
+import { SETTINGS_SECTIONS, SECTION_LABEL_KEYS } from "@/lib/settingsSearchIndex";
 
 const ICONS: Record<string, LucideIcon> = {
   "company-profile": Building2,
@@ -31,6 +32,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export function SettingsNav({ active, onSelect }: { active: string; onSelect: (key: string) => void }) {
+  const t = useTranslations("settings.sections");
   return (
     <nav className="flex flex-col gap-1" style={{ minWidth: 220 }}>
       {SETTINGS_SECTIONS.map((s) => {
@@ -54,7 +56,7 @@ export function SettingsNav({ active, onSelect }: { active: string; onSelect: (k
             }}
           >
             <Icon size={16} />
-            {s.label}
+            {t(SECTION_LABEL_KEYS[s.key])}
           </button>
         );
       })}

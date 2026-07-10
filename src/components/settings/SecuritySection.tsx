@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
@@ -22,6 +23,7 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 
 export function SecuritySection({ initialData }: { initialData: SecuritySettingsData | null }) {
   const toast = useToast();
+  const t = useTranslations("settings.security");
   const [form, setForm] = useState({
     passwordMinLength: initialData?.PasswordMinLength ?? 8,
     passwordRequireUppercase: initialData?.PasswordRequireUppercase ?? true,
@@ -45,10 +47,10 @@ export function SecuritySection({ initialData }: { initialData: SecuritySettings
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "Security settings saved." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
+      toast.show({ type: "success", message: t("settingsSavedToast") });
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
       setSaving(false);
     }
@@ -57,42 +59,42 @@ export function SecuritySection({ initialData }: { initialData: SecuritySettings
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Security</h2>
-        <Badge tone="warning">Config only — enforcement coming soon</Badge>
+        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
+        <Badge tone="warning">{t("configOnlyBadge")}</Badge>
       </div>
 
       <div id="field-password-policy">
-        <h3 style={{ fontSize: "0.9rem", color: "var(--ink)", margin: "0 0 0.5rem" }}>Password Policy</h3>
+        <h3 style={{ fontSize: "0.9rem", color: "var(--ink)", margin: "0 0 0.5rem" }}>{t("passwordPolicyTitle")}</h3>
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
           <div>
-            <label style={labelStyle}>Minimum length</label>
+            <label style={labelStyle}>{t("minimumLengthLabel")}</label>
             <input style={fieldStyle} type="number" min={6} value={form.passwordMinLength} onChange={(e) => setForm((f) => ({ ...f, passwordMinLength: Number(e.target.value) }))} />
           </div>
         </div>
         <div className="flex flex-col gap-2" style={{ marginTop: "0.5rem" }}>
-          <Switch checked={form.passwordRequireUppercase} onChange={(v) => setForm((f) => ({ ...f, passwordRequireUppercase: v }))} label="Require uppercase letter" />
-          <Switch checked={form.passwordRequireNumber} onChange={(v) => setForm((f) => ({ ...f, passwordRequireNumber: v }))} label="Require number" />
-          <Switch checked={form.passwordRequireSymbol} onChange={(v) => setForm((f) => ({ ...f, passwordRequireSymbol: v }))} label="Require symbol" />
+          <Switch checked={form.passwordRequireUppercase} onChange={(v) => setForm((f) => ({ ...f, passwordRequireUppercase: v }))} label={t("requireUppercaseLabel")} />
+          <Switch checked={form.passwordRequireNumber} onChange={(v) => setForm((f) => ({ ...f, passwordRequireNumber: v }))} label={t("requireNumberLabel")} />
+          <Switch checked={form.passwordRequireSymbol} onChange={(v) => setForm((f) => ({ ...f, passwordRequireSymbol: v }))} label={t("requireSymbolLabel")} />
         </div>
       </div>
 
       <div id="field-single-sign-on" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
         <div className="flex items-center gap-2">
-          <h3 style={{ fontSize: "0.9rem", color: "var(--ink)", margin: 0 }}>Single Sign-On</h3>
-          <Tooltip content="Connecting a live SSO provider is coming soon — this saves configuration only.">
-            <Badge tone="info">Coming soon</Badge>
+          <h3 style={{ fontSize: "0.9rem", color: "var(--ink)", margin: 0 }}>{t("singleSignOnTitle")}</h3>
+          <Tooltip content={t("ssoTooltip")}>
+            <Badge tone="info">{t("comingSoonBadge")}</Badge>
           </Tooltip>
         </div>
         <div className="flex flex-col gap-2" style={{ marginTop: "0.5rem" }}>
-          <Switch checked={form.ssoEnabled} onChange={(v) => setForm((f) => ({ ...f, ssoEnabled: v }))} label="Enable SSO" />
+          <Switch checked={form.ssoEnabled} onChange={(v) => setForm((f) => ({ ...f, ssoEnabled: v }))} label={t("enableSsoLabel")} />
           {form.ssoEnabled && (
-            <input style={fieldStyle} placeholder="Provider (e.g. Azure AD, Okta, Google)" value={form.ssoProvider} onChange={(e) => setForm((f) => ({ ...f, ssoProvider: e.target.value }))} />
+            <input style={fieldStyle} placeholder={t("ssoProviderPlaceholder")} value={form.ssoProvider} onChange={(e) => setForm((f) => ({ ...f, ssoProvider: e.target.value }))} />
           )}
         </div>
       </div>
 
       <div id="field-ip-whitelisting" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-        <label style={labelStyle}>IP Whitelisting (one IP or CIDR per line)</label>
+        <label style={labelStyle}>{t("ipWhitelistingLabel")}</label>
         <textarea
           style={{ ...fieldStyle, resize: "vertical" }}
           rows={3}
@@ -104,25 +106,25 @@ export function SecuritySection({ initialData }: { initialData: SecuritySettings
 
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
         <div id="field-session-management">
-          <label style={labelStyle}>Session Timeout (minutes)</label>
+          <label style={labelStyle}>{t("sessionTimeoutLabel")}</label>
           <input style={fieldStyle} type="number" value={form.sessionTimeoutMinutes ?? ""} onChange={(e) => setForm((f) => ({ ...f, sessionTimeoutMinutes: Number(e.target.value) }))} />
         </div>
         <div id="field-account-lockout-rules">
-          <label style={labelStyle}>Lockout after (failed attempts)</label>
+          <label style={labelStyle}>{t("lockoutAfterLabel")}</label>
           <input style={fieldStyle} type="number" value={form.lockoutThreshold ?? ""} onChange={(e) => setForm((f) => ({ ...f, lockoutThreshold: Number(e.target.value) }))} />
         </div>
         <div>
-          <label style={labelStyle}>Lockout duration (minutes)</label>
+          <label style={labelStyle}>{t("lockoutDurationLabel")}</label>
           <input style={fieldStyle} type="number" value={form.lockoutDurationMinutes ?? ""} onChange={(e) => setForm((f) => ({ ...f, lockoutDurationMinutes: Number(e.target.value) }))} />
         </div>
       </div>
 
       <div id="field-api-keys" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", fontSize: "0.8rem", color: "var(--ink-muted)" }}>
-        API Keys: endpoint agents already authenticate with per-device API keys (see Endpoint Agents → Enroll Device). A general-purpose user-facing API key manager is coming soon.
+        {t("apiKeysNotice")}
       </div>
 
       <Button onClick={handleSave} disabled={saving} style={{ alignSelf: "flex-start" }}>
-        {saving ? "Saving..." : "Save Changes"}
+        {saving ? t("savingButton") : t("saveChangesButton")}
       </Button>
     </Card>
   );

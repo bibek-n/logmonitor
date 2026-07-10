@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Settings2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -18,18 +19,19 @@ interface RoleRow {
   IsSystem: boolean;
 }
 
-const PERMISSION_LABELS: Record<string, string> = {
-  view_dashboard: "View Dashboard",
-  manage_endpoint_agents: "Manage Endpoint Agents",
-  manage_router_sophos: "Manage Router & Sophos Tools",
-  manage_website_content: "Manage Website Content",
-  manage_support_tickets: "Manage Support Tickets",
-  manage_company_settings: "Manage Company Settings",
+const PERMISSION_LABEL_KEYS: Record<string, string> = {
+  view_dashboard: "viewDashboard",
+  manage_endpoint_agents: "manageEndpointAgents",
+  manage_router_sophos: "manageRouterSophos",
+  manage_website_content: "manageWebsiteContent",
+  manage_support_tickets: "manageSupportTickets",
+  manage_company_settings: "manageCompanySettings",
 };
 
 export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("settings.rolesPermissions");
   const [createOpen, setCreateOpen] = useState(false);
   const [newRole, setNewRole] = useState({ name: "", description: "" });
   const [permRole, setPermRole] = useState<RoleRow | null>(null);
@@ -38,7 +40,7 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
 
   async function handleCreate() {
     if (!newRole.name.trim()) {
-      toast.show({ type: "error", message: "Role name is required." });
+      toast.show({ type: "error", message: t("roleNameRequiredError") });
       return;
     }
     setSaving(true);
@@ -49,13 +51,13 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
         body: JSON.stringify(newRole),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to create role");
-      toast.show({ type: "success", message: "Role created." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("createRoleError"));
+      toast.show({ type: "success", message: t("roleCreatedSuccess") });
       setCreateOpen(false);
       setNewRole({ name: "", description: "" });
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -67,12 +69,12 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
     try {
       const res = await fetch(`/api/admin/settings/roles/${deleteTarget.Id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to delete role");
-      toast.show({ type: "success", message: "Role deleted." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("deleteRoleError"));
+      toast.show({ type: "success", message: t("roleDeletedSuccess") });
       setDeleteTarget(null);
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -81,9 +83,9 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
   return (
     <Card className="flex flex-col gap-3" id="field-roles-permissions">
       <div className="flex items-center justify-between">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Roles and Permissions</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h3>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus size={14} /> Add Role
+          <Plus size={14} /> {t("addRole")}
         </Button>
       </div>
 
@@ -93,17 +95,17 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
             <div>
               <div className="flex items-center gap-2">
                 <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>{r.Name}</strong>
-                {r.IsSystem && <Badge tone="info">Built-in</Badge>}
+                {r.IsSystem && <Badge tone="info">{t("builtInBadge")}</Badge>}
               </div>
               {r.Description && <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>{r.Description}</p>}
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setPermRole(r)} title="Manage permissions" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
+              <button onClick={() => setPermRole(r)} title={t("managePermissionsTooltip")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
                 <Settings2 size={15} />
               </button>
               {!r.IsSystem && (
                 <button onClick={() => setDeleteTarget(r)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.78rem" }}>
-                  Delete
+                  {t("deleteButton")}
                 </button>
               )}
             </div>
@@ -114,14 +116,14 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add Role"
+        title={t("addRole")}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setCreateOpen(false)} disabled={saving}>
-              Cancel
+              {t("cancelButton")}
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={saving}>
-              {saving ? "Creating..." : "Create"}
+              {saving ? t("creatingButton") : t("createButton")}
             </Button>
           </>
         }
@@ -129,14 +131,14 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
         <div className="flex flex-col gap-2">
           <input
             style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)", fontSize: "0.83rem" }}
-            placeholder="Role name"
+            placeholder={t("roleNamePlaceholder")}
             value={newRole.name}
             onChange={(e) => setNewRole((r) => ({ ...r, name: e.target.value }))}
           />
           <textarea
             style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)", fontSize: "0.83rem" }}
             rows={2}
-            placeholder="Description (optional)"
+            placeholder={t("descriptionPlaceholder")}
             value={newRole.description}
             onChange={(e) => setNewRole((r) => ({ ...r, description: e.target.value }))}
           />
@@ -149,9 +151,9 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title={`Delete role "${deleteTarget?.Name}"?`}
-        message="This cannot be undone."
-        confirmLabel="Delete"
+        title={t("deleteRoleConfirmTitle", { name: deleteTarget?.Name ?? "" })}
+        message={t("cannotBeUndoneMessage")}
+        confirmLabel={t("deleteButton")}
         tone="danger"
         loading={saving}
       />
@@ -161,6 +163,7 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
 
 function PermissionsModal({ role, onClose }: { role: RoleRow; onClose: () => void }) {
   const toast = useToast();
+  const t = useTranslations("settings.rolesPermissions");
   const [permissions, setPermissions] = useState<{ key: string; allowed: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,11 +186,11 @@ function PermissionsModal({ role, onClose }: { role: RoleRow; onClose: () => voi
         body: JSON.stringify({ permissions }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to save permissions");
-      toast.show({ type: "success", message: "Permissions saved." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("savePermissionsError"));
+      toast.show({ type: "success", message: t("permissionsSavedSuccess") });
       onClose();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -197,31 +200,31 @@ function PermissionsModal({ role, onClose }: { role: RoleRow; onClose: () => voi
     <Modal
       open
       onClose={onClose}
-      title={`Permissions — ${role.Name}`}
+      title={t("permissionsModalTitle", { name: role.Name })}
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("cancelButton")}
           </Button>
           <Button size="sm" onClick={save} disabled={saving || loading}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("savingButton") : t("saveButton")}
           </Button>
         </>
       }
     >
       {loading ? (
-        <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>Loading...</p>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>{t("loadingText")}</p>
       ) : (
         <div className="flex flex-col gap-3">
           <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: 0 }}>
-            These permissions are recorded for reference. Enforcement across the rest of the app is a future phase.
+            {t("permissionsDisclaimer")}
           </p>
           {permissions.map((p) => (
             <Switch
               key={p.key}
               checked={p.allowed}
               onChange={(v) => setPermissions((prev) => prev.map((x) => (x.key === p.key ? { ...x, allowed: v } : x)))}
-              label={PERMISSION_LABELS[p.key] ?? p.key}
+              label={PERMISSION_LABEL_KEYS[p.key] ? t(`permissions.${PERMISSION_LABEL_KEYS[p.key]}`) : p.key}
             />
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -22,10 +23,6 @@ const LANGUAGE_OPTIONS = [
   { label: "Hindi (हिन्दी)", value: "hi" },
 ];
 const DATE_FORMAT_OPTIONS = ["YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY", "DD-MMM-YYYY"].map((v) => ({ label: v, value: v }));
-const TIME_FORMAT_OPTIONS = [
-  { label: "24-hour", value: "24h" },
-  { label: "12-hour (AM/PM)", value: "12h" },
-];
 
 const fieldStyle: React.CSSProperties = {
   width: "100%",
@@ -40,6 +37,11 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 
 export function SystemSettingsSection({ initialData, appVersion }: { initialData: SystemSettingsData | null; appVersion: string }) {
   const toast = useToast();
+  const t = useTranslations("settings.system");
+  const TIME_FORMAT_OPTIONS = [
+    { label: t("timeFormat24h"), value: "24h" },
+    { label: t("timeFormat12h"), value: "12h" },
+  ];
   const [form, setForm] = useState({
     defaultTimezone: initialData?.DefaultTimezone ?? "UTC",
     defaultLanguage: initialData?.DefaultLanguage ?? "en",
@@ -59,13 +61,13 @@ export function SystemSettingsSection({ initialData, appVersion }: { initialData
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
       toast.show({
         type: form.maintenanceModeEnabled ? "info" : "success",
-        message: form.maintenanceModeEnabled ? "Maintenance mode is now ON — non-admins will see the maintenance page." : "System settings saved.",
+        message: form.maintenanceModeEnabled ? t("maintenanceOnToast") : t("settingsSavedToast"),
       });
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
       setSaving(false);
     }
@@ -74,55 +76,55 @@ export function SystemSettingsSection({ initialData, appVersion }: { initialData
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-4" id="field-general-settings">
-        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>System Settings</h2>
+        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <div id="field-default-timezone">
-            <label style={labelStyle}>Default Time Zone</label>
+            <label style={labelStyle}>{t("defaultTimezoneLabel")}</label>
             <Select value={form.defaultTimezone} onChange={(v) => setForm((f) => ({ ...f, defaultTimezone: v }))} options={TIMEZONE_OPTIONS} />
           </div>
           <div id="field-default-language">
-            <label style={labelStyle}>Default Language</label>
+            <label style={labelStyle}>{t("defaultLanguageLabel")}</label>
             <Select value={form.defaultLanguage} onChange={(v) => setForm((f) => ({ ...f, defaultLanguage: v }))} options={LANGUAGE_OPTIONS} />
           </div>
           <div id="field-date-format">
-            <label style={labelStyle}>Date Format</label>
+            <label style={labelStyle}>{t("dateFormatLabel")}</label>
             <Select value={form.dateFormat} onChange={(v) => setForm((f) => ({ ...f, dateFormat: v }))} options={DATE_FORMAT_OPTIONS} />
           </div>
           <div id="field-time-format">
-            <label style={labelStyle}>Time Format</label>
+            <label style={labelStyle}>{t("timeFormatLabel")}</label>
             <Select value={form.timeFormat} onChange={(v) => setForm((f) => ({ ...f, timeFormat: v }))} options={TIME_FORMAT_OPTIONS} />
           </div>
         </div>
         <p style={{ fontSize: "0.75rem", color: "var(--ink-muted)", margin: 0 }}>
-          These preferences are saved as the application default. Reformatting every existing date/time display across the app to honor them is a future phase.
+          {t("dateTimeFormatNotice")}
         </p>
 
         <div id="field-maintenance-mode" className="flex flex-col gap-2" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-          <Switch checked={form.maintenanceModeEnabled} onChange={(v) => setForm((f) => ({ ...f, maintenanceModeEnabled: v }))} label="Maintenance Mode" />
+          <Switch checked={form.maintenanceModeEnabled} onChange={(v) => setForm((f) => ({ ...f, maintenanceModeEnabled: v }))} label={t("maintenanceModeLabel")} />
           {form.maintenanceModeEnabled && (
             <>
               <textarea
                 style={{ ...fieldStyle, resize: "vertical" }}
                 rows={2}
-                placeholder="Message shown to non-admin users while maintenance mode is on"
+                placeholder={t("maintenanceMessagePlaceholder")}
                 value={form.maintenanceMessage}
                 onChange={(e) => setForm((f) => ({ ...f, maintenanceMessage: e.target.value }))}
               />
               <p style={{ fontSize: "0.75rem", color: "var(--warning)", margin: 0 }}>
-                Admins can always sign in and reach this page to turn maintenance mode back off.
+                {t("maintenanceAdminNotice")}
               </p>
             </>
           )}
         </div>
 
         <div id="field-application-version" className="flex items-center gap-2">
-          <span style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>Application Version:</span>
+          <span style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>{t("applicationVersionLabel")}</span>
           <Badge tone="neutral">{appVersion}</Badge>
         </div>
 
         <Button onClick={handleSave} disabled={saving} style={{ alignSelf: "flex-start" }}>
-          {saving ? "Saving..." : "Save Changes"}
+          {saving ? t("savingButton") : t("saveChangesButton")}
         </Button>
       </Card>
 

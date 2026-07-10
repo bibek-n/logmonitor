@@ -2,6 +2,7 @@
 
 import { useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +47,7 @@ function emptyForm(fields: LookupField[]): Record<string, string> {
 export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: LookupTableCRUDProps) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("settings.lookupTableCrud");
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<Record<string, string>>(emptyForm(fields));
   const [saving, setSaving] = useState(false);
@@ -75,7 +77,7 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
   async function save() {
     const missingRequired = fields.find((f) => f.required && !form[f.key]?.trim());
     if (missingRequired) {
-      toast.show({ type: "error", message: `${missingRequired.label} is required.` });
+      toast.show({ type: "error", message: t("fieldRequired", { field: missingRequired.label }) });
       return;
     }
 
@@ -94,13 +96,13 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
       const method = editingId === "new" ? "POST" : "PATCH";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
 
-      toast.show({ type: "success", message: `${title} saved.` });
+      toast.show({ type: "success", message: t("itemSaved", { title }) });
       cancelEdit();
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
     } finally {
       setSaving(false);
     }
@@ -112,12 +114,12 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
     try {
       const res = await fetch(`${apiBase}/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Delete failed");
-      toast.show({ type: "success", message: `${deleteTarget.label} deleted.` });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("deleteFailed"));
+      toast.show({ type: "success", message: t("itemDeleted", { label: deleteTarget.label }) });
       setDeleteTarget(null);
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Delete failed." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("deleteFailedFallback") });
     } finally {
       setDeleting(false);
     }
@@ -139,7 +141,7 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
         <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{title}</h3>
         {editingId === null && (
           <Button size="sm" onClick={startCreate}>
-            <Plus size={14} /> Add
+            <Plus size={14} /> {t("addButton")}
           </Button>
         )}
       </div>
@@ -157,7 +159,7 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
                   value={form[f.key] ?? ""}
                   onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))}
                   options={f.options ?? []}
-                  placeholder={`Select ${f.label.toLowerCase()}`}
+                  placeholder={t("selectPlaceholder", { field: f.label.toLowerCase() })}
                 />
               ) : f.type === "textarea" ? (
                 <textarea
@@ -177,10 +179,10 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
           ))}
           <div className="flex gap-2">
             <Button size="sm" onClick={save} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("saving") : t("saveButton")}
             </Button>
             <Button size="sm" variant="secondary" onClick={cancelEdit} disabled={saving}>
-              Cancel
+              {t("cancelButton")}
             </Button>
           </div>
         </div>
@@ -211,7 +213,7 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
                     <Pencil size={13} />
                   </button>
                   <button
-                    onClick={() => setDeleteTarget({ id: Number(row.Id), label: String(row[columns[0].key] ?? "this item") })}
+                    onClick={() => setDeleteTarget({ id: Number(row.Id), label: String(row[columns[0].key] ?? t("thisItemFallback")) })}
                     style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)" }}
                   >
                     <Trash2 size={13} />
@@ -222,7 +224,7 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
             {rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length + 1} style={{ padding: "1rem", textAlign: "center", color: "var(--ink-muted)" }}>
-                  None yet.
+                  {t("noRecordsFound")}
                 </td>
               </tr>
             )}
@@ -234,9 +236,9 @@ export function LookupTableCRUD({ title, apiBase, rows, fields, columns }: Looku
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title={`Delete ${deleteTarget?.label ?? ""}?`}
-        message="This cannot be undone."
-        confirmLabel="Delete"
+        title={t("deleteConfirmTitle", { label: deleteTarget?.label ?? "" })}
+        message={t("deleteConfirmMessage")}
+        confirmLabel={t("deleteButton")}
         tone="danger"
         loading={deleting}
       />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -29,6 +30,7 @@ const fieldStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink-muted)", marginBottom: "0.3rem", display: "block" };
 
 export function SmtpEmailSection({ initialData, initialLogs }: { initialData: SmtpSettingsData | null; initialLogs: EmailLogRow[] }) {
+  const t = useTranslations("settings.smtpEmail");
   const toast = useToast();
   const [form, setForm] = useState({
     host: initialData?.Host ?? "",
@@ -62,11 +64,11 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
         body: JSON.stringify({ ...form, port: Number(form.port) || 587, password: form.password || null }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "SMTP settings saved." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
+      toast.show({ type: "success", message: t("smtpSettingsSavedToast") });
       setForm((f) => ({ ...f, password: "" }));
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrongError") });
     } finally {
       setSaving(false);
     }
@@ -74,7 +76,7 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
 
   async function handleTest() {
     if (!testEmail.trim()) {
-      toast.show({ type: "error", message: "Enter a recipient email to send the test to." });
+      toast.show({ type: "error", message: t("enterRecipientEmailError") });
       return;
     }
     setTesting(true);
@@ -86,9 +88,9 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
       });
       const data = await res.json();
       setStatus({ lastTestAt: new Date().toISOString(), lastTestSuccess: data.ok, lastTestMessage: data.message ?? null });
-      toast.show({ type: data.ok ? "success" : "error", message: data.message ?? (data.ok ? "Test email sent." : "Test email failed.") });
+      toast.show({ type: data.ok ? "success" : "error", message: data.message ?? (data.ok ? t("testEmailSentToast") : t("testEmailFailedToast")) });
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrongError") });
     } finally {
       setTesting(false);
     }
@@ -97,26 +99,26 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-4">
-        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>SMTP and Email Setup</h2>
+        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           <div id="field-smtp-host">
-            <label style={labelStyle}>SMTP Host</label>
-            <input style={fieldStyle} value={form.host} onChange={(e) => set("host", e.target.value)} placeholder="smtp.example.com" />
+            <label style={labelStyle}>{t("smtpHostLabel")}</label>
+            <input style={fieldStyle} value={form.host} onChange={(e) => set("host", e.target.value)} placeholder={t("smtpHostPlaceholder")} />
           </div>
           <div id="field-smtp-port">
-            <label style={labelStyle}>SMTP Port</label>
-            <input style={fieldStyle} type="number" value={form.port} onChange={(e) => set("port", e.target.value)} placeholder="587" />
+            <label style={labelStyle}>{t("smtpPortLabel")}</label>
+            <input style={fieldStyle} type="number" value={form.port} onChange={(e) => set("port", e.target.value)} placeholder={t("smtpPortPlaceholder")} />
           </div>
           <div id="field-encryption-type">
-            <label style={labelStyle}>Encryption Type</label>
+            <label style={labelStyle}>{t("encryptionTypeLabel")}</label>
             <Select
               value={form.encryption}
               onChange={(v) => set("encryption", v)}
               options={[
-                { label: "TLS", value: "TLS" },
-                { label: "SSL", value: "SSL" },
-                { label: "None", value: "None" },
+                { label: t("encryptionTls"), value: "TLS" },
+                { label: t("encryptionSsl"), value: "SSL" },
+                { label: t("encryptionNone"), value: "None" },
               ]}
             />
           </div>
@@ -124,75 +126,81 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           <div id="field-smtp-username">
-            <label style={labelStyle}>SMTP Username</label>
+            <label style={labelStyle}>{t("smtpUsernameLabel")}</label>
             <input style={fieldStyle} value={form.username} onChange={(e) => set("username", e.target.value)} />
           </div>
           <div id="field-smtp-password">
-            <label style={labelStyle}>SMTP Password</label>
+            <label style={labelStyle}>{t("smtpPasswordLabel")}</label>
             <input
               style={fieldStyle}
               type="password"
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
-              placeholder={initialData?.PasswordSet ? "(unchanged — enter to replace)" : "Enter password"}
+              placeholder={initialData?.PasswordSet ? t("passwordUnchangedPlaceholder") : t("enterPasswordPlaceholder")}
             />
           </div>
         </div>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           <div id="field-sender-name">
-            <label style={labelStyle}>Sender Name</label>
-            <input style={fieldStyle} value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="Log Monitor" />
+            <label style={labelStyle}>{t("senderNameLabel")}</label>
+            <input style={fieldStyle} value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder={t("senderNamePlaceholder")} />
           </div>
           <div id="field-sender-email">
-            <label style={labelStyle}>Sender Email Address</label>
-            <input style={fieldStyle} value={form.senderEmail} onChange={(e) => set("senderEmail", e.target.value)} placeholder="noreply@example.com" />
+            <label style={labelStyle}>{t("senderEmailLabel")}</label>
+            <input style={fieldStyle} value={form.senderEmail} onChange={(e) => set("senderEmail", e.target.value)} placeholder={t("senderEmailPlaceholder")} />
           </div>
           <div id="field-reply-to">
-            <label style={labelStyle}>Reply-To Email Address</label>
-            <input style={fieldStyle} value={form.replyTo} onChange={(e) => set("replyTo", e.target.value)} placeholder="support@example.com" />
+            <label style={labelStyle}>{t("replyToLabel")}</label>
+            <input style={fieldStyle} value={form.replyTo} onChange={(e) => set("replyTo", e.target.value)} placeholder={t("replyToPlaceholder")} />
           </div>
         </div>
 
         <div id="field-email-authentication" style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>
-          Email Authentication: SMTP AUTH LOGIN over the connection above (matches how this app's other email tools authenticate — no separate configuration needed).
+          {t("emailAuthenticationNote")}
         </div>
 
         <div className="flex items-center gap-2">
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("savingButton") : t("saveChangesButton")}
           </Button>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-send-test-email">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Send Test Email</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("sendTestEmailTitle")}</h3>
         <div className="flex gap-2 flex-wrap">
-          <input style={{ ...fieldStyle, maxWidth: 320 }} value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="recipient@example.com" />
+          <input style={{ ...fieldStyle, maxWidth: 320 }} value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder={t("testEmailPlaceholder")} />
           <Button onClick={handleTest} disabled={testing} variant="secondary">
-            {testing ? "Sending..." : "Send Test Email"}
+            {testing ? t("sendingButton") : t("sendTestEmailButton")}
           </Button>
         </div>
         <div id="field-smtp-connection-status" className="flex items-center gap-2">
-          <span style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>Connection Status:</span>
+          <span style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>{t("connectionStatusLabel")}</span>
           {status.lastTestSuccess === null ? (
-            <Badge tone="neutral">Not tested yet</Badge>
+            <Badge tone="neutral">{t("notTestedYet")}</Badge>
           ) : (
-            <Badge tone={status.lastTestSuccess ? "success" : "danger"}>{status.lastTestSuccess ? "Connected" : "Failed"}</Badge>
+            <Badge tone={status.lastTestSuccess ? "success" : "danger"}>{status.lastTestSuccess ? t("connectedStatus") : t("failedStatus")}</Badge>
           )}
           {status.lastTestMessage && <span style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>{status.lastTestMessage}</span>}
         </div>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-email-delivery-logs">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Email Delivery Logs</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("emailDeliveryLogsTitle")}</h3>
         <div style={{ overflowX: "auto", maxHeight: 300, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                {["To", "Subject", "Status", "Error", "When"].map((h) => (
-                  <th key={h} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
-                    {h}
+                {[
+                  { key: "to", label: t("tableTo") },
+                  { key: "subject", label: t("tableSubject") },
+                  { key: "status", label: t("tableStatus") },
+                  { key: "error", label: t("tableError") },
+                  { key: "when", label: t("tableWhen") },
+                ].map((h) => (
+                  <th key={h.key} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
+                    {h.label}
                   </th>
                 ))}
               </tr>
@@ -203,7 +211,7 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
                   <td style={{ padding: "0.4rem 0.6rem" }}>{l.ToAddress}</td>
                   <td style={{ padding: "0.4rem 0.6rem" }}>{l.Subject ?? "—"}</td>
                   <td style={{ padding: "0.4rem 0.6rem" }}>
-                    <Badge tone={l.Success ? "success" : "danger"}>{l.Success ? "Sent" : "Failed"}</Badge>
+                    <Badge tone={l.Success ? "success" : "danger"}>{l.Success ? t("sentStatus") : t("failedStatus")}</Badge>
                   </td>
                   <td style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)" }}>{l.ErrorMessage ?? "—"}</td>
                   <td style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)" }}>{l.CreatedAt.replace("T", " ")}</td>
@@ -212,7 +220,7 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
               {initialLogs.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ padding: "1rem", textAlign: "center", color: "var(--ink-muted)" }}>
-                    No emails sent yet.
+                    {t("noEmailsSentYet")}
                   </td>
                 </tr>
               )}

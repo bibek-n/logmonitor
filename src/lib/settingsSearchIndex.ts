@@ -118,3 +118,20 @@ export const SETTINGS_SECTIONS: { key: string; label: string }[] = [
   { key: "system", label: "System Settings" },
   { key: "audit-log", label: "Audit Log" },
 ];
+
+// Maps a section's kebab-case key to its translation key under the "settings.sections"
+// namespace (messages/<locale>.json) — used by SettingsNav/SettingsShell instead of the
+// English `label` above, which stays only as a non-i18n-aware fallback.
+export const SECTION_LABEL_KEYS: Record<string, string> = {
+  "company-profile": "companyProfile",
+  organization: "organization",
+  "users-access": "usersAccess",
+  security: "security",
+  "smtp-email": "smtpEmail",
+  integrations: "integrations",
+  notifications: "notifications",
+  branding: "branding",
+  "backup-data": "backupData",
+  system: "system",
+  "audit-log": "auditLog",
+};

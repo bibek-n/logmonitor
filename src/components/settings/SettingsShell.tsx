@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ToastProvider } from "@/components/ui/Toast";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
-import { SETTINGS_SECTIONS } from "@/lib/settingsSearchIndex";
+import { SETTINGS_SECTIONS, SECTION_LABEL_KEYS } from "@/lib/settingsSearchIndex";
 import { SettingsNav } from "./SettingsNav";
 import { SettingsSearch } from "./SettingsSearch";
 import { CompanyProfileSection } from "./CompanyProfileSection";
@@ -77,6 +78,9 @@ function SettingsContent({ active, data }: { active: string; data: SettingsIniti
 function ShellInner({ data }: { data: SettingsInitialData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("settings.sections");
+  const tHeader = useTranslations("header");
+  const tSidebar = useTranslations("sidebar");
   const [active, setActive] = useState(searchParams.get("section") ?? "company-profile");
 
   function goToSection(key: string) {
@@ -96,12 +100,19 @@ function ShellInner({ data }: { data: SettingsInitialData }) {
     }, 60);
   }
 
-  const activeLabel = SETTINGS_SECTIONS.find((s) => s.key === active)?.label ?? "Company Profile";
+  const activeSectionKey = SETTINGS_SECTIONS.find((s) => s.key === active)?.key ?? "company-profile";
+  const activeLabel = t(SECTION_LABEL_KEYS[activeSectionKey]);
 
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3" style={{ marginBottom: "1rem" }}>
-        <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Company Settings" }, { label: activeLabel }]} />
+        <Breadcrumbs
+          items={[
+            { label: tHeader("breadcrumbRoot"), href: "/dashboard" },
+            { label: tSidebar("top.companySettings") },
+            { label: activeLabel },
+          ]}
+        />
         <SettingsSearch onNavigate={handleSearchNavigate} />
       </div>
 

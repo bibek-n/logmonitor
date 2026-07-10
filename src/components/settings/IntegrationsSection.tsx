@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
@@ -16,6 +17,7 @@ interface IntegrationRow {
 }
 
 export function IntegrationsSection({ rows }: { rows: IntegrationRow[] }) {
+  const t = useTranslations("settings.integrations");
   const router = useRouter();
   const toast = useToast();
   const rowByKey = new Map(rows.map((r) => [r.ProviderKey, r]));
@@ -24,8 +26,8 @@ export function IntegrationsSection({ rows }: { rows: IntegrationRow[] }) {
     <div className="flex flex-col gap-4" id="field-integrations">
       <Card>
         <div className="flex items-center gap-2">
-          <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Integrations</h2>
-          <Badge tone="warning">Config only — live connections coming soon</Badge>
+          <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
+          <Badge tone="warning">{t("configOnlyBadge")}</Badge>
         </div>
       </Card>
 
@@ -35,7 +37,7 @@ export function IntegrationsSection({ rows }: { rows: IntegrationRow[] }) {
           provider={provider}
           row={rowByKey.get(provider.key)}
           onSaved={() => {
-            toast.show({ type: "success", message: `${provider.label} settings saved.` });
+            toast.show({ type: "success", message: t("settingsSavedToast", { provider: provider.label }) });
             router.refresh();
           }}
         />
@@ -53,6 +55,7 @@ function IntegrationCard({
   row: IntegrationRow | undefined;
   onSaved: () => void;
 }) {
+  const t = useTranslations("settings.integrations");
   const toast = useToast();
   const initialConfig: Record<string, string> = row?.ConfigJson ? JSON.parse(row.ConfigJson) : {};
   const [enabled, setEnabled] = useState(row?.Enabled ?? false);
@@ -68,10 +71,10 @@ function IntegrationCard({
         body: JSON.stringify({ enabled, config }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
       onSaved();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrongError") });
     } finally {
       setSaving(false);
     }
@@ -95,7 +98,7 @@ function IntegrationCard({
           <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>{provider.description}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone={enabled ? "success" : "neutral"}>{enabled ? "Enabled" : "Disabled"}</Badge>
+          <Badge tone={enabled ? "success" : "neutral"}>{enabled ? t("enabledStatus") : t("disabledStatus")}</Badge>
           <Switch checked={enabled} onChange={setEnabled} />
         </div>
       </div>
@@ -116,7 +119,7 @@ function IntegrationCard({
         </div>
       )}
       <Button size="sm" onClick={save} disabled={saving} style={{ alignSelf: "flex-start" }}>
-        {saving ? "Saving..." : "Save"}
+        {saving ? t("savingButton") : t("saveButton")}
       </Button>
     </Card>
   );

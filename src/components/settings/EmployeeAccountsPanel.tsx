@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -62,6 +63,8 @@ export function EmployeeAccountsPanel({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("settings.employeeAccounts");
+  const roleLabel = (role: string) => (role === "Admin" ? t("roleAdmin") : t("roleEmployee"));
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [passwordUser, setPasswordUser] = useState<UserRow | null>(null);
@@ -81,7 +84,7 @@ export function EmployeeAccountsPanel({
 
   async function handleCreate() {
     if (!createForm.username.trim() || createForm.password.length < 8) {
-      toast.show({ type: "error", message: "Username is required and password must be at least 8 characters." });
+      toast.show({ type: "error", message: t("createValidationError") });
       return;
     }
     setSaving(true);
@@ -98,13 +101,13 @@ export function EmployeeAccountsPanel({
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to create user");
-      toast.show({ type: "success", message: "Employee account created." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("createFailedError"));
+      toast.show({ type: "success", message: t("createSuccessToast") });
       setCreateOpen(false);
       setCreateForm({ username: "", password: "", fullName: "", email: "", departmentId: "", teamId: "", branchOfficeId: "", jobDesignationId: "" });
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -129,12 +132,12 @@ export function EmployeeAccountsPanel({
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "Employee account updated." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("editFailedError"));
+      toast.show({ type: "success", message: t("editSuccessToast") });
       setEditUser(null);
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -143,7 +146,7 @@ export function EmployeeAccountsPanel({
   async function handlePasswordSave(newPassword: string) {
     if (!passwordUser) return;
     if (newPassword.length < 8) {
-      toast.show({ type: "error", message: "Password must be at least 8 characters." });
+      toast.show({ type: "error", message: t("passwordValidationError") });
       return;
     }
     setSaving(true);
@@ -154,11 +157,11 @@ export function EmployeeAccountsPanel({
         body: JSON.stringify({ password: newPassword }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to reset password");
-      toast.show({ type: "success", message: "Password reset." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("passwordFailedError"));
+      toast.show({ type: "success", message: t("passwordSuccessToast") });
       setPasswordUser(null);
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -174,12 +177,15 @@ export function EmployeeAccountsPanel({
         body: JSON.stringify({ role: roleTarget.nextRole }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to change role");
-      toast.show({ type: "success", message: `${roleTarget.user.Username} is now ${roleTarget.nextRole}.` });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("roleFailedError"));
+      toast.show({
+        type: "success",
+        message: t("roleChangedToast", { username: roleTarget.user.Username, role: roleLabel(roleTarget.nextRole) }),
+      });
       setRoleTarget(null);
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
     } finally {
       setSaving(false);
     }
@@ -188,9 +194,9 @@ export function EmployeeAccountsPanel({
   return (
     <Card className="flex flex-col gap-3" id="field-employee-accounts">
       <div className="flex items-center justify-between">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Employee Accounts</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h3>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus size={14} /> Add Employee
+          <Plus size={14} /> {t("addEmployeeButton")}
         </Button>
       </div>
 
@@ -198,7 +204,16 @@ export function EmployeeAccountsPanel({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-              {["Username", "Full Name", "Email", "Department", "Role", "MFA", "Status", ""].map((h) => (
+              {[
+                t("columns.username"),
+                t("columns.fullName"),
+                t("columns.email"),
+                t("columns.department"),
+                t("columns.role"),
+                t("columns.mfa"),
+                t("columns.status"),
+                "",
+              ].map((h) => (
                 <th key={h} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
                   {h}
                 </th>
@@ -209,23 +224,23 @@ export function EmployeeAccountsPanel({
             {users.map((u) => (
               <tr key={u.Id} style={{ borderBottom: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.4rem 0.6rem" }}>{u.Username}</td>
-                <td style={{ padding: "0.4rem 0.6rem" }}>{u.FullName ?? "—"}</td>
-                <td style={{ padding: "0.4rem 0.6rem" }}>{u.Email ?? "—"}</td>
-                <td style={{ padding: "0.4rem 0.6rem" }}>{u.DepartmentName ?? "—"}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{u.FullName ?? t("notAvailable")}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{u.Email ?? t("notAvailable")}</td>
+                <td style={{ padding: "0.4rem 0.6rem" }}>{u.DepartmentName ?? t("notAvailable")}</td>
                 <td style={{ padding: "0.4rem 0.6rem" }}>
-                  <Badge tone={u.Role === "Admin" ? "info" : "neutral"}>{u.Role}</Badge>
+                  <Badge tone={u.Role === "Admin" ? "info" : "neutral"}>{roleLabel(u.Role)}</Badge>
                 </td>
                 <td style={{ padding: "0.4rem 0.6rem" }}>
                   {u.MfaRequired ? <ShieldCheck size={15} color="var(--success)" /> : <ShieldOff size={15} color="var(--ink-muted)" />}
                 </td>
                 <td style={{ padding: "0.4rem 0.6rem" }}>
-                  <Badge tone={u.IsActive ? "success" : "danger"}>{u.IsActive ? "Active" : "Deactivated"}</Badge>
+                  <Badge tone={u.IsActive ? "success" : "danger"}>{u.IsActive ? t("statusActive") : t("statusDeactivated")}</Badge>
                 </td>
                 <td style={{ padding: "0.4rem 0.6rem", whiteSpace: "nowrap" }}>
                   <button onClick={() => setEditUser(u)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.78rem", marginRight: 10 }}>
-                    Edit
+                    {t("editButton")}
                   </button>
-                  <button onClick={() => setPasswordUser(u)} title="Reset password" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", marginRight: 10 }}>
+                  <button onClick={() => setPasswordUser(u)} title={t("resetPasswordTooltip")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", marginRight: 10 }}>
                     <KeyRound size={14} />
                   </button>
                   {u.Id !== currentUserId && (
@@ -233,7 +248,7 @@ export function EmployeeAccountsPanel({
                       onClick={() => setRoleTarget({ user: u, nextRole: u.Role === "Admin" ? "Employee" : "Admin" })}
                       style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: "0.78rem" }}
                     >
-                      {u.Role === "Admin" ? "Demote" : "Make Admin"}
+                      {u.Role === "Admin" ? t("demoteButton") : t("makeAdminButton")}
                     </button>
                   )}
                 </td>
@@ -247,27 +262,27 @@ export function EmployeeAccountsPanel({
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add Employee Account"
+        title={t("addModalTitle")}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setCreateOpen(false)} disabled={saving}>
-              Cancel
+              {t("cancelButton")}
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={saving}>
-              {saving ? "Creating..." : "Create"}
+              {saving ? t("creatingButton") : t("createButton")}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-2">
-          <input style={fieldStyle} placeholder="Username" value={createForm.username} onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))} />
-          <input style={fieldStyle} type="password" placeholder="Password (min 8 characters)" value={createForm.password} onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))} />
-          <input style={fieldStyle} placeholder="Full name" value={createForm.fullName} onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))} />
-          <input style={fieldStyle} placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} />
-          <Select value={createForm.departmentId} onChange={(v) => setCreateForm((f) => ({ ...f, departmentId: v }))} options={departmentOptions} placeholder="Department (optional)" />
-          <Select value={createForm.teamId} onChange={(v) => setCreateForm((f) => ({ ...f, teamId: v }))} options={teamOptions} placeholder="Team (optional)" />
-          <Select value={createForm.branchOfficeId} onChange={(v) => setCreateForm((f) => ({ ...f, branchOfficeId: v }))} options={branchOfficeOptions} placeholder="Branch office (optional)" />
-          <Select value={createForm.jobDesignationId} onChange={(v) => setCreateForm((f) => ({ ...f, jobDesignationId: v }))} options={jobDesignationOptions} placeholder="Job designation (optional)" />
+          <input style={fieldStyle} placeholder={t("usernamePlaceholder")} value={createForm.username} onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))} />
+          <input style={fieldStyle} type="password" placeholder={t("passwordPlaceholder")} value={createForm.password} onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))} />
+          <input style={fieldStyle} placeholder={t("fullNamePlaceholder")} value={createForm.fullName} onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))} />
+          <input style={fieldStyle} placeholder={t("emailPlaceholder")} value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} />
+          <Select value={createForm.departmentId} onChange={(v) => setCreateForm((f) => ({ ...f, departmentId: v }))} options={departmentOptions} placeholder={t("departmentOptionalPlaceholder")} />
+          <Select value={createForm.teamId} onChange={(v) => setCreateForm((f) => ({ ...f, teamId: v }))} options={teamOptions} placeholder={t("teamOptionalPlaceholder")} />
+          <Select value={createForm.branchOfficeId} onChange={(v) => setCreateForm((f) => ({ ...f, branchOfficeId: v }))} options={branchOfficeOptions} placeholder={t("branchOfficeOptionalPlaceholder")} />
+          <Select value={createForm.jobDesignationId} onChange={(v) => setCreateForm((f) => ({ ...f, jobDesignationId: v }))} options={jobDesignationOptions} placeholder={t("jobDesignationOptionalPlaceholder")} />
         </div>
       </Modal>
 
@@ -276,28 +291,28 @@ export function EmployeeAccountsPanel({
         <Modal
           open
           onClose={() => setEditUser(null)}
-          title={`Edit ${editUser.Username}`}
+          title={t("editModalTitle", { username: editUser.Username })}
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setEditUser(null)} disabled={saving}>
-                Cancel
+                {t("cancelButton")}
               </Button>
               <Button size="sm" onClick={handleEditSave} disabled={saving}>
-                {saving ? "Saving..." : "Save"}
+                {saving ? t("savingButton") : t("saveButton")}
               </Button>
             </>
           }
         >
           <div className="flex flex-col gap-2">
-            <input style={fieldStyle} placeholder="Full name" value={editUser.FullName ?? ""} onChange={(e) => setEditUser({ ...editUser, FullName: e.target.value })} />
-            <input style={fieldStyle} placeholder="Email" value={editUser.Email ?? ""} onChange={(e) => setEditUser({ ...editUser, Email: e.target.value })} />
-            <Select value={editUser.DepartmentId ? String(editUser.DepartmentId) : ""} onChange={(v) => setEditUser({ ...editUser, DepartmentId: v ? Number(v) : null })} options={departmentOptions} placeholder="Department" />
-            <Select value={editUser.TeamId ? String(editUser.TeamId) : ""} onChange={(v) => setEditUser({ ...editUser, TeamId: v ? Number(v) : null })} options={teamOptions} placeholder="Team" />
-            <Select value={editUser.BranchOfficeId ? String(editUser.BranchOfficeId) : ""} onChange={(v) => setEditUser({ ...editUser, BranchOfficeId: v ? Number(v) : null })} options={branchOfficeOptions} placeholder="Branch office" />
-            <Select value={editUser.JobDesignationId ? String(editUser.JobDesignationId) : ""} onChange={(v) => setEditUser({ ...editUser, JobDesignationId: v ? Number(v) : null })} options={jobDesignationOptions} placeholder="Job designation" />
-            <Switch checked={editUser.MfaRequired} onChange={(v) => setEditUser({ ...editUser, MfaRequired: v })} label="Require Multi-Factor Authentication" />
+            <input style={fieldStyle} placeholder={t("fullNamePlaceholder")} value={editUser.FullName ?? ""} onChange={(e) => setEditUser({ ...editUser, FullName: e.target.value })} />
+            <input style={fieldStyle} placeholder={t("emailPlaceholder")} value={editUser.Email ?? ""} onChange={(e) => setEditUser({ ...editUser, Email: e.target.value })} />
+            <Select value={editUser.DepartmentId ? String(editUser.DepartmentId) : ""} onChange={(v) => setEditUser({ ...editUser, DepartmentId: v ? Number(v) : null })} options={departmentOptions} placeholder={t("departmentPlaceholder")} />
+            <Select value={editUser.TeamId ? String(editUser.TeamId) : ""} onChange={(v) => setEditUser({ ...editUser, TeamId: v ? Number(v) : null })} options={teamOptions} placeholder={t("teamPlaceholder")} />
+            <Select value={editUser.BranchOfficeId ? String(editUser.BranchOfficeId) : ""} onChange={(v) => setEditUser({ ...editUser, BranchOfficeId: v ? Number(v) : null })} options={branchOfficeOptions} placeholder={t("branchOfficePlaceholder")} />
+            <Select value={editUser.JobDesignationId ? String(editUser.JobDesignationId) : ""} onChange={(v) => setEditUser({ ...editUser, JobDesignationId: v ? Number(v) : null })} options={jobDesignationOptions} placeholder={t("jobDesignationPlaceholder")} />
+            <Switch checked={editUser.MfaRequired} onChange={(v) => setEditUser({ ...editUser, MfaRequired: v })} label={t("mfaSwitchLabel")} />
             {editUser.Id !== currentUserId && (
-              <Switch checked={editUser.IsActive} onChange={(v) => setEditUser({ ...editUser, IsActive: v })} label="Account active" />
+              <Switch checked={editUser.IsActive} onChange={(v) => setEditUser({ ...editUser, IsActive: v })} label={t("accountActiveSwitchLabel")} />
             )}
           </div>
         </Modal>
@@ -312,13 +327,15 @@ export function EmployeeAccountsPanel({
         open={roleTarget !== null}
         onClose={() => setRoleTarget(null)}
         onConfirm={confirmRoleChange}
-        title={roleTarget?.nextRole === "Admin" ? "Grant Admin access?" : "Remove Admin access?"}
+        title={roleTarget?.nextRole === "Admin" ? t("grantAdminTitle") : t("removeAdminTitle")}
         message={
           roleTarget
-            ? `${roleTarget.user.Username} will become ${roleTarget.nextRole === "Admin" ? "an Admin with full access" : "a standard Employee"}.`
+            ? roleTarget.nextRole === "Admin"
+              ? t("roleChangeMessageAdmin", { username: roleTarget.user.Username })
+              : t("roleChangeMessageEmployee", { username: roleTarget.user.Username })
             : ""
         }
-        confirmLabel={roleTarget?.nextRole === "Admin" ? "Grant Admin" : "Remove Admin"}
+        confirmLabel={roleTarget?.nextRole === "Admin" ? t("grantAdminConfirmLabel") : t("removeAdminConfirmLabel")}
         tone={roleTarget?.nextRole === "Admin" ? "primary" : "danger"}
         loading={saving}
       />
@@ -338,18 +355,19 @@ function PasswordResetModal({
   onSave: (password: string) => void;
 }) {
   const [password, setPassword] = useState("");
+  const t = useTranslations("settings.employeeAccounts");
   return (
     <Modal
       open
       onClose={onClose}
-      title={`Reset password for ${user.Username}`}
+      title={t("resetPasswordModalTitle", { username: user.Username })}
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("cancelButton")}
           </Button>
           <Button size="sm" onClick={() => onSave(password)} disabled={saving}>
-            {saving ? "Saving..." : "Reset Password"}
+            {saving ? t("savingButton") : t("resetPasswordButton")}
           </Button>
         </>
       }
@@ -357,7 +375,7 @@ function PasswordResetModal({
       <input
         style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)", fontSize: "0.83rem" }}
         type="password"
-        placeholder="New password (min 8 characters)"
+        placeholder={t("newPasswordPlaceholder")}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />

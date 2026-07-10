@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { DownloadCloud, DatabaseBackup } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -47,6 +48,7 @@ export function BackupDataSection({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("settings.backupData");
   const [schedule, setSchedule] = useState({
     backupScheduleEnabled: initialSchedule?.BackupScheduleEnabled ?? false,
     backupScheduleFrequency: initialSchedule?.BackupScheduleFrequency ?? "daily",
@@ -68,10 +70,10 @@ export function BackupDataSection({
         body: JSON.stringify(schedule),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "Backup schedule saved. Automatic execution is coming in a future update — trigger backups manually below until then." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
+      toast.show({ type: "success", message: t("scheduleSavedToast") });
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
       setSavingSchedule(false);
     }
@@ -82,11 +84,11 @@ export function BackupDataSection({
     try {
       const res = await fetch("/api/admin/settings/backup", { method: "POST" });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Backup failed");
-      toast.show({ type: "success", message: `Backup completed: ${data.fileName}` });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("backupFailedError"));
+      toast.show({ type: "success", message: t("backupCompletedToast", { fileName: data.fileName }) });
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Backup failed." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("backupFailedToast") });
     } finally {
       setRunningBackup(false);
       setConfirmBackupOpen(false);
@@ -96,39 +98,37 @@ export function BackupDataSection({
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3" id="field-database-backup">
-        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Backup and Data</h2>
+        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
         <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={() => setConfirmBackupOpen(true)} disabled={runningBackup}>
-            <DatabaseBackup size={15} /> {runningBackup ? "Running Backup..." : "Run Database Backup Now"}
+            <DatabaseBackup size={15} /> {runningBackup ? t("runningBackupButton") : t("runBackupButton")}
           </Button>
           <a href="/api/admin/settings/backup/export" id="field-data-export">
             <Button variant="secondary" type="button">
-              <DownloadCloud size={15} /> Export Configuration Data (JSON)
+              <DownloadCloud size={15} /> {t("exportConfigButton")}
             </Button>
           </a>
         </div>
         <div id="field-data-restore" className="rounded-lg p-3" style={{ background: "color-mix(in srgb, var(--warning) 10%, transparent)", border: "1px solid var(--warning)" }}>
-          <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>Data Restore</strong>
+          <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>{t("dataRestoreTitle")}</strong>
           <p style={{ margin: "0.3rem 0 0", fontSize: "0.8rem", color: "var(--ink-muted)" }}>
-            Restoring a `.bak` file over a live, in-use database is destructive and can corrupt the running application if done incorrectly. This phase intentionally does not
-            expose a one-click restore button. To restore: stop the application pool, then run <code>RESTORE DATABASE</code> against the desired backup file directly in SQL
-            Server Management Studio (or sqlcmd), then restart the application pool.
+            {t.rich("dataRestoreDescription", { code: (chunks) => <code>{chunks}</code> })}
           </p>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-backup-schedule">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Automatic Backup Schedule</h3>
-        <Switch checked={schedule.backupScheduleEnabled} onChange={(v) => setSchedule((s) => ({ ...s, backupScheduleEnabled: v }))} label="Enable scheduled backups" />
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("automaticScheduleTitle")}</h3>
+        <Switch checked={schedule.backupScheduleEnabled} onChange={(v) => setSchedule((s) => ({ ...s, backupScheduleEnabled: v }))} label={t("enableScheduledBackupsLabel")} />
         {schedule.backupScheduleEnabled && (
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
             <Select
               value={schedule.backupScheduleFrequency}
               onChange={(v) => setSchedule((s) => ({ ...s, backupScheduleFrequency: v }))}
               options={[
-                { label: "Daily", value: "daily" },
-                { label: "Weekly", value: "weekly" },
-                { label: "Monthly", value: "monthly" },
+                { label: t("frequencyDaily"), value: "daily" },
+                { label: t("frequencyWeekly"), value: "weekly" },
+                { label: t("frequencyMonthly"), value: "monthly" },
               ]}
             />
             <input style={fieldStyle} type="time" value={schedule.backupScheduleTime} onChange={(e) => setSchedule((s) => ({ ...s, backupScheduleTime: e.target.value }))} />
@@ -138,16 +138,16 @@ export function BackupDataSection({
               min={1}
               value={schedule.backupRetentionCount ?? ""}
               onChange={(e) => setSchedule((s) => ({ ...s, backupRetentionCount: Number(e.target.value) }))}
-              placeholder="Keep last N backups"
+              placeholder={t("keepLastNBackupsPlaceholder")}
             />
           </div>
         )}
         <p style={{ fontSize: "0.75rem", color: "var(--warning)", margin: 0 }}>
-          Schedule is saved for reference — automatic execution isn't wired up yet. Use "Run Database Backup Now" above in the meantime.
+          {t("scheduleNotWiredUpNotice")}
         </p>
 
         <div id="field-data-retention-policy" style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
-          <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)", display: "block", marginBottom: "0.3rem" }}>Data Retention Policy (days)</label>
+          <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)", display: "block", marginBottom: "0.3rem" }}>{t("dataRetentionPolicyLabel")}</label>
           <input
             style={{ ...fieldStyle, maxWidth: 160 }}
             type="number"
@@ -157,24 +157,24 @@ export function BackupDataSection({
           <textarea
             style={{ ...fieldStyle, resize: "vertical", marginTop: "0.5rem" }}
             rows={2}
-            placeholder="Notes about what this retention policy applies to"
+            placeholder={t("retentionNotesPlaceholder")}
             value={schedule.retentionPolicyNotes ?? ""}
             onChange={(e) => setSchedule((s) => ({ ...s, retentionPolicyNotes: e.target.value }))}
           />
         </div>
 
         <Button onClick={saveSchedule} disabled={savingSchedule} style={{ alignSelf: "flex-start" }}>
-          {savingSchedule ? "Saving..." : "Save Changes"}
+          {savingSchedule ? t("savingButton") : t("saveChangesButton")}
         </Button>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-backup-history">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Backup History</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("backupHistoryTitle")}</h3>
         <div style={{ overflowX: "auto", maxHeight: 300, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                {["File", "Size", "Status", "By", "When"].map((h) => (
+                {[t("fileColumn"), t("sizeColumn"), t("statusColumn"), t("byColumn"), t("whenColumn")].map((h) => (
                   <th key={h} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
                     {h}
                   </th>
@@ -196,7 +196,7 @@ export function BackupDataSection({
               {initialHistory.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ padding: "1rem", textAlign: "center", color: "var(--ink-muted)" }}>
-                    No backups run yet.
+                    {t("noBackupsYet")}
                   </td>
                 </tr>
               )}
@@ -209,9 +209,9 @@ export function BackupDataSection({
         open={confirmBackupOpen}
         onClose={() => setConfirmBackupOpen(false)}
         onConfirm={runBackup}
-        title="Run database backup now?"
-        message="This runs a full BACKUP DATABASE against the live database. It may take a moment on a large database."
-        confirmLabel="Run Backup"
+        title={t("confirmBackupTitle")}
+        message={t("confirmBackupMessage")}
+        confirmLabel={t("confirmBackupButton")}
         tone="primary"
         loading={runningBackup}
       />

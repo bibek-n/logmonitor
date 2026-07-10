@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import { SETTINGS_SEARCH_INDEX } from "@/lib/settingsSearchIndex";
 
 export function SettingsSearch({ onNavigate }: { onNavigate: (section: string, fieldId: string) => void }) {
+  const t = useTranslations("settings.search");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,7 +42,7 @@ export function SettingsSearch({ onNavigate }: { onNavigate: (section: string, f
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search settings..."
+          placeholder={t("placeholder")}
           style={{ border: "none", outline: "none", background: "none", color: "var(--ink)", fontSize: "0.85rem", width: "100%" }}
         />
       </div>

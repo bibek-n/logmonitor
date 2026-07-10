@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +53,7 @@ export function NotificationsSection({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("settings.notifications");
   const [prefs, setPrefs] = useState<Preferences>(
     initialPreferences ?? { EmailEnabled: true, SmsEnabled: false, PushEnabled: false, InAppEnabled: true }
   );
@@ -74,10 +76,10 @@ export function NotificationsSection({
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "Notification preferences saved." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
+      toast.show({ type: "success", message: t("preferencesSaved") });
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
     } finally {
       setSavingPrefs(false);
     }
@@ -92,18 +94,18 @@ export function NotificationsSection({
         body: JSON.stringify({ subject: editTemplate.Subject, body: editTemplate.Body }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Save failed");
-      toast.show({ type: "success", message: "Template saved." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
+      toast.show({ type: "success", message: t("templateSaved") });
       setEditTemplate(null);
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
     }
   }
 
   async function createTemplate() {
     if (!newTemplate.key.trim()) {
-      toast.show({ type: "error", message: "Key is required." });
+      toast.show({ type: "error", message: t("keyRequired") });
       return;
     }
     try {
@@ -113,13 +115,13 @@ export function NotificationsSection({
         body: JSON.stringify(newTemplate),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Create failed");
-      toast.show({ type: "success", message: "Template created." });
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("createFailed"));
+      toast.show({ type: "success", message: t("templateCreated") });
       setCreateOpen(false);
       setNewTemplate({ key: "", subject: "", body: "" });
       router.refresh();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
     }
   }
 
@@ -141,33 +143,33 @@ export function NotificationsSection({
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3" id="field-notification-channels">
-        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Notifications</h2>
+        <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("title")}</h2>
         <div className="flex flex-col gap-2">
-          <Switch checked={prefs.EmailEnabled} onChange={(v) => setPrefs((p) => ({ ...p, EmailEnabled: v }))} label="Email Notifications" />
-          <Switch checked={prefs.SmsEnabled} onChange={(v) => setPrefs((p) => ({ ...p, SmsEnabled: v }))} label="SMS Notifications" />
-          <Switch checked={prefs.PushEnabled} onChange={(v) => setPrefs((p) => ({ ...p, PushEnabled: v }))} label="Push Notifications" />
-          <Switch checked={prefs.InAppEnabled} onChange={(v) => setPrefs((p) => ({ ...p, InAppEnabled: v }))} label="In-App Notifications" />
+          <Switch checked={prefs.EmailEnabled} onChange={(v) => setPrefs((p) => ({ ...p, EmailEnabled: v }))} label={t("emailNotifications")} />
+          <Switch checked={prefs.SmsEnabled} onChange={(v) => setPrefs((p) => ({ ...p, SmsEnabled: v }))} label={t("smsNotifications")} />
+          <Switch checked={prefs.PushEnabled} onChange={(v) => setPrefs((p) => ({ ...p, PushEnabled: v }))} label={t("pushNotifications")} />
+          <Switch checked={prefs.InAppEnabled} onChange={(v) => setPrefs((p) => ({ ...p, InAppEnabled: v }))} label={t("inAppNotifications")} />
         </div>
         <Button onClick={savePreferences} disabled={savingPrefs} style={{ alignSelf: "flex-start" }}>
-          {savingPrefs ? "Saving..." : "Save Changes"}
+          {savingPrefs ? t("saving") : t("saveChangesButton")}
         </Button>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-notification-templates">
         <div className="flex items-center justify-between">
-          <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Notification Templates</h3>
+          <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("templatesTitle")}</h3>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={14} /> Add Template
+            <Plus size={14} /> {t("addTemplateButton")}
           </Button>
         </div>
         <div className="flex flex-col gap-2">
-          {initialTemplates.map((t) => (
-            <div key={t.Id} className="flex items-center justify-between rounded-lg p-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          {initialTemplates.map((tpl) => (
+            <div key={tpl.Id} className="flex items-center justify-between rounded-lg p-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
               <div>
-                <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>{t.Key}</strong>
-                <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>{t.Subject}</p>
+                <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>{tpl.Key}</strong>
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>{tpl.Subject}</p>
               </div>
-              <button onClick={() => setEditTemplate(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
+              <button onClick={() => setEditTemplate(tpl)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
                 <Pencil size={14} />
               </button>
             </div>
@@ -176,12 +178,12 @@ export function NotificationsSection({
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-notification-rules">
-        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>Event-Based Notification Rules</h3>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("rulesTitle")}</h3>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                {["Event", "Email", "SMS", "Push", "In-App"].map((h) => (
+                {[t("eventColumn"), t("emailColumn"), t("smsColumn"), t("pushColumn"), t("inAppColumn")].map((h) => (
                   <th key={h} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
                     {h}
                   </th>
@@ -207,22 +209,22 @@ export function NotificationsSection({
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add Notification Template"
+        title={t("addTemplateModalTitle")}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("cancelButton")}
             </Button>
             <Button size="sm" onClick={createTemplate}>
-              Create
+              {t("createButton")}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-2">
-          <input style={fieldStyle} placeholder="Key (e.g. welcome_email)" value={newTemplate.key} onChange={(e) => setNewTemplate((t) => ({ ...t, key: e.target.value }))} />
-          <input style={fieldStyle} placeholder="Subject" value={newTemplate.subject} onChange={(e) => setNewTemplate((t) => ({ ...t, subject: e.target.value }))} />
-          <textarea style={{ ...fieldStyle, resize: "vertical" }} rows={4} placeholder="Body" value={newTemplate.body} onChange={(e) => setNewTemplate((t) => ({ ...t, body: e.target.value }))} />
+          <input style={fieldStyle} placeholder={t("keyPlaceholder")} value={newTemplate.key} onChange={(e) => setNewTemplate((prev) => ({ ...prev, key: e.target.value }))} />
+          <input style={fieldStyle} placeholder={t("subjectPlaceholder")} value={newTemplate.subject} onChange={(e) => setNewTemplate((prev) => ({ ...prev, subject: e.target.value }))} />
+          <textarea style={{ ...fieldStyle, resize: "vertical" }} rows={4} placeholder={t("bodyPlaceholder")} value={newTemplate.body} onChange={(e) => setNewTemplate((prev) => ({ ...prev, body: e.target.value }))} />
         </div>
       </Modal>
 
@@ -230,24 +232,24 @@ export function NotificationsSection({
         <Modal
           open
           onClose={() => setEditTemplate(null)}
-          title={`Edit Template — ${editTemplate.Key}`}
+          title={t("editTemplateModalTitle", { key: editTemplate.Key })}
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setEditTemplate(null)}>
-                Cancel
+                {t("cancelButton")}
               </Button>
               <Button size="sm" onClick={saveTemplate}>
-                Save
+                {t("saveButton")}
               </Button>
             </>
           }
         >
           <div className="flex flex-col gap-2">
-            <input style={fieldStyle} placeholder="Subject" value={editTemplate.Subject ?? ""} onChange={(e) => setEditTemplate({ ...editTemplate, Subject: e.target.value })} />
+            <input style={fieldStyle} placeholder={t("subjectPlaceholder")} value={editTemplate.Subject ?? ""} onChange={(e) => setEditTemplate({ ...editTemplate, Subject: e.target.value })} />
             <textarea
               style={{ ...fieldStyle, resize: "vertical" }}
               rows={5}
-              placeholder="Body"
+              placeholder={t("bodyPlaceholder")}
               value={editTemplate.Body ?? ""}
               onChange={(e) => setEditTemplate({ ...editTemplate, Body: e.target.value })}
             />
