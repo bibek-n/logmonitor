@@ -1,21 +1,22 @@
-import Link from "next/link";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { ArrowRight } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { getDb } from "@/lib/db";
 import { Hero } from "@/components/marketing/Hero";
 import { ServiceCard } from "@/components/marketing/ServiceCard";
 import { WhyChooseUsCard } from "@/components/marketing/WhyChooseUsCard";
-import { SERVICES, WHY_CHOOSE_US, ABOUT_SOFTWARE_FEATURES } from "@/lib/websiteContent";
+import { SERVICE_KEYS, SERVICE_ICONS, WHY_CHOOSE_US_KEYS, WHY_CHOOSE_US_ICONS, ABOUT_SOFTWARE_FEATURE_KEYS } from "@/lib/websiteContent";
 import { MKT } from "@/lib/marketingTheme";
 import type { SlideData } from "@/components/marketing/Slider";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Log Monitor — Security, Network & Staff Monitoring Solution",
-  description:
-    "A complete IT management platform combining security monitoring, network management, hardware asset tracking, staff monitoring, and support ticketing in one dashboard.",
-};
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "home" });
+  return { title: t("metaTitle"), description: t("metaDescription") };
+}
 
 interface SlideRow {
   Id: number;
@@ -45,29 +46,35 @@ export default async function HomePage() {
     imagePath: r.ImagePath,
   }));
 
+  const t = await getTranslations("home");
+  const tFeatures = await getTranslations("aboutSoftwareFeatures");
+  const tServices = await getTranslations("services.items");
+  const tWhy = await getTranslations("whyChooseUs");
+
   return (
     <div>
       <Hero slides={slides} />
 
       <section style={{ padding: "3.5rem 1.25rem", maxWidth: 1200, margin: "0 auto" }}>
         <div className="text-center" style={{ maxWidth: 700, margin: "0 auto 2rem" }}>
-          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>About the Software</h2>
-          <p style={{ color: MKT.inkMuted, fontSize: "0.98rem", lineHeight: 1.6 }}>
-            A centralized platform covering everything IT teams need to keep infrastructure secure, visible, and
-            well-managed.
-          </p>
+          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>{t("aboutTitle")}</h2>
+          <p style={{ color: MKT.inkMuted, fontSize: "0.98rem", lineHeight: 1.6 }}>{t("aboutIntro")}</p>
         </div>
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {ABOUT_SOFTWARE_FEATURES.slice(0, 6).map((f) => (
-            <div key={f.title} style={{ padding: "1rem 0" }}>
-              <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: MKT.ink, marginBottom: "0.35rem" }}>{f.title}</h3>
-              <p style={{ fontSize: "0.85rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>{f.description}</p>
+          {ABOUT_SOFTWARE_FEATURE_KEYS.slice(0, 6).map((key) => (
+            <div key={key} style={{ padding: "1rem 0" }}>
+              <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: MKT.ink, marginBottom: "0.35rem" }}>
+                {tFeatures(`${key}.title`)}
+              </h3>
+              <p style={{ fontSize: "0.85rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>
+                {tFeatures(`${key}.description`)}
+              </p>
             </div>
           ))}
         </div>
         <div className="text-center" style={{ marginTop: "1.5rem" }}>
           <Link href="/about-software" style={{ color: MKT.primary, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-            See everything the software does <ArrowRight size={15} />
+            {t("aboutCta")} <ArrowRight size={15} />
           </Link>
         </div>
       </section>
@@ -75,11 +82,11 @@ export default async function HomePage() {
       <section style={{ background: MKT.surface, padding: "3.5rem 1.25rem" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div className="text-center" style={{ maxWidth: 700, margin: "0 auto 2rem" }}>
-            <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>Our Services</h2>
+            <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>{t("servicesTitle")}</h2>
           </div>
           <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-            {SERVICES.map((s) => (
-              <ServiceCard key={s.title} service={s} />
+            {SERVICE_KEYS.map((key) => (
+              <ServiceCard key={key} icon={SERVICE_ICONS[key]} title={tServices(`${key}.title`)} description={tServices(`${key}.description`)} />
             ))}
           </div>
         </div>
@@ -87,26 +94,24 @@ export default async function HomePage() {
 
       <section style={{ padding: "3.5rem 1.25rem", maxWidth: 1200, margin: "0 auto" }}>
         <div className="text-center" style={{ maxWidth: 700, margin: "0 auto 2rem" }}>
-          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>Why Choose Us</h2>
+          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>{t("whyChooseTitle")}</h2>
         </div>
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {WHY_CHOOSE_US.map((item) => (
-            <WhyChooseUsCard key={item.title} item={item} />
+          {WHY_CHOOSE_US_KEYS.map((key) => (
+            <WhyChooseUsCard key={key} icon={WHY_CHOOSE_US_ICONS[key]} title={tWhy(key)} />
           ))}
         </div>
       </section>
 
       <section style={{ background: MKT.ink, padding: "3rem 1.25rem", textAlign: "center" }}>
-        <h2 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#fff", marginBottom: "0.75rem" }}>
-          Ready to secure and simplify your IT infrastructure?
-        </h2>
-        <p style={{ color: "#94A3B8", marginBottom: "1.5rem" }}>Sign in to your dashboard or get in touch with our team.</p>
+        <h2 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#fff", marginBottom: "0.75rem" }}>{t("ctaTitle")}</h2>
+        <p style={{ color: "#94A3B8", marginBottom: "1.5rem" }}>{t("ctaSubtitle")}</p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link href="/login" style={{ background: MKT.primary, color: "#fff", padding: "0.7rem 1.4rem", borderRadius: 8, textDecoration: "none", fontWeight: 600 }}>
-            Login
+            {t("ctaLogin")}
           </Link>
           <Link href="/contact" style={{ background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", padding: "0.7rem 1.4rem", borderRadius: 8, textDecoration: "none", fontWeight: 600 }}>
-            Contact Us
+            {t("ctaContact")}
           </Link>
         </div>
       </section>

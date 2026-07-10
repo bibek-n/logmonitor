@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { MKT } from "@/lib/marketingTheme";
 
 const inputStyle: React.CSSProperties = {
@@ -13,6 +14,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export function ContactForm() {
+  const t = useTranslations("contact.form");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -44,31 +46,31 @@ export function ContactForm() {
   if (status === "sent") {
     return (
       <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 10, padding: "1.25rem", color: "#065F46" }}>
-        Thanks — your message has been sent. We&apos;ll get back to you soon.
+        {t("success")}
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input style={inputStyle} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
-      <input style={inputStyle} type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input style={inputStyle} placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      <input style={inputStyle} placeholder="Subject (optional)" value={subject} onChange={(e) => setSubject(e.target.value)} />
+      <input style={inputStyle} placeholder={t("namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} required />
+      <input style={inputStyle} type="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <input style={inputStyle} placeholder={t("phonePlaceholder")} value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <input style={inputStyle} placeholder={t("subjectPlaceholder")} value={subject} onChange={(e) => setSubject(e.target.value)} />
       <textarea
         style={{ ...inputStyle, minHeight: 120, resize: "vertical" }}
-        placeholder="How can we help?"
+        placeholder={t("messagePlaceholder")}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required
       />
-      {status === "error" && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>Something went wrong — please try again.</div>}
+      {status === "error" && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>{t("error")}</div>}
       <button
         type="submit"
         disabled={status === "submitting"}
         style={{ background: MKT.primary, color: "#fff", padding: "0.7rem", borderRadius: 8, border: "none", fontWeight: 600, cursor: "pointer" }}
       >
-        {status === "submitting" ? "Sending..." : "Send Message"}
+        {status === "submitting" ? t("sending") : t("sendButton")}
       </button>
     </form>
   );

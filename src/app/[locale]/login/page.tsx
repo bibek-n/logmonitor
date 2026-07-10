@@ -1,27 +1,14 @@
 "use client";
 
 import { Suspense, useState, useEffect, FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
-// "OTP_EXPIRED"/"OTP_LOCKED"/"OTP_INVALID" come from /api/auth/verify-otp; any other string
-// is passed through as-is (already a human-readable message from that route or request-otp).
-function otpErrorMessage(error: string): string {
-  switch (error) {
-    case "OTP_INVALID":
-      return "Incorrect code. Please try again.";
-    case "OTP_EXPIRED":
-      return "That code expired. Click \"Resend code\" to get a new one.";
-    case "OTP_LOCKED":
-      return "Too many incorrect attempts. Click \"Resend code\" to get a new one.";
-    default:
-      return error;
-  }
-}
-
 function LoginForm() {
+  const t = useTranslations("login");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [stage, setStage] = useState<"credentials" | "otp">("credentials");
@@ -34,6 +21,21 @@ function LoginForm() {
   const [resendCooldownUntil, setResendCooldownUntil] = useState<number | null>(null);
   const [, setTick] = useState(0);
   const idleLogout = searchParams.get("reason") === "idle";
+
+  // "OTP_EXPIRED"/"OTP_LOCKED"/"OTP_INVALID" come from /api/auth/verify-otp; any other string
+  // is passed through as-is (already a human-readable message from that route or request-otp).
+  function otpErrorMessage(error: string): string {
+    switch (error) {
+      case "OTP_INVALID":
+        return t("errors.invalid");
+      case "OTP_EXPIRED":
+        return t("errors.expired");
+      case "OTP_LOCKED":
+        return t("errors.locked");
+      default:
+        return error;
+    }
+  }
 
   useEffect(() => {
     if (!resendCooldownUntil) return;
@@ -53,17 +55,17 @@ function LoginForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    const data = await res.json().catch(() => ({ ok: false, error: "Something went wrong. Please try again." }));
+    const data = await res.json().catch(() => ({ ok: false, error: t("errors.generic") }));
 
     if (!data.ok) {
-      setError(data.error ?? "Invalid username or password.");
+      setError(data.error ?? t("errors.invalidCredentials"));
       return false;
     }
 
     setStage("otp");
     setOtp("");
     setError(null);
-    setInfo("We emailed you a login code. Enter it below to continue.");
+    setInfo(t("infoMessage"));
     setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
     return true;
   }
@@ -87,11 +89,11 @@ function LoginForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, otp }),
     });
-    const verifyData = await verifyRes.json().catch(() => ({ ok: false, error: "Something went wrong. Please try again." }));
+    const verifyData = await verifyRes.json().catch(() => ({ ok: false, error: t("errors.generic") }));
 
     if (!verifyData.ok) {
       setLoading(false);
-      setError(otpErrorMessage(verifyData.error ?? "Something went wrong. Please try again."));
+      setError(otpErrorMessage(verifyData.error ?? t("errors.generic")));
       return;
     }
 
@@ -107,7 +109,7 @@ function LoginForm() {
       return;
     }
 
-    setError("Something went wrong finalizing sign-in. Please try again.");
+    setError(t("errors.finalizeError"));
   }
 
   async function handleResend() {
@@ -122,10 +124,10 @@ function LoginForm() {
   return (
     <div className="center-screen">
       <div className="card">
-        <h1>Log Monitor</h1>
+        <h1>{t("heading")}</h1>
         {idleLogout && !error && (
           <div className="error" style={{ background: "var(--warning, #f59e0b)" }}>
-            You were signed out after 15 minutes of inactivity. Please sign in again.
+            {t("idleLogoutMessage")}
           </div>
         )}
         {error && <div className="error">{error}</div>}
@@ -138,7 +140,7 @@ function LoginForm() {
         {stage === "credentials" ? (
           <form onSubmit={handleCredentialsSubmit}>
             <div className="field">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="username">{t("usernameLabel")}</label>
               <input
                 id="username"
                 type="text"
@@ -149,7 +151,7 @@ function LoginForm() {
               />
             </div>
             <div className="field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">{t("passwordLabel")}</label>
               <input
                 id="password"
                 type="password"
@@ -160,13 +162,13 @@ function LoginForm() {
               />
             </div>
             <button className="submit" type="submit" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t("signingIn") : t("signIn")}
             </button>
           </form>
         ) : (
           <form onSubmit={handleOtpSubmit}>
             <div className="field">
-              <label htmlFor="otp">6-digit code</label>
+              <label htmlFor="otp">{t("otpLabel")}</label>
               <input
                 id="otp"
                 type="text"
@@ -180,7 +182,7 @@ function LoginForm() {
               />
             </div>
             <button className="submit" type="submit" disabled={loading || otp.length !== 6}>
-              {loading ? "Verifying..." : "Verify and Sign in"}
+              {loading ? t("verifying") : t("verify")}
             </button>
             <button
               type="button"
@@ -189,7 +191,7 @@ function LoginForm() {
               onClick={handleResend}
               disabled={loading || resendSecondsLeft > 0}
             >
-              {resendSecondsLeft > 0 ? `Resend code (${resendSecondsLeft}s)` : "Resend code"}
+              {resendSecondsLeft > 0 ? t("resendCodeWithSeconds", { seconds: resendSecondsLeft }) : t("resendCode")}
             </button>
             <button
               type="button"
@@ -203,7 +205,7 @@ function LoginForm() {
               }}
               disabled={loading}
             >
-              Back
+              {t("back")}
             </button>
           </form>
         )}

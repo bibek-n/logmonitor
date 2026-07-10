@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { MKT } from "@/lib/marketingTheme";
 
 const inputStyle: React.CSSProperties = {
@@ -22,14 +23,8 @@ interface TicketStatusResult {
   replies: { message: string; createdAt: string }[];
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  resolved: "Resolved",
-  closed: "Closed",
-};
-
 export function TicketStatusLookup() {
+  const t = useTranslations("ticketStatus");
   const [ticketNumber, setTicketNumber] = useState("");
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<TicketStatusResult | null>(null);
@@ -49,12 +44,12 @@ export function TicketStatusLookup() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Ticket not found — check the ticket number and email.");
+        setError(data.error ?? t("notFoundError"));
         return;
       }
       setResult(data.ticket);
     } catch {
-      setError("Something went wrong — please try again.");
+      setError(t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -65,19 +60,19 @@ export function TicketStatusLookup() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
           style={inputStyle}
-          placeholder="Ticket number (e.g. TCK-000123)"
+          placeholder={t("ticketNumberPlaceholder")}
           value={ticketNumber}
           onChange={(e) => setTicketNumber(e.target.value)}
           required
         />
-        <input style={inputStyle} type="email" placeholder="Email used when submitting" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input style={inputStyle} type="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} required />
         {error && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>{error}</div>}
         <button
           type="submit"
           disabled={loading}
           style={{ background: MKT.primary, color: "#fff", padding: "0.7rem", borderRadius: 8, border: "none", fontWeight: 600, cursor: "pointer" }}
         >
-          {loading ? "Checking..." : "Check Status"}
+          {loading ? t("checking") : t("checkButton")}
         </button>
       </form>
 
@@ -86,12 +81,13 @@ export function TicketStatusLookup() {
           <div className="flex items-center justify-between mb-2">
             <strong style={{ color: MKT.ink }}>{result.ticketNumber}</strong>
             <span style={{ background: MKT.surfaceAlt, color: MKT.ink, padding: "0.2rem 0.6rem", borderRadius: 999, fontSize: "0.78rem", fontWeight: 600 }}>
-              {STATUS_LABEL[result.status] ?? result.status}
+              {t.has(`statusLabels.${result.status}`) ? t(`statusLabels.${result.status}`) : result.status}
             </span>
           </div>
           <p style={{ fontSize: "0.9rem", color: MKT.ink, margin: "0 0 0.4rem" }}>{result.subject}</p>
           <p style={{ fontSize: "0.8rem", color: MKT.inkMuted, margin: 0 }}>
-            {result.category} &middot; {result.priority} priority &middot; submitted {new Date(result.createdAt).toLocaleString()}
+            {result.category} &middot; {result.priority} {t("priorityLabel")} &middot; {t("submittedLabel")}{" "}
+            {new Date(result.createdAt).toLocaleString()}
           </p>
 
           {result.replies.length > 0 && (

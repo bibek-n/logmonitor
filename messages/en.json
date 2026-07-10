@@ -1,0 +1,235 @@
+{
+  "nav": {
+    "home": "Home",
+    "aboutSoftware": "About Software",
+    "aboutUs": "About Us",
+    "services": "Services",
+    "support": "Support",
+    "supportTickets": "Support Tickets",
+    "contact": "Contact Us",
+    "login": "Login",
+    "privacyPolicy": "Privacy Policy",
+    "terms": "Terms & Conditions"
+  },
+  "footer": {
+    "tagline": "Complete Security, Network & Staff Monitoring Solution for modern IT teams.",
+    "quickLinksTitle": "Quick Links",
+    "legalTitle": "Legal",
+    "contactTitle": "Contact",
+    "copyright": "Log Monitor. All rights reserved."
+  },
+  "languageSwitcher": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "ne": "नेपाली",
+    "hi": "हिन्दी"
+  },
+  "home": {
+    "metaTitle": "Log Monitor — Security, Network & Staff Monitoring Solution",
+    "metaDescription": "A complete IT management platform combining security monitoring, network management, hardware asset tracking, staff monitoring, and support ticketing in one dashboard.",
+    "heroTitle": "Complete Security, Network & Staff Monitoring Solution",
+    "heroSubtitle": "A single platform to monitor your security posture, network health, hardware assets, and staff activity — with real-time alerts, role-based access, and a support ticket system built in.",
+    "heroLearnMore": "Learn More",
+    "heroLogin": "Login",
+    "aboutTitle": "About the Software",
+    "aboutIntro": "A centralized platform covering everything IT teams need to keep infrastructure secure, visible, and well-managed.",
+    "aboutCta": "See everything the software does",
+    "servicesTitle": "Our Services",
+    "whyChooseTitle": "Why Choose Us",
+    "ctaTitle": "Ready to secure and simplify your IT infrastructure?",
+    "ctaSubtitle": "Sign in to your dashboard or get in touch with our team.",
+    "ctaLogin": "Login",
+    "ctaContact": "Contact Us"
+  },
+  "aboutSoftware": {
+    "metaTitle": "About the Software — Log Monitor",
+    "metaDescription": "A complete IT management platform: security monitoring, network management, hardware asset tracking, staff monitoring, alerts, reporting, and ticketing.",
+    "title": "About the Software",
+    "intro": "Log Monitor brings together everything an IT team needs to keep infrastructure secure, visible, and well-managed — real-time monitoring, hardware inventory, staff activity oversight, and a built-in support ticket system, all from one dashboard."
+  },
+  "aboutSoftwareFeatures": {
+    "security": { "title": "Security Monitoring", "description": "Continuous visibility into firewall events, threats, and system security posture across your infrastructure." },
+    "network": { "title": "Network Monitoring", "description": "Real-time tracking of routers, bandwidth usage, connected devices, and network health." },
+    "hardware": { "title": "Hardware Asset Management", "description": "A complete inventory of computers, servers, and endpoint hardware, including specs and health status." },
+    "staff": { "title": "Staff Activity Monitoring", "description": "Consent-based visibility into staff device activity, with privacy controls built in from the ground up." },
+    "alerts": { "title": "System Alerts and Notifications", "description": "Instant alerts when thresholds are crossed — high CPU, disk failures, security events, and more." },
+    "dashboard": { "title": "Dashboard Reporting", "description": "Clear, real-time dashboards summarizing the health and status of your entire IT environment." },
+    "userRoles": { "title": "User and Role Management", "description": "Control who can access what, with role-based permissions across the platform." },
+    "tickets": { "title": "Ticket Management", "description": "A built-in support ticket system so issues get tracked, assigned, and resolved." },
+    "audit": { "title": "Audit Logs", "description": "A full trail of who did what and when — critical for accountability and compliance." },
+    "auth": { "title": "Secure Authentication", "description": "Encrypted credentials and session management to keep access to your systems locked down." }
+  },
+  "aboutUs": {
+    "metaTitle": "About Us — Log Monitor",
+    "metaDescription": "Our company, vision, and mission behind the Log Monitor IT management platform.",
+    "title": "About Our Company",
+    "intro": "We provide comprehensive IT management solutions designed to help organizations efficiently manage their technology infrastructure.",
+    "combined": "Our platform combines Security Monitoring, Network Management, Hardware Asset Tracking, Staff Monitoring, and Support Ticket Management into one centralized system.",
+    "missionStatement": "Our mission is to improve security, increase operational efficiency, and simplify IT administration through an easy-to-use, secure, and scalable platform.",
+    "visionTitle": "Our Vision",
+    "vision": "To become a trusted provider of secure and intelligent IT management solutions that empower organizations to protect their digital infrastructure and improve productivity.",
+    "missionTitle": "Our Mission",
+    "missionPoints": {
+      "0": "Deliver secure and reliable IT solutions",
+      "1": "Simplify infrastructure management",
+      "2": "Improve organizational productivity",
+      "3": "Enhance cybersecurity",
+      "4": "Provide excellent customer support"
+    }
+  },
+  "services": {
+    "metaTitle": "Our Services — Log Monitor",
+    "metaDescription": "Security management, network monitoring, hardware management, staff monitoring, and support services.",
+    "title": "Our Services",
+    "intro": "Everything you need to keep your organization's technology secure, connected, and running smoothly.",
+    "items": {
+      "security": { "title": "Security Management", "description": "Protect systems with real-time security monitoring and alerts." },
+      "network": { "title": "Network System", "description": "Monitor network devices, uptime, bandwidth, and connectivity." },
+      "hardware": { "title": "Hardware Management", "description": "Track computers, servers, printers, and other IT assets." },
+      "staff": { "title": "Staff Monitoring", "description": "Monitor staff activities, attendance, productivity, and system usage." },
+      "supportMgmt": { "title": "Support Management", "description": "Provide technical support and issue resolution." },
+      "supportTickets": { "title": "Support Tickets", "description": "Allow users to submit and track support requests." }
+    }
+  },
+  "whyChooseUs": {
+    "realtime": "Real-Time Monitoring",
+    "secure": "Secure System",
+    "easyDashboard": "Easy-to-Use Dashboard",
+    "fastSupport": "Fast Support",
+    "cloudReady": "Cloud Ready",
+    "scalable": "Scalable Architecture",
+    "rbac": "Role-Based Access Control",
+    "autoReports": "Automatic Reports",
+    "dataProtection": "Data Protection",
+    "monitoring247": "24/7 Monitoring"
+  },
+  "contact": {
+    "metaTitle": "Contact Us — Log Monitor",
+    "metaDescription": "Get in touch with the Log Monitor team.",
+    "title": "Contact Us",
+    "intro": "Have a question or need help? Reach out and our team will respond as soon as possible.",
+    "addressLabel": "Address",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "hoursLabel": "Business Hours",
+    "mapPlaceholder": "Map will appear here once a company address is configured.",
+    "form": {
+      "namePlaceholder": "Your name",
+      "emailPlaceholder": "Email address",
+      "phonePlaceholder": "Phone (optional)",
+      "subjectPlaceholder": "Subject (optional)",
+      "messagePlaceholder": "How can we help?",
+      "sendButton": "Send Message",
+      "sending": "Sending...",
+      "error": "Something went wrong — please try again.",
+      "success": "Thanks — your message has been sent. We'll get back to you soon."
+    }
+  },
+  "support": {
+    "metaTitle": "Support — Log Monitor",
+    "metaDescription": "Knowledge base, FAQs, guides, and support ticket access for Log Monitor.",
+    "title": "Support",
+    "intro": "Find answers below, or submit a support ticket and our team will help you directly.",
+    "knowledgeBaseTitle": "Knowledge Base",
+    "knowledgeBaseDesc": "Guides and articles covering the platform's core features.",
+    "knowledgeBaseLink": "Browse guides",
+    "faqCardTitle": "FAQ",
+    "faqCardDesc": "Answers to the questions we hear most often.",
+    "faqCardLink": "View FAQs",
+    "submitTicketTitle": "Submit a Ticket",
+    "submitTicketDesc": "Get direct help from our support team.",
+    "submitTicketLink": "Create ticket",
+    "checkStatusTitle": "Check Ticket Status",
+    "checkStatusDesc": "Track a ticket you already submitted.",
+    "checkStatusLink": "Check status",
+    "guidesTitle": "User Guides",
+    "guides": {
+      "0": "Getting started with the monitoring dashboard",
+      "1": "Understanding alerts and severity levels",
+      "2": "Submitting and tracking a support ticket"
+    },
+    "faqTitle": "Frequently Asked Questions",
+    "faqs": {
+      "access": { "question": "How do I get access to the dashboard?", "answer": "Dashboard access is provisioned by your IT administrator. Contact support if you need an account." },
+      "report": { "question": "How do I report an issue?", "answer": "Submit a support ticket with as much detail as possible, including a screenshot if relevant." },
+      "checkStatus": { "question": "How can I check the status of a ticket I submitted?", "answer": "Use the \"Check Ticket Status\" page with your ticket number and the email you submitted with." },
+      "consent": { "question": "Is staff monitoring done without consent?", "answer": "No — endpoint monitoring only begins after explicit local consent is given on the device itself, and is limited to company-owned devices under written policy." }
+    },
+    "stillNeedHelp": "Still need help? Email us at"
+  },
+  "newTicket": {
+    "metaTitle": "Submit a Support Ticket — Log Monitor",
+    "metaDescription": "Submit a support ticket and our team will get back to you.",
+    "title": "Submit a Support Ticket",
+    "intro": "Tell us what's going on and we'll follow up as soon as possible.",
+    "namePlaceholder": "Your name",
+    "emailPlaceholder": "Email address",
+    "subjectPlaceholder": "Subject",
+    "descriptionPlaceholder": "Describe the issue in detail",
+    "attachmentLabel": "Attachment (optional, max 10 MB)",
+    "attachmentTooLarge": "Attachment must be 10 MB or smaller.",
+    "submitButton": "Submit Ticket",
+    "submitting": "Submitting...",
+    "genericError": "Something went wrong — please try again.",
+    "successTitle": "Ticket submitted successfully.",
+    "successBody": "Your ticket number is {ticketNumber}. Save this — you'll need it (along with your email) to check the status later.",
+    "categories": { "general": "General Inquiry", "technical": "Technical Issue", "billing": "Billing", "feature": "Feature Request", "bug": "Bug Report", "other": "Other" },
+    "priorities": { "low": "Low", "medium": "Medium", "high": "High", "urgent": "Urgent" }
+  },
+  "ticketStatus": {
+    "metaTitle": "Check Ticket Status — Log Monitor",
+    "metaDescription": "Check the status of a support ticket you submitted.",
+    "title": "Check Ticket Status",
+    "intro": "Enter your ticket number and the email you used to submit it.",
+    "ticketNumberPlaceholder": "Ticket number (e.g. TCK-000123)",
+    "emailPlaceholder": "Email used when submitting",
+    "checkButton": "Check Status",
+    "checking": "Checking...",
+    "notFoundError": "Ticket not found — check the ticket number and email.",
+    "genericError": "Something went wrong — please try again.",
+    "priorityLabel": "priority",
+    "submittedLabel": "submitted",
+    "statusLabels": { "open": "Open", "in_progress": "In Progress", "resolved": "Resolved", "closed": "Closed" }
+  },
+  "privacyPolicy": {
+    "metaTitle": "Privacy Policy — Log Monitor",
+    "title": "Privacy Policy",
+    "body": "This placeholder privacy policy will be replaced with the finalized, legally-reviewed version. It should describe what data is collected (including any endpoint or staff monitoring data), how it is used, how long it is retained, and how individuals can exercise any applicable data rights."
+  },
+  "terms": {
+    "metaTitle": "Terms & Conditions — Log Monitor",
+    "title": "Terms & Conditions",
+    "body": "This placeholder will be replaced with finalized, legally-reviewed terms of service governing use of this platform."
+  },
+  "login": {
+    "heading": "Log Monitor",
+    "idleLogoutMessage": "You were signed out after 15 minutes of inactivity. Please sign in again.",
+    "infoMessage": "We emailed you a login code. Enter it below to continue.",
+    "usernameLabel": "Username",
+    "passwordLabel": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "otpLabel": "6-digit code",
+    "verify": "Verify and Sign in",
+    "verifying": "Verifying...",
+    "resendCode": "Resend code",
+    "resendCodeWithSeconds": "Resend code ({seconds}s)",
+    "back": "Back",
+    "errors": {
+      "invalid": "Incorrect code. Please try again.",
+      "expired": "That code expired. Click \"Resend code\" to get a new one.",
+      "locked": "Too many incorrect attempts. Click \"Resend code\" to get a new one.",
+      "invalidCredentials": "Invalid username or password.",
+      "generic": "Something went wrong. Please try again.",
+      "finalizeError": "Something went wrong finalizing sign-in. Please try again."
+    }
+  },
+  "maintenance": {
+    "metaTitle": "Under Maintenance — Log Monitor",
+    "title": "Under Maintenance",
+    "defaultMessage": "We're currently performing scheduled maintenance. Please check back shortly."
+  }
+}

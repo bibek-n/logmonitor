@@ -1,0 +1,235 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "aboutSoftware": "Über die Software",
+    "aboutUs": "Über uns",
+    "services": "Dienstleistungen",
+    "support": "Support",
+    "supportTickets": "Support-Tickets",
+    "contact": "Kontakt",
+    "login": "Anmelden",
+    "privacyPolicy": "Datenschutzerklärung",
+    "terms": "Allgemeine Geschäftsbedingungen"
+  },
+  "footer": {
+    "tagline": "Komplette Sicherheits-, Netzwerk- und Mitarbeiterüberwachungslösung für moderne IT-Teams.",
+    "quickLinksTitle": "Schnellzugriff",
+    "legalTitle": "Rechtliches",
+    "contactTitle": "Kontakt",
+    "copyright": "Log Monitor. Alle Rechte vorbehalten."
+  },
+  "languageSwitcher": {
+    "label": "Sprache",
+    "en": "English",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "ne": "नेपाली",
+    "hi": "हिन्दी"
+  },
+  "home": {
+    "metaTitle": "Log Monitor — Sicherheits-, Netzwerk- und Mitarbeiterüberwachungslösung",
+    "metaDescription": "Eine vollständige IT-Management-Plattform, die Sicherheitsüberwachung, Netzwerkverwaltung, Hardware-Bestandsverfolgung, Mitarbeiterüberwachung und Support-Ticketing in einem Dashboard vereint.",
+    "heroTitle": "Komplette Sicherheits-, Netzwerk- und Mitarbeiterüberwachungslösung",
+    "heroSubtitle": "Eine einzige Plattform zur Überwachung Ihrer Sicherheitslage, des Netzwerkzustands, der Hardware-Bestände und der Mitarbeiteraktivitäten — mit Echtzeitwarnungen, rollenbasiertem Zugriff und integriertem Support-Ticketsystem.",
+    "heroLearnMore": "Mehr erfahren",
+    "heroLogin": "Anmelden",
+    "aboutTitle": "Über die Software",
+    "aboutIntro": "Eine zentrale Plattform, die alles abdeckt, was IT-Teams benötigen, um ihre Infrastruktur sicher, sichtbar und gut verwaltet zu halten.",
+    "aboutCta": "Alles ansehen, was die Software kann",
+    "servicesTitle": "Unsere Dienstleistungen",
+    "whyChooseTitle": "Warum uns wählen",
+    "ctaTitle": "Bereit, Ihre IT-Infrastruktur zu sichern und zu vereinfachen?",
+    "ctaSubtitle": "Melden Sie sich bei Ihrem Dashboard an oder nehmen Sie Kontakt mit unserem Team auf.",
+    "ctaLogin": "Anmelden",
+    "ctaContact": "Kontakt"
+  },
+  "aboutSoftware": {
+    "metaTitle": "Über die Software — Log Monitor",
+    "metaDescription": "Eine vollständige IT-Management-Plattform: Sicherheitsüberwachung, Netzwerkverwaltung, Hardware-Bestandsverfolgung, Mitarbeiterüberwachung, Warnungen, Berichte und Ticketing.",
+    "title": "Über die Software",
+    "intro": "Log Monitor vereint alles, was ein IT-Team benötigt, um die Infrastruktur sicher, sichtbar und gut verwaltet zu halten — Echtzeitüberwachung, Hardwarebestand, Überwachung der Mitarbeiteraktivität und ein integriertes Support-Ticketsystem, alles über ein einziges Dashboard."
+  },
+  "aboutSoftwareFeatures": {
+    "security": { "title": "Sicherheitsüberwachung", "description": "Kontinuierliche Einblicke in Firewall-Ereignisse, Bedrohungen und die Sicherheitslage des Systems in Ihrer gesamten Infrastruktur." },
+    "network": { "title": "Netzwerküberwachung", "description": "Echtzeit-Tracking von Routern, Bandbreitennutzung, verbundenen Geräten und Netzwerkzustand." },
+    "hardware": { "title": "Hardware-Bestandsverwaltung", "description": "Ein vollständiges Inventar von Computern, Servern und Endgeräte-Hardware, einschließlich Spezifikationen und Zustand." },
+    "staff": { "title": "Überwachung der Mitarbeiteraktivität", "description": "Einwilligungsbasierte Einblicke in die Geräteaktivität der Mitarbeiter, mit von Grund auf integrierten Datenschutzkontrollen." },
+    "alerts": { "title": "Systemwarnungen und Benachrichtigungen", "description": "Sofortige Warnungen beim Überschreiten von Schwellenwerten — hohe CPU-Auslastung, Festplattenausfälle, Sicherheitsereignisse und mehr." },
+    "dashboard": { "title": "Dashboard-Berichte", "description": "Klare Echtzeit-Dashboards, die den Zustand und Status Ihrer gesamten IT-Umgebung zusammenfassen." },
+    "userRoles": { "title": "Benutzer- und Rollenverwaltung", "description": "Steuern Sie, wer auf was zugreifen kann, mit rollenbasierten Berechtigungen auf der gesamten Plattform." },
+    "tickets": { "title": "Ticketverwaltung", "description": "Ein integriertes Support-Ticketsystem, damit Probleme verfolgt, zugewiesen und gelöst werden." },
+    "audit": { "title": "Audit-Protokolle", "description": "Eine vollständige Aufzeichnung, wer was wann getan hat — entscheidend für Verantwortlichkeit und Compliance." },
+    "auth": { "title": "Sichere Authentifizierung", "description": "Verschlüsselte Anmeldedaten und Sitzungsverwaltung, um den Zugriff auf Ihre Systeme abzusichern." }
+  },
+  "aboutUs": {
+    "metaTitle": "Über uns — Log Monitor",
+    "metaDescription": "Unser Unternehmen, unsere Vision und unsere Mission hinter der IT-Management-Plattform Log Monitor.",
+    "title": "Über unser Unternehmen",
+    "intro": "Wir bieten umfassende IT-Management-Lösungen, die Organisationen dabei helfen, ihre technologische Infrastruktur effizient zu verwalten.",
+    "combined": "Unsere Plattform vereint Sicherheitsüberwachung, Netzwerkverwaltung, Hardware-Bestandsverfolgung, Mitarbeiterüberwachung und Support-Ticketverwaltung in einem zentralen System.",
+    "missionStatement": "Unsere Mission ist es, die Sicherheit zu verbessern, die Betriebseffizienz zu steigern und die IT-Verwaltung durch eine benutzerfreundliche, sichere und skalierbare Plattform zu vereinfachen.",
+    "visionTitle": "Unsere Vision",
+    "vision": "Ein vertrauenswürdiger Anbieter sicherer und intelligenter IT-Management-Lösungen zu werden, die Organisationen dabei unterstützen, ihre digitale Infrastruktur zu schützen und die Produktivität zu steigern.",
+    "missionTitle": "Unsere Mission",
+    "missionPoints": {
+      "0": "Sichere und zuverlässige IT-Lösungen liefern",
+      "1": "Die Infrastrukturverwaltung vereinfachen",
+      "2": "Die organisatorische Produktivität verbessern",
+      "3": "Die Cybersicherheit stärken",
+      "4": "Exzellenten Kundensupport bieten"
+    }
+  },
+  "services": {
+    "metaTitle": "Unsere Dienstleistungen — Log Monitor",
+    "metaDescription": "Sicherheitsmanagement, Netzwerküberwachung, Hardwareverwaltung, Mitarbeiterüberwachung und Support-Dienstleistungen.",
+    "title": "Unsere Dienstleistungen",
+    "intro": "Alles, was Sie brauchen, um die Technologie Ihres Unternehmens sicher, vernetzt und reibungslos am Laufen zu halten.",
+    "items": {
+      "security": { "title": "Sicherheitsmanagement", "description": "Schützen Sie Systeme mit Echtzeit-Sicherheitsüberwachung und Warnungen." },
+      "network": { "title": "Netzwerksystem", "description": "Überwachen Sie Netzwerkgeräte, Verfügbarkeit, Bandbreite und Konnektivität." },
+      "hardware": { "title": "Hardwareverwaltung", "description": "Verfolgen Sie Computer, Server, Drucker und andere IT-Ressourcen." },
+      "staff": { "title": "Mitarbeiterüberwachung", "description": "Überwachen Sie Aktivitäten, Anwesenheit, Produktivität und Systemnutzung der Mitarbeiter." },
+      "supportMgmt": { "title": "Support-Management", "description": "Bieten Sie technischen Support und Problemlösung." },
+      "supportTickets": { "title": "Support-Tickets", "description": "Ermöglichen Sie Benutzern, Support-Anfragen einzureichen und zu verfolgen." }
+    }
+  },
+  "whyChooseUs": {
+    "realtime": "Echtzeitüberwachung",
+    "secure": "Sicheres System",
+    "easyDashboard": "Benutzerfreundliches Dashboard",
+    "fastSupport": "Schneller Support",
+    "cloudReady": "Cloud-fähig",
+    "scalable": "Skalierbare Architektur",
+    "rbac": "Rollenbasierte Zugriffskontrolle",
+    "autoReports": "Automatische Berichte",
+    "dataProtection": "Datenschutz",
+    "monitoring247": "24/7-Überwachung"
+  },
+  "contact": {
+    "metaTitle": "Kontakt — Log Monitor",
+    "metaDescription": "Nehmen Sie Kontakt mit dem Log Monitor-Team auf.",
+    "title": "Kontakt",
+    "intro": "Haben Sie eine Frage oder benötigen Sie Hilfe? Wenden Sie sich an uns — unser Team antwortet so schnell wie möglich.",
+    "addressLabel": "Adresse",
+    "phoneLabel": "Telefon",
+    "emailLabel": "E-Mail",
+    "hoursLabel": "Geschäftszeiten",
+    "mapPlaceholder": "Die Karte wird hier angezeigt, sobald eine Unternehmensadresse konfiguriert ist.",
+    "form": {
+      "namePlaceholder": "Ihr Name",
+      "emailPlaceholder": "E-Mail-Adresse",
+      "phonePlaceholder": "Telefon (optional)",
+      "subjectPlaceholder": "Betreff (optional)",
+      "messagePlaceholder": "Wie können wir helfen?",
+      "sendButton": "Nachricht senden",
+      "sending": "Wird gesendet...",
+      "error": "Etwas ist schiefgelaufen — bitte versuchen Sie es erneut.",
+      "success": "Danke — Ihre Nachricht wurde gesendet. Wir melden uns in Kürze bei Ihnen."
+    }
+  },
+  "support": {
+    "metaTitle": "Support — Log Monitor",
+    "metaDescription": "Wissensdatenbank, FAQs, Anleitungen und Support-Ticket-Zugang für Log Monitor.",
+    "title": "Support",
+    "intro": "Finden Sie unten Antworten oder reichen Sie ein Support-Ticket ein — unser Team hilft Ihnen direkt weiter.",
+    "knowledgeBaseTitle": "Wissensdatenbank",
+    "knowledgeBaseDesc": "Anleitungen und Artikel zu den Kernfunktionen der Plattform.",
+    "knowledgeBaseLink": "Anleitungen durchsuchen",
+    "faqCardTitle": "FAQ",
+    "faqCardDesc": "Antworten auf die häufigsten Fragen.",
+    "faqCardLink": "FAQs ansehen",
+    "submitTicketTitle": "Ticket einreichen",
+    "submitTicketDesc": "Erhalten Sie direkte Hilfe von unserem Support-Team.",
+    "submitTicketLink": "Ticket erstellen",
+    "checkStatusTitle": "Ticketstatus prüfen",
+    "checkStatusDesc": "Verfolgen Sie ein bereits eingereichtes Ticket.",
+    "checkStatusLink": "Status prüfen",
+    "guidesTitle": "Benutzeranleitungen",
+    "guides": {
+      "0": "Erste Schritte mit dem Überwachungs-Dashboard",
+      "1": "Warnungen und Schweregrade verstehen",
+      "2": "Ein Support-Ticket einreichen und verfolgen"
+    },
+    "faqTitle": "Häufig gestellte Fragen",
+    "faqs": {
+      "access": { "question": "Wie erhalte ich Zugriff auf das Dashboard?", "answer": "Der Dashboard-Zugriff wird von Ihrem IT-Administrator bereitgestellt. Kontaktieren Sie den Support, wenn Sie ein Konto benötigen." },
+      "report": { "question": "Wie melde ich ein Problem?", "answer": "Reichen Sie ein Support-Ticket mit möglichst vielen Details ein, gegebenenfalls mit einem Screenshot." },
+      "checkStatus": { "question": "Wie kann ich den Status eines eingereichten Tickets überprüfen?", "answer": "Nutzen Sie die Seite \"Ticketstatus prüfen\" mit Ihrer Ticketnummer und der bei der Einreichung verwendeten E-Mail-Adresse." },
+      "consent": { "question": "Erfolgt die Mitarbeiterüberwachung ohne Einwilligung?", "answer": "Nein — die Endgeräteüberwachung beginnt erst nach ausdrücklicher lokaler Einwilligung auf dem Gerät selbst und beschränkt sich auf firmeneigene Geräte im Rahmen einer schriftlichen Richtlinie." }
+    },
+    "stillNeedHelp": "Benötigen Sie weitere Hilfe? Schreiben Sie uns an"
+  },
+  "newTicket": {
+    "metaTitle": "Support-Ticket einreichen — Log Monitor",
+    "metaDescription": "Reichen Sie ein Support-Ticket ein, und unser Team meldet sich bei Ihnen.",
+    "title": "Support-Ticket einreichen",
+    "intro": "Teilen Sie uns mit, worum es geht — wir melden uns so schnell wie möglich.",
+    "namePlaceholder": "Ihr Name",
+    "emailPlaceholder": "E-Mail-Adresse",
+    "subjectPlaceholder": "Betreff",
+    "descriptionPlaceholder": "Beschreiben Sie das Problem im Detail",
+    "attachmentLabel": "Anhang (optional, max. 10 MB)",
+    "attachmentTooLarge": "Der Anhang darf höchstens 10 MB groß sein.",
+    "submitButton": "Ticket einreichen",
+    "submitting": "Wird eingereicht...",
+    "genericError": "Etwas ist schiefgelaufen — bitte versuchen Sie es erneut.",
+    "successTitle": "Ticket erfolgreich eingereicht.",
+    "successBody": "Ihre Ticketnummer lautet {ticketNumber}. Bewahren Sie diese auf — Sie benötigen sie (zusammen mit Ihrer E-Mail-Adresse), um den Status später zu prüfen.",
+    "categories": { "general": "Allgemeine Anfrage", "technical": "Technisches Problem", "billing": "Abrechnung", "feature": "Funktionswunsch", "bug": "Fehlerbericht", "other": "Sonstiges" },
+    "priorities": { "low": "Niedrig", "medium": "Mittel", "high": "Hoch", "urgent": "Dringend" }
+  },
+  "ticketStatus": {
+    "metaTitle": "Ticketstatus prüfen — Log Monitor",
+    "metaDescription": "Überprüfen Sie den Status eines von Ihnen eingereichten Support-Tickets.",
+    "title": "Ticketstatus prüfen",
+    "intro": "Geben Sie Ihre Ticketnummer und die bei der Einreichung verwendete E-Mail-Adresse ein.",
+    "ticketNumberPlaceholder": "Ticketnummer (z. B. TCK-000123)",
+    "emailPlaceholder": "Bei der Einreichung verwendete E-Mail-Adresse",
+    "checkButton": "Status prüfen",
+    "checking": "Wird geprüft...",
+    "notFoundError": "Ticket nicht gefunden — überprüfen Sie Ticketnummer und E-Mail-Adresse.",
+    "genericError": "Etwas ist schiefgelaufen — bitte versuchen Sie es erneut.",
+    "priorityLabel": "Priorität",
+    "submittedLabel": "eingereicht am",
+    "statusLabels": { "open": "Offen", "in_progress": "In Bearbeitung", "resolved": "Gelöst", "closed": "Geschlossen" }
+  },
+  "privacyPolicy": {
+    "metaTitle": "Datenschutzerklärung — Log Monitor",
+    "title": "Datenschutzerklärung",
+    "body": "Diese vorläufige Datenschutzerklärung wird durch die finale, rechtlich geprüfte Fassung ersetzt. Sie sollte beschreiben, welche Daten erhoben werden (einschließlich etwaiger Endgeräte- oder Mitarbeiterüberwachungsdaten), wie sie verwendet werden, wie lange sie aufbewahrt werden und wie Betroffene ihre Datenrechte geltend machen können."
+  },
+  "terms": {
+    "metaTitle": "Allgemeine Geschäftsbedingungen — Log Monitor",
+    "title": "Allgemeine Geschäftsbedingungen",
+    "body": "Dieser Platzhalter wird durch die finalen, rechtlich geprüften Nutzungsbedingungen für diese Plattform ersetzt."
+  },
+  "login": {
+    "heading": "Log Monitor",
+    "idleLogoutMessage": "Sie wurden nach 15 Minuten Inaktivität abgemeldet. Bitte melden Sie sich erneut an.",
+    "infoMessage": "Wir haben Ihnen einen Anmeldecode per E-Mail gesendet. Geben Sie ihn unten ein, um fortzufahren.",
+    "usernameLabel": "Benutzername",
+    "passwordLabel": "Passwort",
+    "signIn": "Anmelden",
+    "signingIn": "Anmeldung läuft...",
+    "otpLabel": "6-stelliger Code",
+    "verify": "Verifizieren und Anmelden",
+    "verifying": "Wird verifiziert...",
+    "resendCode": "Code erneut senden",
+    "resendCodeWithSeconds": "Code erneut senden ({seconds}s)",
+    "back": "Zurück",
+    "errors": {
+      "invalid": "Falscher Code. Bitte versuchen Sie es erneut.",
+      "expired": "Dieser Code ist abgelaufen. Klicken Sie auf \"Code erneut senden\", um einen neuen zu erhalten.",
+      "locked": "Zu viele falsche Versuche. Klicken Sie auf \"Code erneut senden\", um einen neuen zu erhalten.",
+      "invalidCredentials": "Ungültiger Benutzername oder ungültiges Passwort.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+      "finalizeError": "Beim Abschließen der Anmeldung ist etwas schiefgelaufen. Bitte versuchen Sie es erneut."
+    }
+  },
+  "maintenance": {
+    "metaTitle": "In Wartung — Log Monitor",
+    "title": "In Wartung",
+    "defaultMessage": "Wir führen derzeit planmäßige Wartungsarbeiten durch. Bitte schauen Sie in Kürze wieder vorbei."
+  }
+}

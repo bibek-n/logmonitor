@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Activity, Menu, X } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { PUBLIC_NAV } from "@/lib/websiteContent";
 import { MKT } from "@/lib/marketingTheme";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function PublicNav() {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("nav");
 
   return (
     <header
@@ -32,9 +35,10 @@ export function PublicNav() {
         <nav className="hidden md:flex items-center gap-6" style={{ fontSize: "0.9rem" }}>
           {PUBLIC_NAV.map((item) => (
             <Link key={item.href} href={item.href} style={{ color: MKT.inkMuted, textDecoration: "none" }}>
-              {item.label}
+              {t(item.key)}
             </Link>
           ))}
+          <LanguageSwitcher />
           <Link
             href="/login"
             style={{
@@ -46,7 +50,7 @@ export function PublicNav() {
               fontWeight: 600,
             }}
           >
-            Login
+            {t("login")}
           </Link>
         </nav>
 
@@ -70,9 +74,12 @@ export function PublicNav() {
               onClick={() => setOpen(false)}
               style={{ color: MKT.inkMuted, textDecoration: "none", padding: "0.6rem 0" }}
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           ))}
+          <div style={{ padding: "0.6rem 0" }}>
+            <LanguageSwitcher />
+          </div>
           <Link
             href="/login"
             onClick={() => setOpen(false)}
@@ -87,7 +94,7 @@ export function PublicNav() {
               marginTop: "0.5rem",
             }}
           >
-            Login
+            {t("login")}
           </Link>
         </nav>
       )}

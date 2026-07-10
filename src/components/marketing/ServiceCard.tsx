@@ -1,9 +1,8 @@
 import { resolveIcon } from "./icons";
 import { MKT } from "@/lib/marketingTheme";
-import type { ServiceItem } from "@/lib/websiteContent";
 
-export function ServiceCard({ service }: { service: ServiceItem }) {
-  const Icon = resolveIcon(service.icon);
+export function ServiceCard({ icon, title, description }: { icon: string; title: string; description: string }) {
+  const Icon = resolveIcon(icon);
   return (
     <div
       style={{
@@ -29,8 +28,8 @@ export function ServiceCard({ service }: { service: ServiceItem }) {
       >
         <Icon size={22} style={{ color: MKT.primary }} />
       </div>
-      <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: MKT.ink, margin: 0 }}>{service.title}</h3>
-      <p style={{ fontSize: "0.9rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>{service.description}</p>
+      <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: MKT.ink, margin: 0 }}>{title}</h3>
+      <p style={{ fontSize: "0.9rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>{description}</p>
     </div>
   );
 }

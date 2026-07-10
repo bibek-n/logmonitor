@@ -1,0 +1,235 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "aboutSoftware": "À propos du logiciel",
+    "aboutUs": "À propos de nous",
+    "services": "Services",
+    "support": "Assistance",
+    "supportTickets": "Tickets d'assistance",
+    "contact": "Contactez-nous",
+    "login": "Connexion",
+    "privacyPolicy": "Politique de confidentialité",
+    "terms": "Conditions générales"
+  },
+  "footer": {
+    "tagline": "Solution complète de sécurité, de réseau et de surveillance du personnel pour les équipes IT modernes.",
+    "quickLinksTitle": "Liens Rapides",
+    "legalTitle": "Mentions Légales",
+    "contactTitle": "Contact",
+    "copyright": "Log Monitor. Tous droits réservés."
+  },
+  "languageSwitcher": {
+    "label": "Langue",
+    "en": "English",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "ne": "नेपाली",
+    "hi": "हिन्दी"
+  },
+  "home": {
+    "metaTitle": "Log Monitor — Solution de Sécurité, Réseau et Surveillance du Personnel",
+    "metaDescription": "Une plateforme complète de gestion informatique combinant la surveillance de la sécurité, la gestion du réseau, le suivi des actifs matériels, la surveillance du personnel et la gestion des tickets d'assistance en un seul tableau de bord.",
+    "heroTitle": "Solution Complète de Sécurité, Réseau et Surveillance du Personnel",
+    "heroSubtitle": "Une plateforme unique pour surveiller votre posture de sécurité, la santé du réseau, les actifs matériels et l'activité du personnel — avec des alertes en temps réel, un accès basé sur les rôles et un système de tickets d'assistance intégré.",
+    "heroLearnMore": "En savoir plus",
+    "heroLogin": "Connexion",
+    "aboutTitle": "À propos du logiciel",
+    "aboutIntro": "Une plateforme centralisée couvrant tout ce dont les équipes IT ont besoin pour garder leur infrastructure sécurisée, visible et bien gérée.",
+    "aboutCta": "Découvrez tout ce que le logiciel peut faire",
+    "servicesTitle": "Nos Services",
+    "whyChooseTitle": "Pourquoi Nous Choisir",
+    "ctaTitle": "Prêt à sécuriser et simplifier votre infrastructure informatique ?",
+    "ctaSubtitle": "Connectez-vous à votre tableau de bord ou contactez notre équipe.",
+    "ctaLogin": "Connexion",
+    "ctaContact": "Contactez-nous"
+  },
+  "aboutSoftware": {
+    "metaTitle": "À propos du logiciel — Log Monitor",
+    "metaDescription": "Une plateforme complète de gestion informatique : surveillance de la sécurité, gestion du réseau, suivi des actifs matériels, surveillance du personnel, alertes, rapports et tickets.",
+    "title": "À propos du logiciel",
+    "intro": "Log Monitor réunit tout ce dont une équipe IT a besoin pour garder son infrastructure sécurisée, visible et bien gérée — surveillance en temps réel, inventaire matériel, supervision de l'activité du personnel et un système de tickets d'assistance intégré, le tout depuis un seul tableau de bord."
+  },
+  "aboutSoftwareFeatures": {
+    "security": { "title": "Surveillance de la Sécurité", "description": "Visibilité continue sur les événements du pare-feu, les menaces et la posture de sécurité du système à travers votre infrastructure." },
+    "network": { "title": "Surveillance du Réseau", "description": "Suivi en temps réel des routeurs, de l'utilisation de la bande passante, des appareils connectés et de la santé du réseau." },
+    "hardware": { "title": "Gestion des Actifs Matériels", "description": "Un inventaire complet des ordinateurs, serveurs et matériels de terminaux, y compris les spécifications et l'état de santé." },
+    "staff": { "title": "Surveillance de l'Activité du Personnel", "description": "Visibilité basée sur le consentement de l'activité du personnel sur les appareils, avec des contrôles de confidentialité intégrés dès la conception." },
+    "alerts": { "title": "Alertes et Notifications Système", "description": "Alertes instantanées lorsque des seuils sont dépassés — utilisation élevée du processeur, pannes de disque, événements de sécurité, et plus encore." },
+    "dashboard": { "title": "Rapports de Tableau de Bord", "description": "Des tableaux de bord clairs et en temps réel résumant la santé et l'état de l'ensemble de votre environnement informatique." },
+    "userRoles": { "title": "Gestion des Utilisateurs et des Rôles", "description": "Contrôlez qui peut accéder à quoi, avec des autorisations basées sur les rôles sur toute la plateforme." },
+    "tickets": { "title": "Gestion des Tickets", "description": "Un système de tickets d'assistance intégré afin que les problèmes soient suivis, assignés et résolus." },
+    "audit": { "title": "Journaux d'Audit", "description": "Une trace complète de qui a fait quoi et quand — essentielle pour la responsabilisation et la conformité." },
+    "auth": { "title": "Authentification Sécurisée", "description": "Des identifiants chiffrés et une gestion des sessions pour verrouiller l'accès à vos systèmes." }
+  },
+  "aboutUs": {
+    "metaTitle": "À propos de nous — Log Monitor",
+    "metaDescription": "Notre entreprise, notre vision et notre mission derrière la plateforme de gestion informatique Log Monitor.",
+    "title": "À propos de Notre Entreprise",
+    "intro": "Nous proposons des solutions complètes de gestion informatique conçues pour aider les organisations à gérer efficacement leur infrastructure technologique.",
+    "combined": "Notre plateforme combine la Surveillance de la Sécurité, la Gestion du Réseau, le Suivi des Actifs Matériels, la Surveillance du Personnel et la Gestion des Tickets d'Assistance en un seul système centralisé.",
+    "missionStatement": "Notre mission est d'améliorer la sécurité, d'augmenter l'efficacité opérationnelle et de simplifier l'administration informatique grâce à une plateforme facile à utiliser, sécurisée et évolutive.",
+    "visionTitle": "Notre Vision",
+    "vision": "Devenir un fournisseur de confiance de solutions de gestion informatique sécurisées et intelligentes qui permettent aux organisations de protéger leur infrastructure numérique et d'améliorer leur productivité.",
+    "missionTitle": "Notre Mission",
+    "missionPoints": {
+      "0": "Fournir des solutions informatiques sûres et fiables",
+      "1": "Simplifier la gestion de l'infrastructure",
+      "2": "Améliorer la productivité organisationnelle",
+      "3": "Renforcer la cybersécurité",
+      "4": "Offrir un excellent service client"
+    }
+  },
+  "services": {
+    "metaTitle": "Nos Services — Log Monitor",
+    "metaDescription": "Gestion de la sécurité, surveillance du réseau, gestion du matériel, surveillance du personnel et services d'assistance.",
+    "title": "Nos Services",
+    "intro": "Tout ce dont vous avez besoin pour garder la technologie de votre organisation sécurisée, connectée et fonctionnant harmonieusement.",
+    "items": {
+      "security": { "title": "Gestion de la Sécurité", "description": "Protégez les systèmes grâce à une surveillance de la sécurité et des alertes en temps réel." },
+      "network": { "title": "Système Réseau", "description": "Surveillez les appareils réseau, le temps de disponibilité, la bande passante et la connectivité." },
+      "hardware": { "title": "Gestion du Matériel", "description": "Suivez les ordinateurs, serveurs, imprimantes et autres actifs informatiques." },
+      "staff": { "title": "Surveillance du Personnel", "description": "Surveillez les activités, la présence, la productivité et l'utilisation du système par le personnel." },
+      "supportMgmt": { "title": "Gestion de l'Assistance", "description": "Fournissez un support technique et une résolution des problèmes." },
+      "supportTickets": { "title": "Tickets d'Assistance", "description": "Permettez aux utilisateurs de soumettre et de suivre les demandes d'assistance." }
+    }
+  },
+  "whyChooseUs": {
+    "realtime": "Surveillance en Temps Réel",
+    "secure": "Système Sécurisé",
+    "easyDashboard": "Tableau de Bord Facile à Utiliser",
+    "fastSupport": "Assistance Rapide",
+    "cloudReady": "Prêt pour le Cloud",
+    "scalable": "Architecture Évolutive",
+    "rbac": "Contrôle d'Accès Basé sur les Rôles",
+    "autoReports": "Rapports Automatiques",
+    "dataProtection": "Protection des Données",
+    "monitoring247": "Surveillance 24/7"
+  },
+  "contact": {
+    "metaTitle": "Contactez-nous — Log Monitor",
+    "metaDescription": "Contactez l'équipe de Log Monitor.",
+    "title": "Contactez-nous",
+    "intro": "Une question ou besoin d'aide ? Contactez-nous et notre équipe vous répondra dans les plus brefs délais.",
+    "addressLabel": "Adresse",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "E-mail",
+    "hoursLabel": "Heures d'Ouverture",
+    "mapPlaceholder": "La carte apparaîtra ici une fois l'adresse de l'entreprise configurée.",
+    "form": {
+      "namePlaceholder": "Votre nom",
+      "emailPlaceholder": "Adresse e-mail",
+      "phonePlaceholder": "Téléphone (facultatif)",
+      "subjectPlaceholder": "Sujet (facultatif)",
+      "messagePlaceholder": "Comment pouvons-nous vous aider ?",
+      "sendButton": "Envoyer le Message",
+      "sending": "Envoi en cours...",
+      "error": "Une erreur s'est produite — veuillez réessayer.",
+      "success": "Merci — votre message a été envoyé. Nous vous répondrons bientôt."
+    }
+  },
+  "support": {
+    "metaTitle": "Assistance — Log Monitor",
+    "metaDescription": "Base de connaissances, FAQ, guides et accès aux tickets d'assistance pour Log Monitor.",
+    "title": "Assistance",
+    "intro": "Trouvez des réponses ci-dessous, ou soumettez un ticket d'assistance et notre équipe vous aidera directement.",
+    "knowledgeBaseTitle": "Base de Connaissances",
+    "knowledgeBaseDesc": "Guides et articles couvrant les fonctionnalités principales de la plateforme.",
+    "knowledgeBaseLink": "Parcourir les guides",
+    "faqCardTitle": "FAQ",
+    "faqCardDesc": "Réponses aux questions que nous recevons le plus souvent.",
+    "faqCardLink": "Voir les FAQ",
+    "submitTicketTitle": "Soumettre un Ticket",
+    "submitTicketDesc": "Obtenez une aide directe de notre équipe d'assistance.",
+    "submitTicketLink": "Créer un ticket",
+    "checkStatusTitle": "Vérifier l'État du Ticket",
+    "checkStatusDesc": "Suivez un ticket que vous avez déjà soumis.",
+    "checkStatusLink": "Vérifier l'état",
+    "guidesTitle": "Guides Utilisateur",
+    "guides": {
+      "0": "Prise en main du tableau de bord de surveillance",
+      "1": "Comprendre les alertes et les niveaux de gravité",
+      "2": "Soumettre et suivre un ticket d'assistance"
+    },
+    "faqTitle": "Questions Fréquemment Posées",
+    "faqs": {
+      "access": { "question": "Comment puis-je accéder au tableau de bord ?", "answer": "L'accès au tableau de bord est fourni par votre administrateur informatique. Contactez l'assistance si vous avez besoin d'un compte." },
+      "report": { "question": "Comment signaler un problème ?", "answer": "Soumettez un ticket d'assistance avec autant de détails que possible, y compris une capture d'écran si pertinent." },
+      "checkStatus": { "question": "Comment puis-je vérifier l'état d'un ticket que j'ai soumis ?", "answer": "Utilisez la page \"Vérifier l'État du Ticket\" avec votre numéro de ticket et l'e-mail utilisé lors de la soumission." },
+      "consent": { "question": "La surveillance du personnel est-elle effectuée sans consentement ?", "answer": "Non — la surveillance des terminaux ne commence qu'après un consentement local explicite donné sur l'appareil lui-même, et se limite aux appareils appartenant à l'entreprise dans le cadre d'une politique écrite." }
+    },
+    "stillNeedHelp": "Besoin d'aide supplémentaire ? Écrivez-nous à"
+  },
+  "newTicket": {
+    "metaTitle": "Soumettre un Ticket d'Assistance — Log Monitor",
+    "metaDescription": "Soumettez un ticket d'assistance et notre équipe vous répondra.",
+    "title": "Soumettre un Ticket d'Assistance",
+    "intro": "Dites-nous ce qui se passe et nous vous répondrons dans les plus brefs délais.",
+    "namePlaceholder": "Votre nom",
+    "emailPlaceholder": "Adresse e-mail",
+    "subjectPlaceholder": "Sujet",
+    "descriptionPlaceholder": "Décrivez le problème en détail",
+    "attachmentLabel": "Pièce jointe (facultatif, max. 10 Mo)",
+    "attachmentTooLarge": "La pièce jointe doit faire 10 Mo ou moins.",
+    "submitButton": "Soumettre le Ticket",
+    "submitting": "Envoi en cours...",
+    "genericError": "Une erreur s'est produite — veuillez réessayer.",
+    "successTitle": "Ticket soumis avec succès.",
+    "successBody": "Votre numéro de ticket est {ticketNumber}. Conservez-le — vous en aurez besoin (avec votre e-mail) pour vérifier l'état ultérieurement.",
+    "categories": { "general": "Demande Générale", "technical": "Problème Technique", "billing": "Facturation", "feature": "Demande de Fonctionnalité", "bug": "Rapport de Bug", "other": "Autre" },
+    "priorities": { "low": "Faible", "medium": "Moyenne", "high": "Élevée", "urgent": "Urgente" }
+  },
+  "ticketStatus": {
+    "metaTitle": "Vérifier l'État du Ticket — Log Monitor",
+    "metaDescription": "Vérifiez l'état d'un ticket d'assistance que vous avez soumis.",
+    "title": "Vérifier l'État du Ticket",
+    "intro": "Entrez votre numéro de ticket et l'e-mail utilisé lors de la soumission.",
+    "ticketNumberPlaceholder": "Numéro de ticket (ex. TCK-000123)",
+    "emailPlaceholder": "E-mail utilisé lors de la soumission",
+    "checkButton": "Vérifier l'État",
+    "checking": "Vérification en cours...",
+    "notFoundError": "Ticket introuvable — vérifiez le numéro de ticket et l'e-mail.",
+    "genericError": "Une erreur s'est produite — veuillez réessayer.",
+    "priorityLabel": "priorité",
+    "submittedLabel": "soumis",
+    "statusLabels": { "open": "Ouvert", "in_progress": "En Cours", "resolved": "Résolu", "closed": "Fermé" }
+  },
+  "privacyPolicy": {
+    "metaTitle": "Politique de Confidentialité — Log Monitor",
+    "title": "Politique de Confidentialité",
+    "body": "Cette politique de confidentialité provisoire sera remplacée par la version finale et validée juridiquement. Elle doit décrire quelles données sont collectées (y compris toute donnée de surveillance des terminaux ou du personnel), comment elles sont utilisées, combien de temps elles sont conservées, et comment les personnes peuvent exercer leurs droits applicables sur les données."
+  },
+  "terms": {
+    "metaTitle": "Conditions Générales — Log Monitor",
+    "title": "Conditions Générales",
+    "body": "Ce texte provisoire sera remplacé par les conditions générales d'utilisation finales et validées juridiquement régissant l'utilisation de cette plateforme."
+  },
+  "login": {
+    "heading": "Log Monitor",
+    "idleLogoutMessage": "Vous avez été déconnecté après 15 minutes d'inactivité. Veuillez vous reconnecter.",
+    "infoMessage": "Nous vous avons envoyé un code de connexion par e-mail. Saisissez-le ci-dessous pour continuer.",
+    "usernameLabel": "Nom d'utilisateur",
+    "passwordLabel": "Mot de passe",
+    "signIn": "Se connecter",
+    "signingIn": "Connexion en cours...",
+    "otpLabel": "Code à 6 chiffres",
+    "verify": "Vérifier et Se Connecter",
+    "verifying": "Vérification en cours...",
+    "resendCode": "Renvoyer le code",
+    "resendCodeWithSeconds": "Renvoyer le code ({seconds}s)",
+    "back": "Retour",
+    "errors": {
+      "invalid": "Code incorrect. Veuillez réessayer.",
+      "expired": "Ce code a expiré. Cliquez sur \"Renvoyer le code\" pour en obtenir un nouveau.",
+      "locked": "Trop de tentatives incorrectes. Cliquez sur \"Renvoyer le code\" pour en obtenir un nouveau.",
+      "invalidCredentials": "Nom d'utilisateur ou mot de passe incorrect.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer.",
+      "finalizeError": "Une erreur s'est produite lors de la finalisation de la connexion. Veuillez réessayer."
+    }
+  },
+  "maintenance": {
+    "metaTitle": "En Maintenance — Log Monitor",
+    "title": "En Maintenance",
+    "defaultMessage": "Nous effectuons actuellement une maintenance programmée. Veuillez revenir sous peu."
+  }
+}
