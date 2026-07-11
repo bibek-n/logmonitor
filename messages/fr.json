@@ -242,6 +242,7 @@
     "top": {
       "overview": "Aperçu",
       "staff": "Employés",
+      "networkDiagram": "Schéma Réseau",
       "companySettings": "Paramètres de l'Entreprise"
     },
     "groups": {

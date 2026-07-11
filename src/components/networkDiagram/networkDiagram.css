@@ -1,0 +1,34 @@
+/* Overrides @xyflow/react's default (hardcoded-color) theme with this app's existing
+   design tokens, so the editor follows light/dark mode automatically like every other
+   page — no separate dark-mode CSS needed here. */
+.network-diagram-flow .react-flow {
+  --xy-background-color: var(--surface-2);
+  --xy-node-background-color: var(--surface);
+  --xy-node-border-default: 1px solid var(--border);
+  --xy-node-color: var(--ink);
+  --xy-node-boxshadow-selected: 0 0 0 2px var(--primary);
+  --xy-edge-stroke-default: var(--primary);
+  --xy-edge-stroke-width-default: 2;
+  --xy-handle-background-color: var(--primary);
+  --xy-handle-border-color: var(--surface);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-2);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-color-hover: var(--primary);
+  --xy-controls-button-border-color: var(--border);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  --xy-minimap-node-background-color: var(--primary);
+  --xy-resize-background-color: var(--primary);
+}
+
+.network-diagram-flow .react-flow__node {
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 10px;
+}
+
+.network-diagram-flow .react-flow__attribution {
+  display: none;
+}

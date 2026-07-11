@@ -44,6 +44,7 @@ import {
   Layers,
   Settings,
   PlusCircle,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -67,6 +68,7 @@ export interface NavGroup {
 export const TOP_ITEMS: NavItem[] = [
   { href: "/dashboard", key: "overview", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/staff", key: "staff", label: "Employees", icon: Users },
+  { href: "/dashboard/network-diagram", key: "networkDiagram", label: "Network Diagram", icon: Workflow },
   { href: "/dashboard/settings", key: "companySettings", label: "Company Settings", icon: Settings },
 ];
 

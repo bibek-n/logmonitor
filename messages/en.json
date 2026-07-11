@@ -242,6 +242,7 @@
     "top": {
       "overview": "Overview",
       "staff": "Employees",
+      "networkDiagram": "Network Diagram",
       "companySettings": "Company Settings"
     },
     "groups": {
