@@ -358,6 +358,8 @@
       "noPcLinkedNotice": "Aún no hay una PC vinculada. Instale el agente de endpoint en la computadora de este empleado y luego configure el campo \"Miembro del personal asignado\" de <link>ese dispositivo</link> a este empleado para habilitar informes por empleado (CPU, RAM, capturas de pantalla, software, procesos).",
       "statusLabel": "Estado:",
       "noDeviceAssigned": "Sin dispositivo asignado",
+      "onlineLabel": "En línea",
+      "offlineLabel": "Fuera de línea",
       "macAddressLabel": "Dirección MAC:",
       "notAssignedFallback": "no asignada",
       "currentIpLabel": "IP Actual:",

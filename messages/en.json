@@ -358,6 +358,8 @@
       "noPcLinkedNotice": "No PC linked yet. Install the endpoint agent on this employee's computer, then set <link>that device's</link> \"Assigned staff member\" field to this employee to enable per-employee reports (CPU, RAM, screenshots, software, processes).",
       "statusLabel": "Status:",
       "noDeviceAssigned": "No device assigned",
+      "onlineLabel": "Online",
+      "offlineLabel": "Offline",
       "macAddressLabel": "MAC Address:",
       "notAssignedFallback": "not assigned",
       "currentIpLabel": "Current IP:",

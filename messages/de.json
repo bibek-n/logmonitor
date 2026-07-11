@@ -358,6 +358,8 @@
       "noPcLinkedNotice": "Noch kein PC verknüpft. Installieren Sie den Endpoint-Agenten auf dem Computer dieses Mitarbeiters und setzen Sie dann im <link>Feld dieses Geräts</link> „Zugewiesener Mitarbeiter“ auf diesen Mitarbeiter, um mitarbeiterbezogene Berichte (CPU, RAM, Screenshots, Software, Prozesse) zu aktivieren.",
       "statusLabel": "Status:",
       "noDeviceAssigned": "Kein Gerät zugewiesen",
+      "onlineLabel": "Online",
+      "offlineLabel": "Offline",
       "macAddressLabel": "MAC-Adresse:",
       "notAssignedFallback": "nicht zugewiesen",
       "currentIpLabel": "Aktuelle IP:",

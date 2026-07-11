@@ -358,6 +358,8 @@
       "noPcLinkedNotice": "Aucun PC lié pour le moment. Installez l'agent de terminal sur l'ordinateur de cet employé, puis définissez le champ « Membre du personnel assigné » de <link>cet appareil</link> sur cet employé pour activer les rapports par employé (CPU, RAM, captures d'écran, logiciels, processus).",
       "statusLabel": "Statut :",
       "noDeviceAssigned": "Aucun appareil assigné",
+      "onlineLabel": "En ligne",
+      "offlineLabel": "Hors ligne",
       "macAddressLabel": "Adresse MAC :",
       "notAssignedFallback": "non assignée",
       "currentIpLabel": "IP Actuelle :",
