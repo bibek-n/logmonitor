@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Camera, Laptop, MonitorX } from "lucide-react";
+import { Camera, KeyRound, Laptop, MonitorX } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { CopyButton } from "@/components/ui/CopyButton";
 
 export interface DeviceRow {
   deviceId: string;
@@ -14,6 +16,7 @@ export interface DeviceRow {
   osVersion: string | null;
   department: string | null;
   agentVersion: string | null;
+  staffId: number | null;
   staffName: string | null;
   lastIp: string | null;
   online: boolean;
@@ -67,6 +70,8 @@ function StatBar({ label, pct }: { label: string; pct: number | null }) {
 function DeviceCard({ device }: { device: DeviceRow }) {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [newToken, setNewToken] = useState<{ token: string; expiresAt: string } | null>(null);
 
   async function requestScreenshot() {
     setRequesting(true);
@@ -77,6 +82,23 @@ function DeviceCard({ device }: { device: DeviceRow }) {
       setRequesting(false);
     }
   }
+
+  async function regenerateToken() {
+    setRegenerating(true);
+    try {
+      const res = await fetch("/api/admin/enrollment-tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preCreatedDeviceId: device.deviceId, staffId: device.staffId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) setNewToken({ token: data.token, expiresAt: data.expiresAt });
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  const serverUrl = typeof window !== "undefined" ? window.location.origin : "https://logs.tulipshrm.com:4433";
 
   return (
     <Card hoverLift className="flex flex-col gap-3">
@@ -131,12 +153,51 @@ function DeviceCard({ device }: { device: DeviceRow }) {
           <Camera size={13} />
           {requested ? "Requested" : "Screenshot now"}
         </Button>
+        <Button size="sm" variant="secondary" disabled={regenerating} onClick={regenerateToken}>
+          <KeyRound size={13} />
+          {regenerating ? "Generating..." : "Regenerate token"}
+        </Button>
         <Link href={`/dashboard/endpoint-agents/${device.deviceId}`} style={{ marginLeft: "auto" }}>
           <Button size="sm" variant="ghost">
             Details
           </Button>
         </Link>
       </div>
+
+      <Modal open={!!newToken} onClose={() => setNewToken(null)} title={`Re-enroll ${device.hostname}`}>
+        {newToken && (
+          <div className="flex flex-col gap-3">
+            <p style={{ fontSize: "0.82rem", color: "var(--ink-muted)", margin: 0 }}>
+              Run this on the device to re-enroll it into its existing history (expires {new Date(newToken.expiresAt).toLocaleString()}):
+            </p>
+            <div className="flex items-center gap-2">
+              <pre
+                style={{
+                  flex: 1,
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  padding: "0.75rem",
+                  fontSize: "0.78rem",
+                  overflowX: "auto",
+                  margin: 0,
+                }}
+              >
+                {newToken.token}
+              </pre>
+              <CopyButton value={newToken.token} />
+            </div>
+            <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>Windows</div>
+            <pre style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem", fontSize: "0.76rem", overflowX: "auto", margin: 0 }}>
+              {`agent.exe install --token=${newToken.token} --server=${serverUrl}`}
+            </pre>
+            <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>Linux</div>
+            <pre style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem", fontSize: "0.76rem", overflowX: "auto", margin: 0 }}>
+              {`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=${newToken.token} SERVER_URL=${serverUrl} bash`}
+            </pre>
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }

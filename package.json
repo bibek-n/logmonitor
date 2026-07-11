@@ -39,6 +39,7 @@
     "migrate:login-otp": "tsx scripts/migrate-login-otp.ts",
     "migrate:servers": "tsx scripts/migrate-servers.ts",
     "migrate:staff-profile": "tsx scripts/migrate-staff-profile.ts",
+    "migrate:enrollmenttokens-staff": "tsx scripts/migrate-enrollmenttokens-staff.ts",
     "import:oui": "tsx scripts/import-oui.ts",
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",

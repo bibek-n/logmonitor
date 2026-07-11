@@ -17,6 +17,7 @@ interface DeviceQueryRow {
   LastIp: string | null;
   ScreenshotIntervalMinutes: number | null;
   PrivacyMode: boolean;
+  StaffId: number | null;
   StaffName: string | null;
   CpuPct: number | null;
   MemPct: number | null;
@@ -57,7 +58,7 @@ export default async function EndpointAgentsPage() {
     SELECT
       d.DeviceId, d.Hostname, d.OS, d.OsVersion, d.Department, d.AgentVersion,
       d.LastHeartbeat, d.LastIp, d.ScreenshotIntervalMinutes, d.PrivacyMode,
-      s.Name AS StaffName,
+      d.StaffId, s.Name AS StaffName,
       metrics.CpuPct, metrics.MemPct, metrics.DiskPct, metrics.NetRxMbps, metrics.NetTxMbps, metrics.UptimeSeconds,
       shot.CapturedAt AS LastScreenshotAt,
       sec.FirewallEnabled, sec.AntivirusStatus, sec.DefenderStatus
@@ -84,6 +85,7 @@ export default async function EndpointAgentsPage() {
       osVersion: r.OsVersion,
       department: r.Department,
       agentVersion: r.AgentVersion,
+      staffId: r.StaffId,
       staffName: r.StaffName,
       lastIp: r.LastIp,
       online,

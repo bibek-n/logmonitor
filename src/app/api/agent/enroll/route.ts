@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
   const tokenResult = await db
     .request()
     .input("token", sql.VarChar, enrollmentToken)
-    .query<{ Id: number; ExpiresAt: string; UsedAt: string | null; PreCreatedDeviceId: string | null }>(
-      "SELECT Id, ExpiresAt, UsedAt, PreCreatedDeviceId FROM EnrollmentTokens WHERE Token = @token"
+    .query<{ Id: number; ExpiresAt: string; UsedAt: string | null; PreCreatedDeviceId: string | null; StaffId: number | null }>(
+      "SELECT Id, ExpiresAt, UsedAt, PreCreatedDeviceId, StaffId FROM EnrollmentTokens WHERE Token = @token"
     );
   const tokenRow = tokenResult.recordset[0];
   if (!tokenRow) {
@@ -65,10 +65,12 @@ export async function POST(req: NextRequest) {
       .input("apiKeyHash", sql.NVarChar, apiKeyHash)
       .input("agentVersion", sql.NVarChar, agentVersion ?? null)
       .input("macAddress", sql.VarChar, macValue)
+      .input("staffId", sql.Int, tokenRow.StaffId ?? null)
       .query(`
         UPDATE Devices SET
           Hostname = @hostname, OS = @os, OsVersion = @osVersion, ApiKeyHash = @apiKeyHash,
           AgentVersion = @agentVersion, MacAddress = COALESCE(@macAddress, MacAddress),
+          StaffId = COALESCE(@staffId, StaffId),
           ConsentAcceptedAt = SYSUTCDATETIME(), EnrolledAt = SYSUTCDATETIME(),
           LifecycleStatus = CASE WHEN LifecycleStatus = 'Pending' THEN 'Active' ELSE LifecycleStatus END
         WHERE DeviceId = @deviceId
@@ -84,9 +86,10 @@ export async function POST(req: NextRequest) {
       .input("apiKeyHash", sql.NVarChar, apiKeyHash)
       .input("agentVersion", sql.NVarChar, agentVersion ?? null)
       .input("macAddress", sql.VarChar, macValue)
+      .input("staffId", sql.Int, tokenRow.StaffId ?? null)
       .query(`
-        INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, ConsentAcceptedAt)
-        VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, SYSUTCDATETIME())
+        INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, StaffId, ConsentAcceptedAt)
+        VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, @staffId, SYSUTCDATETIME())
       `);
   }
 

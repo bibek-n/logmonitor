@@ -16,7 +16,11 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  // Collapsed by default — except the group containing the current page, so navigating
+  // straight to a page inside a group shows its submenu open without a click.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(NAV_GROUPS.map((g) => [g.label, !g.items.some((i) => pathname.startsWith(i.href))]))
+  );
   const [order, setOrder] = useState<SidebarOrder>({ topOrder: [], groupOrder: [], itemOrder: {} });
   const [reorderMode, setReorderMode] = useState(false);
 

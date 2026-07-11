@@ -1,5 +1,6 @@
 import { getAdminSession } from "@/lib/requireAdmin";
 import { getDb } from "@/lib/db";
+import { getStaffWithStatus } from "@/lib/staffStatus";
 import { EnrollClient } from "@/components/endpointAgents/EnrollClient";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ interface TokenRow {
   ExpiresAt: string;
   UsedAt: string | null;
   UsedByDeviceId: string | null;
+  StaffId: number | null;
+  StaffName: string | null;
+  PreCreatedDeviceId: string | null;
 }
 
 export default async function EnrollPage() {
@@ -25,7 +29,22 @@ export default async function EnrollPage() {
   }
 
   const db = await getDb();
-  const result = await db.query<TokenRow>("SELECT TOP 50 Id, Token, CreatedAt, ExpiresAt, UsedAt, UsedByDeviceId FROM EnrollmentTokens ORDER BY CreatedAt DESC");
+  const result = await db.query<TokenRow>(`
+    SELECT TOP 50 et.Id, et.Token, et.CreatedAt, et.ExpiresAt, et.UsedAt, et.UsedByDeviceId,
+      et.StaffId, s.Name AS StaffName, et.PreCreatedDeviceId
+    FROM EnrollmentTokens et
+    LEFT JOIN Staff s ON s.Id = et.StaffId
+    ORDER BY et.CreatedAt DESC
+  `);
+
+  const staff = await getStaffWithStatus();
+  const staffOptions = staff.map((s) => ({
+    id: s.Id,
+    name: s.Name,
+    currentIp: s.currentIp,
+    deviceName: s.deviceName,
+    macAddress: s.MacAddress,
+  }));
 
   return (
     <div>
@@ -51,7 +70,7 @@ export default async function EnrollPage() {
         default per device and must be explicitly enabled from that device&apos;s settings page.
       </div>
 
-      <EnrollClient existingTokens={result.recordset} />
+      <EnrollClient existingTokens={result.recordset} staffOptions={staffOptions} />
     </div>
   );
 }

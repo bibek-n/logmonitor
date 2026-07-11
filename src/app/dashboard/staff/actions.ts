@@ -14,14 +14,27 @@ export async function addStaff(formData: FormData) {
     errorCode = "nameRequired";
   } else {
     const db = await getDb();
+    let newStaffId: number | null = null;
     try {
-      await db
+      const insertResult = await db
         .request()
         .input("name", sql.NVarChar, name)
         .input("mac", sql.VarChar, mac || null)
-        .query(`INSERT INTO Staff (Name, MacAddress) VALUES (@name, @mac)`);
+        .query<{ Id: number }>(`INSERT INTO Staff (Name, MacAddress) OUTPUT INSERTED.Id VALUES (@name, @mac)`);
+      newStaffId = insertResult.recordset[0].Id;
     } catch {
       errorCode = "duplicateMac";
+    }
+
+    // If this employee's MAC already belongs to an enrolled-but-unassigned device, link it
+    // immediately — the mirror of the suggested-match flow on the device's own detail page
+    // (src/lib/deviceMatch.ts), so an admin doesn't have to visit that page manually.
+    if (newStaffId && mac) {
+      await db
+        .request()
+        .input("staffId", sql.Int, newStaffId)
+        .input("mac", sql.VarChar, mac)
+        .query(`UPDATE Devices SET StaffId = @staffId WHERE UPPER(MacAddress) = UPPER(@mac) AND StaffId IS NULL`);
     }
   }
 
