@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { getDb } from "@/lib/db";
 import { addStaff } from "./actions";
 import { getStaffWithStatus } from "@/lib/staffStatus";
@@ -66,6 +67,9 @@ export default async function StaffPage({
   searchParams: Promise<{ error?: string; type?: string }>;
 }) {
   const { error, type: typeFilter } = await searchParams;
+  const t = await getTranslations("employees.list");
+  const ERROR_CODES = new Set(["nameRequired", "duplicateMac"]);
+  const errorMessage = error && ERROR_CODES.has(error) ? t(`errors.${error}`) : null;
   const db = await getDb();
 
   const staff = await getStaffWithStatus();
@@ -126,21 +130,20 @@ export default async function StaffPage({
 
   const visibleEmployees = typeFilter ? employees.filter((s) => s.MacAddress && s.deviceType === typeFilter) : employees;
 
+  const deviceTypeLabel =
+    typeFilter === "PC/Laptop" ? t("pcLaptopLabel") : typeFilter === "Mobile" ? t("mobileLabel") : t("otherLabel");
+
   return (
     <div>
-      <h1>Employees</h1>
+      <h1>{t("pageTitle")}</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-        An employee is mapped to a <strong>MAC address</strong>, not an IP — the IP shown below is just the
-        device&apos;s <em>current</em> address, resolved live from the MikroTik router&apos;s DHCP leases or this
-        server&apos;s ARP table for Sophos-side clients. Every IP that MAC has ever used is kept, so the activity
-        report on each employee&apos;s page covers their full history even after an IP changes — not just today.
-        Everything here (Employees, device history, Web Filter, Router logs) is stored permanently in the SQL
-        database, nothing is held only in memory. Online/Offline and First Seen are based on network activity only —
-        there&apos;s no OS login time, and CPU/RAM/screen data isn&apos;t available without an endpoint agent
-        installed on each PC.
+        {t.rich("intro", {
+          strong: (chunks) => <strong>{chunks}</strong>,
+          em: (chunks) => <em>{chunks}</em>,
+        })}
       </p>
 
-      {error && (
+      {errorMessage && (
         <div
           style={{
             background: "var(--critical)",
@@ -151,44 +154,44 @@ export default async function StaffPage({
             marginBottom: "1rem",
           }}
         >
-          {error}
+          {errorMessage}
         </div>
       )}
 
       <div className="stat-grid">
-        <StatTile label="Total Employees" value={employees.length} status="unknown" />
-        <StatTile label="Online" value={online} status={online > 0 ? "good" : "unknown"} />
-        <StatTile label="Offline" value={offline} status={offline > 0 ? "warning" : "good"} />
-        <StatTile label="Unassigned Device" value={unassigned} status={unassigned > 0 ? "warning" : "good"} />
+        <StatTile label={t("totalEmployeesLabel")} value={employees.length} status="unknown" />
+        <StatTile label={t("onlineLabel")} value={online} status={online > 0 ? "good" : "unknown"} />
+        <StatTile label={t("offlineLabel")} value={offline} status={offline > 0 ? "warning" : "good"} />
+        <StatTile label={t("unassignedDeviceLabel")} value={unassigned} status={unassigned > 0 ? "warning" : "good"} />
       </div>
 
       <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginBottom: "0.4rem" }}>
-        Filter by device type (click a tile; click again to clear):
+        {t("filterByDeviceTypeHint")}
       </p>
       <div className="stat-grid">
         <FilterTile
-          label="All Devices"
+          label={t("allDevicesLabel")}
           value={assigned.length}
           status="unknown"
           href="/dashboard/staff"
           active={!typeFilter}
         />
         <FilterTile
-          label="PC/Laptop"
+          label={t("pcLaptopLabel")}
           value={pcCount}
           status={typeFilter === "PC/Laptop" ? "good" : "unknown"}
           href={typeFilter === "PC/Laptop" ? "/dashboard/staff" : `/dashboard/staff?type=${encodeURIComponent("PC/Laptop")}`}
           active={typeFilter === "PC/Laptop"}
         />
         <FilterTile
-          label="Mobile"
+          label={t("mobileLabel")}
           value={mobileCount}
           status={typeFilter === "Mobile" ? "good" : "unknown"}
           href={typeFilter === "Mobile" ? "/dashboard/staff" : "/dashboard/staff?type=Mobile"}
           active={typeFilter === "Mobile"}
         />
         <FilterTile
-          label="Other"
+          label={t("otherLabel")}
           value={otherCount}
           status={typeFilter === "Other" ? "good" : "unknown"}
           href={typeFilter === "Other" ? "/dashboard/staff" : "/dashboard/staff?type=Other"}
@@ -197,30 +200,30 @@ export default async function StaffPage({
       </div>
 
       <div className="dash-panel">
-        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Add Employee</h2>
+        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>{t("addEmployeeTitle")}</h2>
         <form action={addStaff} style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
-            <label htmlFor="name">Name</label>
-            <input id="name" name="name" type="text" required placeholder="e.g. Samjhana" />
+            <label htmlFor="name">{t("nameLabel")}</label>
+            <input id="name" name="name" type="text" required placeholder={t("namePlaceholder")} />
           </div>
           <div className="field" style={{ marginBottom: 0, flex: "1 1 320px" }}>
-            <label htmlFor="mac">Device (MikroTik or Sophos client)</label>
+            <label htmlFor="mac">{t("deviceLabel")}</label>
             <DeviceSelect devices={available} />
           </div>
           <button className="submit" type="submit" style={{ width: "auto", marginTop: 0, padding: "0.6rem 1.25rem" }}>
-            Add
+            {t("addButton")}
           </button>
         </form>
       </div>
 
       <div className="dash-panel">
         {employees.length === 0 ? (
-          <p style={{ color: "var(--ink-muted)" }}>No employees added yet.</p>
+          <p style={{ color: "var(--ink-muted)" }}>{t("noEmployeesYetEmptyState")}</p>
         ) : visibleEmployees.length === 0 ? (
           <p style={{ color: "var(--ink-muted)" }}>
-            No employees with a &quot;{typeFilter}&quot; device.{" "}
+            {t("noEmployeesWithDeviceType", { deviceType: deviceTypeLabel })}{" "}
             <Link href="/dashboard/staff" style={{ color: "var(--series-1)" }}>
-              Clear filter
+              {t("clearFilterLink")}
             </Link>
           </p>
         ) : (

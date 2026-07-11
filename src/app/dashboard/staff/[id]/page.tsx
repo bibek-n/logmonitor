@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getDb, sql } from "@/lib/db";
 import { parseRouterDurationToSeconds } from "@/lib/mikrotikParser";
 import { classifyDevice } from "@/lib/deviceType";
@@ -82,6 +83,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const staffId = Number(id);
   if (!staffId) notFound();
 
+  const t = await getTranslations("employees.detail");
   const db = await getDb();
 
   const staffResult = await db
@@ -209,50 +211,51 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       </div>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "0.25rem" }}>
         <Link href="/dashboard/staff" style={{ color: "var(--series-1)" }}>
-          &larr; All Employees
+          &larr; {t("backToAllLink")}
         </Link>
       </p>
 
       <div className="dash-panel">
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", fontSize: "0.85rem" }}>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Email:</span> {staffMember.Email ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("emailLabel")}</span> {staffMember.Email ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Cell Number:</span> {staffMember.Phone ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("cellNumberLabel")}</span> {staffMember.Phone ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Department:</span> {staffMember.Department ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("departmentLabel")}</span> {staffMember.Department ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Position:</span> {staffMember.Position ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("positionLabel")}</span> {staffMember.Position ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Address:</span> {staffMember.Address ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("addressLabel")}</span> {staffMember.Address ?? "-"}
           </span>
         </div>
       </div>
 
       <div className="dash-panel">
-        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>Assigned Endpoint Agent</h2>
+        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>{t("assignedEndpointAgentTitle")}</h2>
         {linkedDevice ? (
           <p style={{ fontSize: "0.85rem", margin: 0 }}>
             <Link href={`/dashboard/endpoint-agents/${linkedDevice.DeviceId}`} style={{ color: "var(--series-1)" }}>
               {linkedDevice.Hostname}
             </Link>{" "}
             <span style={{ color: "var(--ink-muted)" }}>
-              ({linkedDevice.OS}) &middot; last heartbeat{" "}
-              {linkedDevice.LastHeartbeat ? new Date(linkedDevice.LastHeartbeat).toLocaleString() : "never"}
+              ({linkedDevice.OS}) &middot; {t("lastHeartbeatLabel")}{" "}
+              {linkedDevice.LastHeartbeat ? new Date(linkedDevice.LastHeartbeat).toLocaleString() : t("neverLabel")}
             </span>
           </p>
         ) : (
           <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: 0 }}>
-            No PC linked yet. Install the endpoint agent on this employee&apos;s computer, then set{" "}
-            <Link href="/dashboard/endpoint-agents" style={{ color: "var(--series-1)" }}>
-              that device&apos;s
-            </Link>{" "}
-            &quot;Assigned staff member&quot; field to this employee to enable per-employee reports (CPU, RAM,
-            screenshots, software, processes).
+            {t.rich("noPcLinkedNotice", {
+              link: (chunks) => (
+                <Link href="/dashboard/endpoint-agents" style={{ color: "var(--series-1)" }}>
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         )}
       </div>
@@ -261,56 +264,55 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", fontSize: "0.85rem" }}>
           <span>
             <span className={`status-dot status-${statusColor}`} style={{ marginRight: "0.4rem" }} />
-            <span style={{ color: "var(--ink-muted)" }}>Status:</span>{" "}
-            {!staffMember.MacAddress ? "No device assigned" : isOnline ? "Online" : "Offline"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("statusLabel")}</span>{" "}
+            {!staffMember.MacAddress ? t("noDeviceAssigned") : isOnline ? t("onlineLabel") : t("offlineLabel")}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>MAC Address:</span>{" "}
-            {staffMember.MacAddress ?? "not assigned"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("macAddressLabel")}</span>{" "}
+            {staffMember.MacAddress ?? t("notAssignedFallback")}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Current IP:</span>{" "}
-            {currentIp ?? "not currently online"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("currentIpLabel")}</span>{" "}
+            {currentIp ?? t("notCurrentlyOnlineFallback")}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Source:</span>{" "}
+            <span style={{ color: "var(--ink-muted)" }}>{t("sourceLabel")}</span>{" "}
             {source === "mikrotik" ? "MikroTik" : source === "sophos" ? "Sophos" : "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Device:</span> {deviceName ?? "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("deviceLabel2")}</span> {deviceName ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Device Type:</span>{" "}
+            <span style={{ color: "var(--ink-muted)" }}>{t("deviceTypeLabel")}</span>{" "}
             {staffMember.MacAddress ? deviceType : "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Operating System:</span>{" "}
+            <span style={{ color: "var(--ink-muted)" }}>{t("operatingSystemLabel")}</span>{" "}
             {os ?? "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>Last Seen:</span>{" "}
+            <span style={{ color: "var(--ink-muted)" }}>{t("lastSeenLabel")}</span>{" "}
             {seenAt ? seenAt.toLocaleString() : "-"}
           </span>
           <span>
-            <span style={{ color: "var(--ink-muted)" }}>First Seen:</span>{" "}
-            {firstSeen ? `${firstSeen.toLocaleString()} (${formatDuration(firstSeen)} ago)` : "-"}
+            <span style={{ color: "var(--ink-muted)" }}>{t("firstSeenLabel")}</span>{" "}
+            {firstSeen ? t("firstSeenAgo", { time: firstSeen.toLocaleString(), duration: formatDuration(firstSeen) }) : "-"}
           </span>
         </div>
       </div>
 
       {allIps.length > 1 && (
         <div className="dash-panel">
-          <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>Device IP History</h2>
+          <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>{t("deviceIpHistoryTitle")}</h2>
           <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
-            This MAC address has used {allIps.length} different IPs over time (DHCP renewals) — the report below
-            covers activity across all of them.
+            {t("ipHistoryCount", { count: allIps.length })}
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "0.4rem" }}>IP Address</th>
-                <th style={{ padding: "0.4rem" }}>Network</th>
-                <th style={{ padding: "0.4rem" }}>Last Updated</th>
+                <th style={{ padding: "0.4rem" }}>{t("ipAddressColumn")}</th>
+                <th style={{ padding: "0.4rem" }}>{t("networkColumn")}</th>
+                <th style={{ padding: "0.4rem" }}>{t("lastUpdatedColumn")}</th>
               </tr>
             </thead>
             <tbody>
@@ -329,29 +331,29 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       {allIps.length === 0 ? (
         <div className="dash-panel">
           <p style={{ color: "var(--ink-muted)" }}>
-            No device currently assigned or ever seen for this staff member, so no activity to show.
+            {t("noDeviceEverSeenNotice")}
           </p>
         </div>
       ) : (
         <>
           <div className="dash-panel">
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>
-              Sophos Web Filter — activity report
+              {t("webFilterReportTitle")}
             </h2>
             <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
-              Across all known IPs for this device, most recent first (up to 50 shown).
+              {t("activityReportSub")}
             </p>
             {webFilterRows.length === 0 ? (
-              <p style={{ color: "var(--ink-muted)" }}>No Web Filter events for this device yet.</p>
+              <p style={{ color: "var(--ink-muted)" }}>{t("noWebFilterEvents")}</p>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                 <thead>
                   <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "0.4rem" }}>Time</th>
-                    <th style={{ padding: "0.4rem" }}>IP</th>
-                    <th style={{ padding: "0.4rem" }}>Domain</th>
-                    <th style={{ padding: "0.4rem" }}>Category</th>
-                    <th style={{ padding: "0.4rem" }}>Action</th>
+                    <th style={{ padding: "0.4rem" }}>{t("timeColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("ipColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("domainColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("categoryColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("actionColumn")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,21 +379,21 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
           <div className="dash-panel">
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>
-              Router Web Connections — activity report
+              {t("routerWebReportTitle")}
             </h2>
             <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
-              Across all known IPs for this device, most recent first (up to 50 shown).
+              {t("activityReportSub")}
             </p>
             {routerWebRows.length === 0 ? (
-              <p style={{ color: "var(--ink-muted)" }}>No router web connections for this device yet.</p>
+              <p style={{ color: "var(--ink-muted)" }}>{t("noRouterWebConnections")}</p>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                 <thead>
                   <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "0.4rem" }}>Time</th>
-                    <th style={{ padding: "0.4rem" }}>IP</th>
-                    <th style={{ padding: "0.4rem" }}>Destination</th>
-                    <th style={{ padding: "0.4rem" }}>Port</th>
+                    <th style={{ padding: "0.4rem" }}>{t("timeColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("ipColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("destinationColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("portColumn")}</th>
                   </tr>
                 </thead>
                 <tbody>

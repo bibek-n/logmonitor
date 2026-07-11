@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -30,6 +31,7 @@ export interface EditableEmployee {
 }
 
 export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmployee; onClose: () => void }) {
+  const t = useTranslations("employees.editModal");
   const router = useRouter();
   const toast = useToast();
   const [form, setForm] = useState({
@@ -51,7 +53,7 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
 
   async function save() {
     if (!form.name.trim()) {
-      toast.show({ type: "error", message: "Name is required." });
+      toast.show({ type: "error", message: t("nameRequiredError") });
       return;
     }
     setSaving(true);
@@ -62,21 +64,21 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to save");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
 
       if (photoFile) {
         const fd = new FormData();
         fd.append("photo", photoFile);
         const photoRes = await fetch(`/api/admin/staff/${employee.Id}/photo`, { method: "POST", body: fd });
         const photoData = await photoRes.json();
-        if (!photoRes.ok || !photoData.ok) throw new Error(photoData.error ?? "Photo upload failed");
+        if (!photoRes.ok || !photoData.ok) throw new Error(photoData.error ?? t("photoUploadFailedError"));
       }
 
-      toast.show({ type: "success", message: "Employee updated." });
+      toast.show({ type: "success", message: t("employeeUpdatedToast") });
       router.refresh();
       onClose();
     } catch (err) {
-      toast.show({ type: "error", message: err instanceof Error ? err.message : "Something went wrong." });
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
       setSaving(false);
     }
@@ -86,14 +88,14 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
     <Modal
       open
       onClose={onClose}
-      title="Edit Employee"
+      title={t("title")}
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("cancelButton")}
           </Button>
           <Button size="sm" onClick={save} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("savingButton") : t("saveChangesButton")}
           </Button>
         </>
       }
@@ -102,7 +104,7 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
         <div className="flex items-center gap-3">
           <Avatar name={form.name || "?"} photoPath={photoPreview} size={56} />
           <div>
-            <label style={labelStyle}>Profile Photo</label>
+            <label style={labelStyle}>{t("profilePhotoLabel")}</label>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -113,13 +115,13 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
         </div>
 
         <div>
-          <label style={labelStyle}>Full Name</label>
+          <label style={labelStyle}>{t("fullNameLabel")}</label>
           <input style={fieldStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </div>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            <label style={labelStyle}>Email</label>
+            <label style={labelStyle}>{t("emailLabel")}</label>
             <input
               style={fieldStyle}
               type="email"
@@ -129,24 +131,24 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
             />
           </div>
           <div>
-            <label style={labelStyle}>Cell Number</label>
+            <label style={labelStyle}>{t("cellNumberLabel")}</label>
             <input style={fieldStyle} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+977 98XXXXXXXX" />
           </div>
         </div>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            <label style={labelStyle}>Department</label>
+            <label style={labelStyle}>{t("departmentLabel")}</label>
             <input style={fieldStyle} value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
           </div>
           <div>
-            <label style={labelStyle}>Position</label>
+            <label style={labelStyle}>{t("positionLabel")}</label>
             <input style={fieldStyle} value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} />
           </div>
         </div>
 
         <div>
-          <label style={labelStyle}>Address</label>
+          <label style={labelStyle}>{t("addressLabel")}</label>
           <textarea
             style={{ ...fieldStyle, resize: "vertical" }}
             rows={2}

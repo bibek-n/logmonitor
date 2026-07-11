@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 interface AvailableDevice {
   IpAddress: string;
@@ -10,6 +11,7 @@ interface AvailableDevice {
 }
 
 export default function DeviceSelect({ devices }: { devices: AvailableDevice[] }) {
+  const t = useTranslations("employees.deviceSelect");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
 
@@ -40,7 +42,7 @@ export default function DeviceSelect({ devices }: { devices: AvailableDevice[] }
             // This input lives inside the Add Staff <form> — don't let Enter submit it.
             if (e.key === "Enter") e.preventDefault();
           }}
-          placeholder="Search by IP, hostname, or MAC..."
+          placeholder={t("searchPlaceholder")}
           style={{
             flex: 1,
             padding: "0.5rem 0.75rem",
@@ -54,7 +56,7 @@ export default function DeviceSelect({ devices }: { devices: AvailableDevice[] }
         <button
           type="button"
           onClick={() => setQuery("")}
-          title="Clear search"
+          title={t("clearSearchTitle")}
           style={{
             padding: "0.5rem 0.75rem",
             borderRadius: 8,
@@ -65,7 +67,7 @@ export default function DeviceSelect({ devices }: { devices: AvailableDevice[] }
             cursor: "pointer",
           }}
         >
-          &#10005; Clear
+          &#10005; {t("clearButton")}
         </button>
       </div>
       <select
@@ -83,15 +85,15 @@ export default function DeviceSelect({ devices }: { devices: AvailableDevice[] }
           fontSize: "0.95rem",
         }}
       >
-        <option value="">-- Unassigned (add name only) --</option>
+        <option value="">{t("unassignedOption")}</option>
         {filtered.map((d) => (
           <option key={`${d.Source}-${d.MacAddress}`} value={d.MacAddress}>
-            [{d.Source}] {d.IpAddress} &middot; {d.Hostname ?? "unknown"} ({d.MacAddress})
+            [{d.Source}] {d.IpAddress} &middot; {d.Hostname ?? t("unknownHostnameFallback")} ({d.MacAddress})
           </option>
         ))}
       </select>
       <span style={{ color: "var(--ink-muted)", fontSize: "0.75rem" }}>
-        {filtered.length} of {devices.length} devices shown
+        {t("devicesShownCount", { shown: filtered.length, total: devices.length })}
       </span>
     </div>
   );

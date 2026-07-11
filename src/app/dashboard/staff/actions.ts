@@ -8,10 +8,10 @@ export async function addStaff(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const mac = String(formData.get("mac") ?? "").trim().toUpperCase();
 
-  let errorMessage: string | null = null;
+  let errorCode: string | null = null;
 
   if (!name) {
-    errorMessage = "Name is required.";
+    errorCode = "nameRequired";
   } else {
     const db = await getDb();
     try {
@@ -21,14 +21,14 @@ export async function addStaff(formData: FormData) {
         .input("mac", sql.VarChar, mac || null)
         .query(`INSERT INTO Staff (Name, MacAddress) VALUES (@name, @mac)`);
     } catch {
-      errorMessage = "That MAC address is already assigned to another staff member.";
+      errorCode = "duplicateMac";
     }
   }
 
   revalidatePath("/dashboard/staff");
 
-  if (errorMessage) {
-    redirect(`/dashboard/staff?error=${encodeURIComponent(errorMessage)}`);
+  if (errorCode) {
+    redirect(`/dashboard/staff?error=${encodeURIComponent(errorCode)}`);
   }
   redirect("/dashboard/staff");
 }

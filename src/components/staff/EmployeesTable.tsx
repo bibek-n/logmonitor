@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Pencil } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -21,6 +22,7 @@ export interface EmployeeRow extends EditableEmployee {
 }
 
 function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
+  const t = useTranslations("employees.table");
   const [editing, setEditing] = useState<EmployeeRow | null>(null);
 
   return (
@@ -34,14 +36,14 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
               <th style={{ padding: "0.5rem" }}></th>
-              <th style={{ padding: "0.5rem" }}>Name</th>
-              <th style={{ padding: "0.5rem" }}>Status</th>
-              <th style={{ padding: "0.5rem" }}>Department</th>
-              <th style={{ padding: "0.5rem" }}>Position</th>
-              <th style={{ padding: "0.5rem" }}>Computer Name</th>
-              <th style={{ padding: "0.5rem" }}>IP Address</th>
-              <th style={{ padding: "0.5rem" }}>Last Seen</th>
-              <th style={{ padding: "0.5rem" }}>MAC Address</th>
+              <th style={{ padding: "0.5rem" }}>{t("nameColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("statusColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("departmentColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("positionColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("computerNameColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("ipAddressColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("lastSeenColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("macAddressColumn")}</th>
               <th style={{ padding: "0.5rem" }}></th>
             </tr>
           </thead>
@@ -59,17 +61,17 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                       {s.Name}
                     </Link>
                   </td>
-                  <td style={{ padding: "0.5rem" }}>{!s.MacAddress ? "No device" : s.isOnline ? "Online" : "Offline"}</td>
+                  <td style={{ padding: "0.5rem" }}>{!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : t("offlineStatus")}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Department ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Position ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.deviceName ?? "-"}</td>
-                  <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.currentIp ?? "not currently online"}</td>
+                  <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.currentIp ?? t("notCurrentlyOnlineFallback")}</td>
                   <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.lastSeen ? s.lastSeen.toLocaleString() : "-"}</td>
                   <td style={{ padding: "0.5rem", fontFamily: "monospace", fontSize: "0.78rem" }}>{s.MacAddress ?? "-"}</td>
                   <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>
                     <button
                       onClick={() => setEditing(s)}
-                      title="Edit"
+                      title={t("editTitle")}
                       style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", marginRight: 10 }}
                     >
                       <Pencil size={14} />
@@ -88,7 +90,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                           cursor: "pointer",
                         }}
                       >
-                        Remove
+                        {t("removeButton")}
                       </button>
                     </form>
                   </td>
