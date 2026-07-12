@@ -90,11 +90,18 @@ func cmdInstall(args []string) {
 		fmt.Fprintln(os.Stderr, "failed to save config:", err)
 		os.Exit(1)
 	}
+	if err := SaveChatConfig(&ChatConfig{ServerURL: *server, DeviceID: resp.DeviceID, ChatToken: resp.ChatToken}); err != nil {
+		// Non-fatal: the main agent (telemetry) is what matters most — chat is a bonus
+		// feature, so a failure here shouldn't abort the whole install.
+		fmt.Fprintln(os.Stderr, "warning: failed to save chat config (chat companion won't work):", err)
+	}
 
 	if err := InstallService(); err != nil {
 		fmt.Fprintln(os.Stderr, "service install failed:", err)
 		os.Exit(1)
 	}
+
+	installChatCompanion()
 
 	fmt.Println("Enrolled as device", resp.DeviceID, "- agent service installed and started.")
 }
@@ -129,6 +136,11 @@ func cmdEnroll(args []string) {
 	if err := SaveConfig(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "failed to save config:", err)
 		os.Exit(1)
+	}
+	// install.sh installs/starts the chat companion itself (only when it detects a desktop
+	// session) after this command returns — it just needs this config file to exist first.
+	if err := SaveChatConfig(&ChatConfig{ServerURL: *server, DeviceID: resp.DeviceID, ChatToken: resp.ChatToken}); err != nil {
+		fmt.Fprintln(os.Stderr, "warning: failed to save chat config (chat companion won't work):", err)
 	}
 
 	fmt.Println("Enrolled as device", resp.DeviceID)

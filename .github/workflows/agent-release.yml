@@ -21,12 +21,29 @@ jobs:
           - goos: windows
             goarch: amd64
             out: agent.exe
+            pkg: .
           - goos: linux
             goarch: amd64
             out: logmonitor-agent-linux-amd64
+            pkg: .
           - goos: linux
             goarch: arm64
             out: logmonitor-agent-linux-arm64
+            pkg: .
+          # Chat companion — a separate small binary from the main agent (see the package
+          # comment in agent/chattray/main.go for why), built from its own subdirectory.
+          - goos: windows
+            goarch: amd64
+            out: chattray.exe
+            pkg: ./chattray
+          - goos: linux
+            goarch: amd64
+            out: logmonitor-chattray-linux-amd64
+            pkg: ./chattray
+          - goos: linux
+            goarch: arm64
+            out: logmonitor-chattray-linux-arm64
+            pkg: ./chattray
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +58,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" .
+        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" "${{ matrix.pkg }}"
 
       - uses: actions/upload-artifact@v4
         with:

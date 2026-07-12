@@ -99,6 +99,8 @@ func UninstallService() error {
 		return err
 	}
 
+	uninstallChatCompanion()
+
 	configDir := filepath.Dir(ConfigPath())
 	if err := os.RemoveAll(configDir); err != nil {
 		log.Printf("could not remove config directory %s (non-fatal): %v", configDir, err)

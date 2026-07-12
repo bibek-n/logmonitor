@@ -32,10 +32,11 @@ func NewClient(serverURL, deviceID, apiKey string) *Client {
 }
 
 type EnrollResponse struct {
-	OK       bool   `json:"ok"`
-	Error    string `json:"error"`
-	DeviceID string `json:"deviceId"`
-	APIKey   string `json:"apiKey"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error"`
+	DeviceID  string `json:"deviceId"`
+	APIKey    string `json:"apiKey"`
+	ChatToken string `json:"chatToken"`
 }
 
 // Enroll exchanges a one-time enrollment token for a persistent device API key. Requires

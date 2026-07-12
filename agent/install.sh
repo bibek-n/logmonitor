@@ -88,4 +88,51 @@ EOF
 systemctl daemon-reload
 systemctl enable --now "$SERVICE_NAME"
 
+# --- Chat companion (best-effort, never fails the main install) ---------------------------
+# The main agent runs as a systemd system unit (root, no desktop access) so it can't show a
+# tray icon or notification itself — the companion instead runs in the real logged-in user's
+# own session, autostarted via an XDG autostart entry. Only installed when a graphical
+# session is actually detected for the invoking user (many enrolled Linux targets are
+# headless servers with no desktop at all).
+DESKTOP_USER="${SUDO_USER:-}"
+HAS_DESKTOP=0
+if [ -n "$DESKTOP_USER" ] && command -v loginctl >/dev/null 2>&1; then
+  for sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$DESKTOP_USER" '$3==u {print $1}'); do
+    SESSION_TYPE=$(loginctl show-session "$sid" -p Type --value 2>/dev/null || echo "")
+    if [ "$SESSION_TYPE" = "x11" ] || [ "$SESSION_TYPE" = "wayland" ]; then
+      HAS_DESKTOP=1
+      break
+    fi
+  done
+fi
+
+if [ "$HAS_DESKTOP" -eq 1 ]; then
+  echo "Desktop session detected for $DESKTOP_USER - installing chat companion..."
+  COMPANION_URL="https://github.com/$REPO/releases/latest/download/logmonitor-chattray-linux-$GOARCH"
+  if curl -fsSL "$COMPANION_URL" -o "$INSTALL_DIR/logmonitor-chattray" 2>/dev/null; then
+    chmod 755 "$INSTALL_DIR/logmonitor-chattray"
+    USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
+    if [ -n "$USER_HOME" ]; then
+      AUTOSTART_DIR="$USER_HOME/.config/autostart"
+      mkdir -p "$AUTOSTART_DIR"
+      cat > "$AUTOSTART_DIR/logmonitor-chat.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=LogMonitor Chat
+Exec=$INSTALL_DIR/logmonitor-chattray
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+EOF
+      chown -R "$DESKTOP_USER":"$DESKTOP_USER" "$AUTOSTART_DIR/logmonitor-chat.desktop"
+      # Launch now so it's live without waiting for the next login — best-effort, depends on
+      # this root shell being able to reach the user's session bus/display.
+      sudo -u "$DESKTOP_USER" DISPLAY="${DISPLAY:-:0}" "$INSTALL_DIR/logmonitor-chattray" >/dev/null 2>&1 &
+    fi
+  else
+    echo "Warning: could not download chat companion - skipping (main agent install still succeeded)." >&2
+  fi
+else
+  echo "No desktop session detected - skipping chat companion (this looks like a headless server)."
+fi
+
 echo "Done. Check status with: systemctl status $SERVICE_NAME"

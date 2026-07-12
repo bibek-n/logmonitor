@@ -33,6 +33,11 @@ func UninstallService() error {
 	_ = os.Remove("/etc/systemd/system/logmonitor-agent.service")
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = os.RemoveAll("/etc/logmonitor-agent")
+	// No-op today (see chatcompanion_linux.go) — the XDG autostart entry install.sh writes
+	// under a specific user's home directory isn't cleaned up here, since this command runs
+	// as root with no reliable way to resolve "which user" without more plumbing. A stale
+	// autostart entry just re-launches a companion that exits immediately (no config left).
+	uninstallChatCompanion()
 
 	if exePath, err := os.Executable(); err == nil {
 		_ = os.Remove(exePath)
