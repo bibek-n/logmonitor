@@ -24,6 +24,13 @@ func runTray(cfg *chatConfig) {
 		if resp != nil {
 			lastUnread = resp.UnreadCount
 		}
+		if nresp, err := pollNotifications(cfg); err == nil && nresp.OK {
+			for _, n := range nresp.Notifications {
+				if err := beeep.Notify("Notification from Admin", n.Message, ""); err != nil {
+					log.Printf("admin notification failed (expected without a desktop session): %v", err)
+				}
+			}
+		}
 		time.Sleep(pollInterval)
 	}
 }

@@ -49,6 +49,11 @@ func runTray(cfg *chatConfig) {
 				}
 				lastUnread = resp.UnreadCount
 			}
+			if nresp, err := pollNotifications(cfg); err == nil && nresp.OK {
+				for _, n := range nresp.Notifications {
+					_ = tray.ShowMessage("Notification from Admin", n.Message, false)
+				}
+			}
 			time.Sleep(pollInterval)
 		}
 	}()

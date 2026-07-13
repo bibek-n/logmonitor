@@ -81,6 +81,33 @@ func pollUnread(cfg *chatConfig) (*unreadResponse, error) {
 	return &out, nil
 }
 
+// A one-off admin broadcast/direct message — distinct from chat: the server advances a
+// per-device watermark once these are returned (see /api/agent/notifications), so each one
+// is shown exactly once rather than persisting as an "unread count" the way chat does.
+type adminNotification struct {
+	ID      int    `json:"id"`
+	Message string `json:"message"`
+}
+
+type notificationsResponse struct {
+	OK            bool                `json:"ok"`
+	Notifications []adminNotification `json:"notifications"`
+}
+
+func pollNotifications(cfg *chatConfig) (*notificationsResponse, error) {
+	u := fmt.Sprintf("%s/api/agent/notifications?deviceId=%s&token=%s", cfg.ServerURL, url.QueryEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
+	resp, err := httpClient.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out notificationsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func openBrowser(target string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
