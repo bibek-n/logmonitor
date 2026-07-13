@@ -55,7 +55,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
         OsEdition, OsBuild, KernelVersion, Architecture, CONVERT(VARCHAR(19), UpdatedAt, 126) AS UpdatedAt
       FROM DeviceHardwareInfo WHERE DeviceId = @deviceId
     `),
-    db.request().input("deviceId", sql.VarChar, deviceId).query("SELECT DiskIndex, Model, Type, CapacityGB FROM DeviceDisks WHERE DeviceId = @deviceId ORDER BY DiskIndex ASC"),
+    db.request().input("deviceId", sql.VarChar, deviceId).query("SELECT DiskIndex, Model, Type, CapacityGB, HealthStatus, OperationalStatus, TemperatureCelsius FROM DeviceDisks WHERE DeviceId = @deviceId ORDER BY DiskIndex ASC"),
     db.request().input("deviceId", sql.VarChar, deviceId).query("SELECT InterfaceName, MacAddress, IpAddresses, IsUp, SpeedMbps FROM DeviceNetworkInterfaces WHERE DeviceId = @deviceId"),
     db.request().input("deviceId", sql.VarChar, deviceId).query("SELECT COUNT(*) AS Cnt FROM ServerLogEntries WHERE DeviceId = @deviceId"),
   ]);
@@ -152,6 +152,8 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
                   <th style={{ padding: "0.3rem" }}>Model</th>
                   <th style={{ padding: "0.3rem" }}>Type</th>
                   <th style={{ padding: "0.3rem" }}>Capacity</th>
+                  <th style={{ padding: "0.3rem" }}>Health</th>
+                  <th style={{ padding: "0.3rem" }}>Temp</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,6 +163,16 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
                     <td style={{ padding: "0.3rem" }}>{d.Model ?? "—"}</td>
                     <td style={{ padding: "0.3rem" }}>{d.Type ?? "—"}</td>
                     <td style={{ padding: "0.3rem" }}>{d.CapacityGB ? `${d.CapacityGB.toFixed(0)} GB` : "—"}</td>
+                    <td style={{ padding: "0.3rem" }}>
+                      {d.HealthStatus ? (
+                        <Badge tone={d.HealthStatus === "Healthy" ? "success" : d.HealthStatus === "Warning" ? "warning" : "danger"}>
+                          {d.HealthStatus}
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td style={{ padding: "0.3rem" }}>{d.TemperatureCelsius != null ? `${d.TemperatureCelsius.toFixed(0)}°C` : "—"}</td>
                   </tr>
                 ))}
               </tbody>

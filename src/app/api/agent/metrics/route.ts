@@ -24,6 +24,19 @@ async function checkThreshold(deviceId: string, alertType: string, value: number
   }
 }
 
+// Same "disk_high" alert as checkThreshold's percentage-based check, but with the actual
+// free-space number in the message when we have it - "12% free" reads very differently on a
+// 4TB drive than a 128GB one, and admins asked for this to be legible at a glance.
+async function checkLowDiskSpace(deviceId: string, diskPct: number | null, freeGB: number | null) {
+  if (diskPct === null) return;
+  if (diskPct > HIGH_USAGE_THRESHOLD) {
+    const freeText = freeGB !== null ? ` (${freeGB.toFixed(1)} GB free)` : "";
+    await raiseAlertIfNew(deviceId, "disk_high", "critical", `Disk usage is at ${diskPct.toFixed(0)}% (>${HIGH_USAGE_THRESHOLD}%)${freeText}.`);
+  } else {
+    await resolveAlert(deviceId, "disk_high");
+  }
+}
+
 export async function POST(req: NextRequest) {
   const device = await authenticateDevice(req);
   if (!device) {
@@ -65,24 +78,26 @@ export async function POST(req: NextRequest) {
     .input("batteryCycleCount", sql.Int, int(body.batteryCycleCount))
     .input("powerAdapterConnected", sql.Bit, bit(body.powerAdapterConnected))
     .input("cpuTempC", sql.Float, num(body.cpuTempC))
+    .input("diskFreeGB", sql.Float, num(body.diskFreeGB))
+    .input("diskTotalGB", sql.Float, num(body.diskTotalGB))
     .query(`
       INSERT INTO DeviceMetrics (
         DeviceId, CpuPct, MemPct, DiskPct, NetRxMbps, NetTxMbps, UptimeSeconds,
         SwapPct, DiskReadMBps, DiskWriteMBps, DiskIops, ProcessCount, ThreadCount, HandleCount,
         LoadAvg1, LoadAvg5, LoadAvg15, GpuUsagePct, BatteryPct, BatteryHealth, BatteryCycleCount,
-        PowerAdapterConnected, CpuTempC
+        PowerAdapterConnected, CpuTempC, DiskFreeGB, DiskTotalGB
       )
       VALUES (
         @deviceId, @cpuPct, @memPct, @diskPct, @netRxMbps, @netTxMbps, @uptimeSeconds,
         @swapPct, @diskReadMBps, @diskWriteMBps, @diskIops, @processCount, @threadCount, @handleCount,
         @loadAvg1, @loadAvg5, @loadAvg15, @gpuUsagePct, @batteryPct, @batteryHealth, @batteryCycleCount,
-        @powerAdapterConnected, @cpuTempC
+        @powerAdapterConnected, @cpuTempC, @diskFreeGB, @diskTotalGB
       )
     `);
 
   await checkThreshold(device.deviceId, "cpu_high", cpuPct, "CPU");
   await checkThreshold(device.deviceId, "mem_high", memPct, "Memory");
-  await checkThreshold(device.deviceId, "disk_high", diskPct, "Disk");
+  await checkLowDiskSpace(device.deviceId, diskPct, num(body.diskFreeGB));
 
   return NextResponse.json({ ok: true });
 }

@@ -134,6 +134,8 @@ type MetricsPayload struct {
 	BatteryCycleCount     int     `json:"batteryCycleCount"`
 	PowerAdapterConnected *bool   `json:"powerAdapterConnected"`
 	CpuTempC              float64 `json:"cpuTempC"`
+	DiskFreeGB            float64 `json:"diskFreeGB"`
+	DiskTotalGB           float64 `json:"diskTotalGB"`
 }
 
 // postJSON is the shared helper for every new best-effort snapshot upload — each just

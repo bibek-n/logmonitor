@@ -26,6 +26,21 @@ export interface HardwareInfo {
   architecture: string | null;
 }
 
+export interface DiskRow {
+  diskIndex: number;
+  model: string | null;
+  type: string | null;
+  capacityGB: number | null;
+  healthStatus: string | null;
+  operationalStatus: string | null;
+  temperatureCelsius: number | null;
+}
+
+export interface DiskSpace {
+  freeGB: number | null;
+  totalGB: number | null;
+}
+
 export interface SecurityStatus {
   antivirusStatus: string | null;
   defenderStatus: string | null;
@@ -480,6 +495,8 @@ export function DeviceDetail({
   screenshots,
   staffOptions,
   hardware,
+  disks,
+  diskSpace,
   security,
   network,
   processes,
@@ -494,6 +511,8 @@ export function DeviceDetail({
   screenshots: ScreenshotRow[];
   staffOptions: { id: number; name: string }[];
   hardware: HardwareInfo | null;
+  disks: DiskRow[];
+  diskSpace: DiskSpace | null;
   security: SecurityStatus | null;
   network: NetworkInfo | null;
   processes: ProcessRow[];
@@ -548,6 +567,8 @@ export function DeviceDetail({
       <div className="mt-4">
         <DeviceDetailExtras
           hardware={hardware}
+          disks={disks}
+          diskSpace={diskSpace}
           security={security}
           network={network}
           processes={processes}

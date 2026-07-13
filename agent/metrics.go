@@ -36,6 +36,7 @@ func CollectMetrics() MetricsPayload {
 
 	if parts, err := disk.Partitions(false); err == nil {
 		var worst float64
+		var worstFreeGB, worstTotalGB float64
 		for _, p := range parts {
 			usage, err := disk.Usage(p.Mountpoint)
 			if err != nil {
@@ -43,9 +44,13 @@ func CollectMetrics() MetricsPayload {
 			}
 			if usage.UsedPercent > worst {
 				worst = usage.UsedPercent
+				worstFreeGB = float64(usage.Free) / (1024 * 1024 * 1024)
+				worstTotalGB = float64(usage.Total) / (1024 * 1024 * 1024)
 			}
 		}
 		out.DiskPct = worst
+		out.DiskFreeGB = worstFreeGB
+		out.DiskTotalGB = worstTotalGB
 	}
 
 	rxMbps, txMbps := measureNetRate()

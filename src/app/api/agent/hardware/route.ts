@@ -7,6 +7,9 @@ interface DiskInput {
   model?: string;
   type?: string;
   capacityGB?: number;
+  healthStatus?: string;
+  operationalStatus?: string;
+  temperatureCelsius?: number;
 }
 
 interface InterfaceInput {
@@ -115,7 +118,12 @@ export async function POST(req: NextRequest) {
         .input("model", sql.NVarChar, disk.model ?? null)
         .input("type", sql.VarChar, disk.type ?? null)
         .input("capacityGB", sql.Float, disk.capacityGB ?? null)
-        .query("INSERT INTO DeviceDisks (DeviceId, DiskIndex, Model, Type, CapacityGB) VALUES (@deviceId, @diskIndex, @model, @type, @capacityGB)");
+        .input("healthStatus", sql.NVarChar, disk.healthStatus || null)
+        .input("operationalStatus", sql.NVarChar, disk.operationalStatus || null)
+        .input("temperatureCelsius", sql.Float, typeof disk.temperatureCelsius === "number" ? disk.temperatureCelsius : null)
+        .query(
+          "INSERT INTO DeviceDisks (DeviceId, DiskIndex, Model, Type, CapacityGB, HealthStatus, OperationalStatus, TemperatureCelsius) VALUES (@deviceId, @diskIndex, @model, @type, @capacityGB, @healthStatus, @operationalStatus, @temperatureCelsius)"
+        );
     }
   }
 

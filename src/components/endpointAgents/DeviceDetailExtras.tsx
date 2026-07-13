@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type {
   HardwareInfo,
+  DiskRow,
+  DiskSpace,
   SecurityStatus,
   NetworkInfo,
   ProcessRow,
@@ -31,7 +33,14 @@ function statusTone(ok: boolean | null): "success" | "danger" | "neutral" {
   return ok ? "success" : "danger";
 }
 
-function HardwareInfoCard({ hardware }: { hardware: HardwareInfo | null }) {
+function diskHealthTone(status: string | null): "success" | "warning" | "danger" | "neutral" {
+  if (!status) return "neutral";
+  if (status === "Healthy") return "success";
+  if (status === "Warning") return "warning";
+  return "danger";
+}
+
+function HardwareInfoCard({ hardware, disks, diskSpace }: { hardware: HardwareInfo | null; disks: DiskRow[]; diskSpace: DiskSpace | null }) {
   if (!hardware) {
     return (
       <Card>
@@ -56,7 +65,25 @@ function HardwareInfoCard({ hardware }: { hardware: HardwareInfo | null }) {
             : null
         }
       />
+      <Field
+        label="Free space"
+        value={diskSpace?.freeGB != null && diskSpace?.totalGB != null ? `${diskSpace.freeGB.toFixed(1)} GB free of ${diskSpace.totalGB.toFixed(0)} GB` : null}
+      />
       <Field label="GPU" value={hardware.gpuName} />
+      {disks.length > 0 && (
+        <div style={{ marginTop: "0.5rem", paddingTop: "0.5rem", borderTop: "1px solid var(--border)" }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.3rem" }}>Disk health</div>
+          {disks.map((d) => (
+            <div key={d.diskIndex} className="flex items-center justify-between gap-2" style={{ fontSize: "0.78rem", padding: "0.15rem 0" }}>
+              <span style={{ color: "var(--ink-muted)" }}>
+                #{d.diskIndex} {d.model ?? ""}
+                {d.temperatureCelsius != null ? ` · ${d.temperatureCelsius.toFixed(0)}°C` : ""}
+              </span>
+              {d.healthStatus && <Badge tone={diskHealthTone(d.healthStatus)}>{d.healthStatus}</Badge>}
+            </div>
+          ))}
+        </div>
+      )}
       <Field label="OS" value={hardware.osEdition} />
       <Field label="Kernel / build" value={hardware.kernelVersion ?? hardware.osBuild} />
       <Field label="Architecture" value={hardware.architecture} />
@@ -254,6 +281,8 @@ function AlertsAndUsbCard({ alerts, usbEvents }: { alerts: DeviceAlertRow[]; usb
 
 export function DeviceDetailExtras({
   hardware,
+  disks,
+  diskSpace,
   security,
   network,
   processes,
@@ -263,6 +292,8 @@ export function DeviceDetailExtras({
   usbEvents,
 }: {
   hardware: HardwareInfo | null;
+  disks: DiskRow[];
+  diskSpace: DiskSpace | null;
   security: SecurityStatus | null;
   network: NetworkInfo | null;
   processes: ProcessRow[];
@@ -283,7 +314,7 @@ export function DeviceDetailExtras({
       </div>
 
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-        <HardwareInfoCard hardware={hardware} />
+        <HardwareInfoCard hardware={hardware} disks={disks} diskSpace={diskSpace} />
         <SecurityStatusCard security={security} />
         <NetworkInfoCard network={network} />
       </div>

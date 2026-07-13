@@ -8,6 +8,8 @@ import {
   type MetricPoint,
   type ScreenshotRow,
   type HardwareInfo,
+  type DiskRow,
+  type DiskSpace,
   type SecurityStatus,
   type NetworkInfo,
   type ProcessRow,
@@ -137,7 +139,7 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
 
   const macMatch = await matchDeviceByMac(device.MacAddress);
 
-  const [hardwareResult, securityResult, networkResult, processResult, serviceResult, softwareResult, alertsResult, usbResult] =
+  const [hardwareResult, disksResult, diskSpaceResult, securityResult, networkResult, processResult, serviceResult, softwareResult, alertsResult, usbResult] =
     await Promise.all([
       db.request().input("deviceId", sql.VarChar, deviceId).query<HardwareInfo>(`
         SELECT CpuModel AS cpuModel, CpuManufacturer AS cpuManufacturer, CpuCores AS cpuCores, CpuThreads AS cpuThreads,
@@ -145,6 +147,15 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
           DiskCapacityGB AS diskCapacityGB, GpuName AS gpuName, OsEdition AS osEdition, OsBuild AS osBuild,
           KernelVersion AS kernelVersion, Architecture AS architecture
         FROM DeviceHardwareInfo WHERE DeviceId = @deviceId
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<DiskRow>(`
+        SELECT DiskIndex AS diskIndex, Model AS model, Type AS type, CapacityGB AS capacityGB,
+          HealthStatus AS healthStatus, OperationalStatus AS operationalStatus, TemperatureCelsius AS temperatureCelsius
+        FROM DeviceDisks WHERE DeviceId = @deviceId ORDER BY DiskIndex ASC
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<DiskSpace>(`
+        SELECT TOP 1 DiskFreeGB AS freeGB, DiskTotalGB AS totalGB
+        FROM DeviceMetrics WHERE DeviceId = @deviceId ORDER BY ReceivedAt DESC
       `),
       db.request().input("deviceId", sql.VarChar, deviceId).query<SecurityStatus>(`
         SELECT AntivirusStatus AS antivirusStatus, DefenderStatus AS defenderStatus, FirewallEnabled AS firewallEnabled,
@@ -199,6 +210,8 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       screenshots={screenshots}
       staffOptions={staffResult.recordset.map((s) => ({ id: s.Id, name: s.Name }))}
       hardware={hardwareResult.recordset[0] ?? null}
+      disks={disksResult.recordset}
+      diskSpace={diskSpaceResult.recordset[0] ?? null}
       security={securityResult.recordset[0] ?? null}
       network={network}
       processes={parseJsonArray<ProcessRow>(processResult.recordset[0]?.ProcessesJson)}

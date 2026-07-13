@@ -14,10 +14,13 @@ import (
 // DiskInfo describes one physical disk — CollectHardwareInfo now enumerates all disks
 // (not just the first) for the Servers feature's multi-disk inventory.
 type DiskInfo struct {
-	Index      int     `json:"index"`
-	Model      string  `json:"model"`
-	Type       string  `json:"type"` // "ssd" | "hdd" | "unknown"
-	CapacityGB float64 `json:"capacityGB"`
+	Index              int      `json:"index"`
+	Model              string   `json:"model"`
+	Type               string   `json:"type"` // "ssd" | "hdd" | "unknown"
+	CapacityGB         float64  `json:"capacityGB"`
+	HealthStatus       string   `json:"healthStatus"`      // "Healthy" | "Warning" | "Unhealthy" | "" (unknown/unsupported)
+	OperationalStatus  string   `json:"operationalStatus"` // e.g. "OK", "Predict Failure" - Storage subsystem's own wording
+	TemperatureCelsius *float64 `json:"temperatureCelsius,omitempty"`
 }
 
 // HardwareInfo is mostly static (collected once at start and re-sent daily) — every
@@ -134,6 +137,7 @@ func collectDiskInfo(hw *HardwareInfo) {
 			}
 			hw.Disks = append(hw.Disks, disk)
 		}
+		applyWindowsDiskHealth(hw.Disks)
 	} else {
 		// Linux: enumerate every non-loop/ram block device under /sys/block.
 		entries := runOut("sh", "-c", "ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram)'")
@@ -165,6 +169,51 @@ func collectDiskInfo(hw *HardwareInfo) {
 		hw.DiskModel = hw.Disks[0].Model
 		hw.DiskType = hw.Disks[0].Type
 		hw.DiskCapacityGB = hw.Disks[0].CapacityGB
+	}
+}
+
+// applyWindowsDiskHealth fills in HealthStatus/OperationalStatus/TemperatureCelsius using the
+// modern Windows Storage Management API (Get-PhysicalDisk / Get-StorageReliabilityCounter) -
+// this surfaces the same underlying SMART/predictive-failure data as raw ATA SMART commands
+// without needing a third-party library or elevated raw-disk access, and works across the
+// full range of controllers (SATA, NVMe, RAID) that a hand-rolled SMART reader would miss.
+// Best-effort: matched to hw.Disks by index (Get-PhysicalDisk's DeviceId is the physical
+// drive number, matching Win32_DiskDrive's Index for the same disk in normal setups); any
+// disk this can't match or that errors out is simply left with empty health fields.
+func applyWindowsDiskHealth(disks []DiskInfo) {
+	out := runOut("powershell", "-NoProfile", "-Command",
+		`Get-PhysicalDisk | ForEach-Object { $pd = $_; $temp = $null; try { $temp = (Get-StorageReliabilityCounter -PhysicalDisk $pd -ErrorAction Stop).Temperature } catch {}; $op = ($pd.OperationalStatus -join ';'); "$($pd.DeviceId)|$($pd.HealthStatus)|$op|$temp" }`)
+	if out == "" {
+		return
+	}
+	byIndex := make(map[int]DiskInfo)
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 4)
+		if len(parts) != 4 {
+			continue
+		}
+		idx, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			continue
+		}
+		info := DiskInfo{HealthStatus: strings.TrimSpace(parts[1]), OperationalStatus: strings.TrimSpace(parts[2])}
+		if tempStr := strings.TrimSpace(parts[3]); tempStr != "" {
+			if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
+				info.TemperatureCelsius = &temp
+			}
+		}
+		byIndex[idx] = info
+	}
+	for i := range disks {
+		if info, ok := byIndex[disks[i].Index]; ok {
+			disks[i].HealthStatus = info.HealthStatus
+			disks[i].OperationalStatus = info.OperationalStatus
+			disks[i].TemperatureCelsius = info.TemperatureCelsius
+		}
 	}
 }
 
