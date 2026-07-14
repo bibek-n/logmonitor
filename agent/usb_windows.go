@@ -22,6 +22,11 @@ type winPhysicalDiskRow struct {
 	Size         int64  `json:"Size"`
 }
 
+type winUsbScanResult struct {
+	Pnp  []winUsbPnpRow       `json:"pnp"`
+	Phys []winPhysicalDiskRow `json:"phys"`
+}
+
 var (
 	vidRe         = regexp.MustCompile(`VID_([0-9A-Fa-f]{4})`)
 	massStorageRe = regexp.MustCompile(`(?i)mass storage`)
@@ -148,20 +153,28 @@ func cleanManufacturer(m string) string {
 // positionally - correct for the overwhelmingly common case of one USB drive at a time;
 // with several simultaneous drives the extras simply go unenriched rather than risk
 // attaching the wrong capacity to the wrong device.
+//
+// Both queries run inside a SINGLE powershell.exe invocation (the physical-disk query
+// only when a mass-storage PnP entry is actually present), not two separate spawns -
+// this is called on a short poll interval (usbPollInterval, run.go), and spawning a
+// fresh PowerShell process is expensive enough (measured ~250s of CPU accumulated in
+// ~20 minutes with the earlier two-spawn-per-poll version) that it visibly loaded the
+// monitored PC and needed fixing.
 func CollectUsbDevices() []UsbDeviceInfo {
-	physOut := runPowerShellJSON(
-		"@(Get-PhysicalDisk | Where-Object {$_.BusType -eq 'USB'} | Select-Object FriendlyName,SerialNumber,Size) | ConvertTo-Json -Compress")
-	var physRows []winPhysicalDiskRow
-	if physOut != nil {
-		_ = json.Unmarshal(physOut, &physRows)
+	out := runPowerShellJSON(`
+$pnp = @(Get-CimInstance -ClassName Win32_PnPEntity | Where-Object {$_.DeviceID -like 'USB\VID_*' -and $_.Name -notlike '*Root Hub*' -and $_.Name -notlike '*Host Controller*'} | Select-Object Name,Manufacturer,DeviceID)
+$phys = @()
+if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
+  $phys = @(Get-PhysicalDisk | Where-Object {$_.BusType -eq 'USB'} | Select-Object FriendlyName,SerialNumber,Size)
+}
+[PSCustomObject]@{ pnp = $pnp; phys = $phys } | ConvertTo-Json -Compress -Depth 4
+`)
+	var result winUsbScanResult
+	if out != nil {
+		_ = json.Unmarshal(out, &result)
 	}
-
-	pnpOut := runPowerShellJSON(
-		"@(Get-CimInstance -ClassName Win32_PnPEntity | Where-Object {$_.DeviceID -like 'USB\\VID_*' -and $_.Name -notlike '*Root Hub*' -and $_.Name -notlike '*Host Controller*'} | Select-Object Name,Manufacturer,DeviceID) | ConvertTo-Json -Compress")
-	var pnpRows []winUsbPnpRow
-	if pnpOut != nil {
-		_ = json.Unmarshal(pnpOut, &pnpRows)
-	}
+	pnpRows := result.Pnp
+	physRows := result.Phys
 
 	seen := map[string]bool{}
 	var devices []UsbDeviceInfo

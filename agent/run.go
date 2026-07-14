@@ -12,7 +12,7 @@ const (
 	securityInterval  = 3 * time.Minute
 	networkInterval   = 3 * time.Minute
 	hardwareInterval  = 24 * time.Hour
-	usbPollInterval   = 5 * time.Second
+	usbPollInterval   = 8 * time.Second
 	updateInterval    = 1 * time.Hour
 	logsInterval      = 60 * time.Second
 )
