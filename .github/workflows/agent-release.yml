@@ -65,8 +65,41 @@ jobs:
           name: ${{ matrix.out }}
           path: agent/${{ matrix.out }}
 
+  # Separate job, not a matrix entry — this needs a different Go toolchain (1.20, the last
+  # version that still supports Windows 7/8; Go 1.21+ requires Windows 10+) and a different
+  # go.mod/go.sum (every dependency pinned to a version still buildable under 1.20 - see
+  # agent/go.mod.win7's header comment). Only builds the main agent, not the chat companion
+  # or Linux variants — Windows 7 is the one legacy-OS case this exists for.
+  build-win7:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.20"
+
+      - name: Swap in Windows 7-compatible dependency set
+        working-directory: agent
+        run: |
+          cp go.mod.win7 go.mod
+          cp go.sum.win7 go.sum
+
+      - name: Build
+        working-directory: agent
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o agent-win7.exe .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-win7.exe
+          path: agent/agent-win7.exe
+
   release:
-    needs: build
+    needs: [build, build-win7]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

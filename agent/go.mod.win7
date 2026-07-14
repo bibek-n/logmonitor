@@ -1,0 +1,36 @@
+// Windows 7-compatible dependency set, swapped in for go.mod/go.sum only during the
+// build-win7 CI job (see .github/workflows/agent-release.yml). Go 1.21+ dropped Windows
+// 7/8 support, so this pins the toolchain and every dependency to versions still
+// buildable under Go 1.20 (the last version that supports it). Keep in sync manually
+// when bumping a dependency in the main go.mod, if that dependency is used by this
+// build too — there's no automated check that they stay compatible.
+module github.com/bibek-n/logmonitor/agent
+
+go 1.20
+
+require (
+	github.com/gen2brain/beeep v0.10.0
+	github.com/kardianos/service v1.2.3
+	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
+	github.com/shirou/gopsutil/v3 v3.23.12
+	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af
+	golang.org/x/sys v0.24.0
+)
+
+require (
+	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
+	github.com/esiqveland/notify v0.13.3 // indirect
+	github.com/gen2brain/shm v0.1.0 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/jezek/xgb v1.1.1 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
+	github.com/sergeymakinen/go-bmp v1.0.0 // indirect
+	github.com/sergeymakinen/go-ico v1.0.0-beta.0 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/tklauser/go-sysconf v0.3.12 // indirect
+	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+)
