@@ -336,6 +336,7 @@ export function DeviceDetailExtras({
 }) {
   const router = useRouter();
   const topProcesses = useMemo(() => topProcessesByUsage(processes, 10), [processes]);
+  const runningServices = useMemo(() => services.filter((s) => s.status === "running"), [services]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -362,16 +363,17 @@ export function DeviceDetailExtras({
           { label: "Name", render: (p) => p.name },
           { label: "CPU %", render: (p) => fmtNum(p.cpuPercent) },
           { label: "Mem %", render: (p) => fmtNum(p.memPercent) },
-          { label: "Disk (MB)", render: (p) => fmtNum((p.diskReadMB ?? 0) + (p.diskWriteMB ?? 0), 0) },
+          { label: "Disk Read (MB)", render: (p) => fmtNum(p.diskReadMB, 0) },
+          { label: "Disk Write (MB)", render: (p) => fmtNum(p.diskWriteMB, 0) },
           { label: "Owner", render: (p) => p.owner },
           { label: "Status", render: (p) => p.status },
         ]}
       />
 
       <SearchableTable
-        title="Services"
-        rows={services}
-        emptyLabel="No service snapshot reported yet."
+        title="Running Services"
+        rows={runningServices}
+        emptyLabel="No running services reported yet."
         searchFields={(s) => `${s.name} ${s.displayName}`}
         columns={[
           { label: "Name", render: (s) => s.displayName || s.name },
