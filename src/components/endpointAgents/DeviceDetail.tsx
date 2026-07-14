@@ -73,6 +73,8 @@ export interface ProcessRow {
   name: string;
   cpuPercent: number;
   memPercent: number;
+  diskReadMB?: number;
+  diskWriteMB?: number;
   owner: string;
   startTime: number;
   cmdline: string;

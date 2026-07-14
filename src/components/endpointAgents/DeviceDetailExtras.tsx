@@ -19,6 +19,38 @@ import type {
   UsbEventRow,
 } from "@/components/endpointAgents/DeviceDetail";
 
+// Guards against a non-finite/missing value reaching .toFixed(), which throws - seen live
+// as a client-side crash once real (rather than always-empty) data started flowing for a
+// field that isn't guaranteed to always be a number.
+function fmtNum(value: unknown, digits = 1): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "-";
+}
+
+// Picks the top N processes by whichever resource (CPU, memory, or disk I/O) each one is
+// most notable for, rather than just sorting by one metric - a process that's disk-heavy
+// but CPU-idle would never surface if this only ranked by CPU%. Ranks each process 1..N
+// per dimension, keeps its best (lowest) rank across the three, then takes the N processes
+// with the best combined rank.
+function topProcessesByUsage(processes: ProcessRow[], limit: number): ProcessRow[] {
+  if (processes.length <= limit) return processes;
+  const rankBy = (key: (p: ProcessRow) => number) => {
+    const sorted = [...processes].sort((a, b) => key(b) - key(a));
+    const rank = new Map<ProcessRow, number>();
+    sorted.forEach((p, i) => rank.set(p, i));
+    return rank;
+  };
+  const cpuRank = rankBy((p) => (Number.isFinite(p.cpuPercent) ? p.cpuPercent : 0));
+  const memRank = rankBy((p) => (Number.isFinite(p.memPercent) ? p.memPercent : 0));
+  const diskRank = rankBy((p) => (p.diskReadMB ?? 0) + (p.diskWriteMB ?? 0));
+  return [...processes]
+    .sort((a, b) => {
+      const bestA = Math.min(cpuRank.get(a)!, memRank.get(a)!, diskRank.get(a)!);
+      const bestB = Math.min(cpuRank.get(b)!, memRank.get(b)!, diskRank.get(b)!);
+      return bestA - bestB;
+    })
+    .slice(0, limit);
+}
+
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
     <div style={{ fontSize: "0.78rem", display: "flex", justifyContent: "space-between", gap: "0.5rem", padding: "0.15rem 0" }}>
@@ -303,6 +335,7 @@ export function DeviceDetailExtras({
   usbEvents: UsbEventRow[];
 }) {
   const router = useRouter();
+  const topProcesses = useMemo(() => topProcessesByUsage(processes, 10), [processes]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -320,15 +353,16 @@ export function DeviceDetailExtras({
       </div>
 
       <SearchableTable
-        title="Processes"
-        rows={processes}
+        title="Top Processes (CPU / Memory / Disk)"
+        rows={topProcesses}
         emptyLabel="No process snapshot reported yet."
         searchFields={(p) => `${p.name} ${p.owner} ${p.cmdline}`}
         columns={[
           { label: "PID", render: (p) => p.pid },
           { label: "Name", render: (p) => p.name },
-          { label: "CPU %", render: (p) => p.cpuPercent.toFixed(1) },
-          { label: "Mem %", render: (p) => p.memPercent.toFixed(1) },
+          { label: "CPU %", render: (p) => fmtNum(p.cpuPercent) },
+          { label: "Mem %", render: (p) => fmtNum(p.memPercent) },
+          { label: "Disk (MB)", render: (p) => fmtNum((p.diskReadMB ?? 0) + (p.diskWriteMB ?? 0), 0) },
           { label: "Owner", render: (p) => p.owner },
           { label: "Status", render: (p) => p.status },
         ]}

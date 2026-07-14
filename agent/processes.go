@@ -16,17 +16,19 @@ import (
 // the plan (full Authenticode chain validation is Windows-only and a much bigger job
 // for uncertain value right now). No kill/restart — read-only inventory (deferred).
 type ProcessInfo struct {
-	PID        int32   `json:"pid"`
-	PPID       int32   `json:"ppid"`
-	Name       string  `json:"name"`
-	CPUPercent float64 `json:"cpuPercent"`
-	MemPercent float32 `json:"memPercent"`
-	Owner      string  `json:"owner"`
-	StartTime  int64   `json:"startTime"` // unix ms
-	Cmdline    string  `json:"cmdline"`
-	Status     string  `json:"status"`
-	ExePath    string  `json:"exePath"`
-	Sha256     string  `json:"sha256"`
+	PID         int32   `json:"pid"`
+	PPID        int32   `json:"ppid"`
+	Name        string  `json:"name"`
+	CPUPercent  float64 `json:"cpuPercent"`
+	MemPercent  float32 `json:"memPercent"`
+	DiskReadMB  float64 `json:"diskReadMB"`  // cumulative since process start, not a rate
+	DiskWriteMB float64 `json:"diskWriteMB"` // cumulative since process start, not a rate
+	Owner       string  `json:"owner"`
+	StartTime   int64   `json:"startTime"` // unix ms
+	Cmdline     string  `json:"cmdline"`
+	Status      string  `json:"status"`
+	ExePath     string  `json:"exePath"`
+	Sha256      string  `json:"sha256"`
 }
 
 type hashCacheEntry struct {
@@ -105,18 +107,26 @@ func CollectProcesses() []ProcessInfo {
 		}
 		exePath, _ := p.Exe()
 
+		var diskReadMB, diskWriteMB float64
+		if io, ioErr := p.IOCounters(); ioErr == nil && io != nil {
+			diskReadMB = float64(io.ReadBytes) / (1024 * 1024)
+			diskWriteMB = float64(io.WriteBytes) / (1024 * 1024)
+		}
+
 		out = append(out, ProcessInfo{
-			PID:        p.Pid,
-			PPID:       ppid,
-			Name:       name,
-			CPUPercent: cpuPct,
-			MemPercent: memPct,
-			Owner:      owner,
-			StartTime:  startTime,
-			Cmdline:    cmdline,
-			Status:     status,
-			ExePath:    exePath,
-			Sha256:     hashExecutable(exePath),
+			PID:         p.Pid,
+			PPID:        ppid,
+			Name:        name,
+			CPUPercent:  cpuPct,
+			MemPercent:  memPct,
+			DiskReadMB:  diskReadMB,
+			DiskWriteMB: diskWriteMB,
+			Owner:       owner,
+			StartTime:   startTime,
+			Cmdline:     cmdline,
+			Status:      status,
+			ExePath:     exePath,
+			Sha256:      hashExecutable(exePath),
 		})
 	}
 	return out
