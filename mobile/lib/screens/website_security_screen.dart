@@ -97,7 +97,7 @@ class _WebsiteSecurityScreenState extends State<WebsiteSecurityScreen> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: _riskColor(w.latestRisk).withValues(alpha: 0.15),
+                                            color: _riskColor(w.latestRisk).withOpacity(0.15),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
