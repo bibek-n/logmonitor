@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Search, Bell, RefreshCw, X } from "lucide-react";
+import { Search, Bell, RefreshCw, X, Menu } from "lucide-react";
 import { TOP_ITEMS, NAV_GROUPS } from "@/lib/navRoutes";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { useMobileSidebar } from "./MobileSidebarContext";
+import { useToast } from "./ui/Toast";
 import type { AlertRow } from "@/lib/alerts";
-import { formatDate, formatTime, type DisplaySettings } from "@/lib/dateFormat";
+
+const ALERTS_POLL_INTERVAL_MS = 20000;
 
 function useBreadcrumb(pathname: string, overviewFallback: string): string[] {
   return useMemo(() => {
@@ -23,16 +26,6 @@ function useBreadcrumb(pathname: string, overviewFallback: string): string[] {
   }, [pathname, overviewFallback]);
 }
 
-function useClock() {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
 const SEVERITY_COLOR: Record<string, string> = {
   warning: "var(--warning)",
   error: "var(--danger)",
@@ -43,26 +36,67 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 export default function HeaderClient({
   userName,
-  alerts,
-  displaySettings,
+  alerts: initialAlerts,
 }: {
   userName: string;
   alerts: AlertRow[];
-  displaySettings: DisplaySettings;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("header");
   const tSidebar = useTranslations("sidebar");
   const breadcrumb = useBreadcrumb(pathname, t("overviewFallback"));
-  const now = useClock();
+  const mobileSidebar = useMobileSidebar();
+  const toast = useToast();
 
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [alerts, setAlerts] = useState(initialAlerts);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  // Seeded from whatever was already in the bell at page load, so the first poll doesn't
+  // pop a toast for every pre-existing alert - only ones that show up after that point.
+  const lastSeenRef = useRef<number>(
+    initialAlerts.length > 0 ? Math.max(...initialAlerts.map((a) => new Date(a.EventTime).getTime())) : Date.now()
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/admin/alerts/recent");
+        if (!res.ok) return;
+        const data: { alerts: AlertRow[] } = await res.json();
+        if (cancelled) return;
+
+        const fresh = data.alerts
+          .filter((a) => new Date(a.EventTime).getTime() > lastSeenRef.current)
+          .sort((a, b) => new Date(a.EventTime).getTime() - new Date(b.EventTime).getTime());
+
+        for (const a of fresh) {
+          toast.show({
+            type: a.Severity === "critical" || a.Severity === "warning" ? "error" : "info",
+            message: a.Detail,
+          });
+        }
+        if (fresh.length > 0) {
+          lastSeenRef.current = Math.max(...fresh.map((a) => new Date(a.EventTime).getTime()));
+        }
+        setAlerts(data.alerts);
+      } catch {
+        // Transient network hiccup - just try again on the next tick.
+      }
+    }
+
+    const id = setInterval(poll, ALERTS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [toast]);
 
   const searchIndex = useMemo(() => {
     const mainGroup = tSidebar("searchMainGroup");
@@ -113,6 +147,28 @@ export default function HeaderClient({
         borderBottom: "1px solid var(--border)",
       }}
     >
+      <button
+        type="button"
+        onClick={mobileSidebar.toggle}
+        aria-label={tSidebar("expandSidebar")}
+        className="dash-mobile-menu-btn"
+        style={{
+          display: "none",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          background: "var(--surface-2)",
+          color: "var(--ink-secondary)",
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        <Menu size={17} />
+      </button>
+
       <div style={{ minWidth: 0, flexShrink: 0 }}>
         <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>
           {breadcrumb[breadcrumb.length - 1]}
@@ -197,12 +253,6 @@ export default function HeaderClient({
           </div>
         )}
       </div>
-
-      {now && (
-        <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)", whiteSpace: "nowrap" }} title={displaySettings.timezone}>
-          {formatDate(now, displaySettings)} &middot; {formatTime(now, displaySettings)}
-        </div>
-      )}
 
       <button
         type="button"

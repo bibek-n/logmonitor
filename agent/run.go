@@ -31,7 +31,15 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	var screenshotMonitoringActive bool
 	var lastIntervalCapture time.Time
 	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUsbPoll, lastUpdateCheck, lastLogs time.Time
+
+	// Seeded with whatever's already plugged in at startup, not left empty - otherwise
+	// every agent restart (which happens on every update, i.e. routinely) would replay a
+	// synthetic "insert" event for every already-connected device, none of which is a real
+	// insertion. Only devices that change state *after* this point are genuine events.
 	knownUsbDevices := map[string]UsbDeviceInfo{}
+	for _, d := range CollectUsbDevices() {
+		knownUsbDevices[d.ID] = d
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

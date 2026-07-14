@@ -27,6 +27,11 @@ export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
       FROM DeviceAlerts da
       JOIN Devices d ON d.DeviceId = da.DeviceId
       WHERE da.ResolvedAt IS NULL
+        -- Point-in-time alerts (e.g. usb_insert/usb_removal) are marked resolved the
+        -- instant they're raised - there's no "condition cleared" to wait for - so they'd
+        -- never show up under the ResolvedAt IS NULL rule above. Surface them for a while
+        -- by recency instead.
+        OR (da.AlertType IN ('usb_insert', 'usb_removal') AND da.TriggeredAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()))
     ) alerts
     ORDER BY EventTime DESC
   `);
