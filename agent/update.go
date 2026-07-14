@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -61,6 +62,49 @@ func readMarker() *UpdateMarker {
 
 func clearMarker() {
 	_ = os.Remove(markerPath())
+}
+
+// parseVersion pulls the numeric major/minor/patch triple out of tags like
+// "agent-v0.7.0" (any non-digit prefix is tolerated). Returns ok=false if it
+// doesn't look like a semver tag, so callers can fall back to a safe default
+// instead of comparing garbage.
+func parseVersion(tag string) (major, minor, patch int, ok bool) {
+	v := tag
+	if i := strings.LastIndex(v, "v"); i >= 0 {
+		v = v[i+1:]
+	}
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, false
+	}
+	nums := make([]int, 3)
+	for i, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err != nil {
+			return 0, 0, 0, false
+		}
+		nums[i] = n
+	}
+	return nums[0], nums[1], nums[2], true
+}
+
+// isNewerVersion reports whether remote is a strictly greater semver than
+// local. If either tag doesn't parse as semver, it falls back to a simple
+// inequality check (preserves old behavior for non-standard tags) rather
+// than refusing to ever update.
+func isNewerVersion(local, remote string) bool {
+	lMaj, lMin, lPatch, lOk := parseVersion(local)
+	rMaj, rMin, rPatch, rOk := parseVersion(remote)
+	if !lOk || !rOk {
+		return remote != local
+	}
+	if rMaj != lMaj {
+		return rMaj > lMaj
+	}
+	if rMin != lMin {
+		return rMin > lMin
+	}
+	return rPatch > lPatch
 }
 
 func platformAssetName() string {
@@ -142,8 +186,8 @@ func CheckForUpdate(currentVersion string) {
 		log.Printf("update check failed: %v", err)
 		return
 	}
-	if rel.TagName == "" || rel.TagName == currentVersion {
-		return // already current, or no version info to compare against
+	if rel.TagName == "" || !isNewerVersion(currentVersion, rel.TagName) {
+		return // already current, or remote isn't actually newer (never downgrade)
 	}
 
 	var assetURL, checksumsURL string
