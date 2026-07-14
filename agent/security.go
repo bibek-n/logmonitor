@@ -77,7 +77,9 @@ func collectWindowsSecurity() SecurityStatus {
 
 	tpmOut := runOut("powershell", "-NoProfile", "-Command",
 		"(Get-Tpm | Select-Object -ExpandProperty ManufacturerVersion)")
-	s.TpmVersion = strings.TrimSpace(tpmOut)
+	// Some TPM chips return ManufacturerVersion null-padded to a fixed field width (seen
+	// live: "7.2.2.0" followed by ~25 NUL bytes) - trim those off, not just whitespace.
+	s.TpmVersion = strings.TrimRight(strings.TrimSpace(tpmOut), "\x00")
 
 	failedLoginsOut := runOut("powershell", "-NoProfile", "-Command",
 		"(Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625;StartTime=(Get-Date).AddHours(-24)} -ErrorAction SilentlyContinue | Measure-Object).Count")

@@ -39,6 +39,14 @@ async function main() {
     ALTER TABLE DeviceHardwareInfo ALTER COLUMN BiosReleaseDate NVARCHAR(100) NULL
   `;
 
+  // Same class of bug, different column: some TPM chips report a padded/verbose version
+  // string ("7.2.2.0............."), truncating and throwing a 500 on every security
+  // status upload for that device (this is what was blocking the whole Security Posture
+  // section from ever populating, not just the TPM field).
+  await db.query`
+    ALTER TABLE DeviceSecurityStatus ALTER COLUMN TpmVersion NVARCHAR(100) NULL
+  `;
+
   console.log("Disk health columns ready.");
   process.exit(0);
 }
