@@ -2,10 +2,11 @@ import "package:flutter/material.dart";
 import "../services/api_client.dart";
 import "login_screen.dart";
 import "notifications_screen.dart";
+import "website_security_screen.dart";
+import "endpoint_agents_screen.dart";
 
-/// Landing screen after login. Deliberately just a launcher grid for now - cameras,
-/// website security, and endpoint agents are follow-up phases (see the mobile app plan),
-/// notifications is the first complete vertical slice.
+/// Landing screen after login. Cameras (live-view) still needs native WebRTC support and
+/// is the one remaining "coming soon" tile - everything else is wired up.
 class HomeScreen extends StatelessWidget {
   final ApiClient apiClient;
   const HomeScreen({super.key, required this.apiClient});
@@ -40,8 +41,16 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NotificationsScreen(apiClient: apiClient))),
           ),
           const _Tile(icon: Icons.videocam_outlined, label: "Cameras", comingSoon: true),
-          const _Tile(icon: Icons.security_outlined, label: "Website Security", comingSoon: true),
-          const _Tile(icon: Icons.devices_outlined, label: "Endpoint Agents", comingSoon: true),
+          _Tile(
+            icon: Icons.security_outlined,
+            label: "Website Security",
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WebsiteSecurityScreen(apiClient: apiClient))),
+          ),
+          _Tile(
+            icon: Icons.devices_outlined,
+            label: "Endpoint Agents",
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EndpointAgentsScreen(apiClient: apiClient))),
+          ),
         ],
       ),
     );

@@ -123,6 +123,31 @@ class ApiClient {
     if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to load employees.");
     return (data["staff"] as List).map((e) => StaffOption.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  Future<List<WebsiteSummary>> fetchWebsites() async {
+    final res = await http.get(Uri.parse("$baseUrl/api/mobile/website-security"), headers: await _authHeaders());
+    final data = await _decode(res);
+    if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to load websites.");
+    return (data["websites"] as List).map((e) => WebsiteSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<int> scanWebsite(int websiteId) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/mobile/website-security/scan"),
+      headers: await _authHeaders(),
+      body: jsonEncode({"websiteId": websiteId}),
+    );
+    final data = await _decode(res);
+    if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to start scan.");
+    return data["scanId"] as int;
+  }
+
+  Future<List<DeviceItem>> fetchDevices() async {
+    final res = await http.get(Uri.parse("$baseUrl/api/mobile/endpoint-agents"), headers: await _authHeaders());
+    final data = await _decode(res);
+    if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to load devices.");
+    return (data["devices"] as List).map((e) => DeviceItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
 }
 
 class NotificationItem {
@@ -157,4 +182,58 @@ class StaffOption {
   final String name;
   StaffOption({required this.id, required this.name});
   factory StaffOption.fromJson(Map<String, dynamic> json) => StaffOption(id: json["Id"] as int, name: json["Name"] as String);
+}
+
+class WebsiteSummary {
+  final int id;
+  final String name;
+  final String url;
+  final int? latestScanId;
+  final String? latestScanDate;
+  final String? latestStatus;
+  final int? latestScore;
+  final String? latestRisk;
+  final String? scheduleType;
+
+  WebsiteSummary({
+    required this.id,
+    required this.name,
+    required this.url,
+    required this.latestScanId,
+    required this.latestScanDate,
+    required this.latestStatus,
+    required this.latestScore,
+    required this.latestRisk,
+    required this.scheduleType,
+  });
+
+  factory WebsiteSummary.fromJson(Map<String, dynamic> json) => WebsiteSummary(
+        id: json["Id"] as int,
+        name: json["Name"] as String,
+        url: json["Url"] as String,
+        latestScanId: json["LatestScanId"] as int?,
+        latestScanDate: json["LatestScanDate"] as String?,
+        latestStatus: json["LatestStatus"] as String?,
+        latestScore: json["LatestScore"] as int?,
+        latestRisk: json["LatestRisk"] as String?,
+        scheduleType: json["ScheduleType"] as String?,
+      );
+}
+
+class DeviceItem {
+  final String deviceId;
+  final String hostname;
+  final String? lastIp;
+  final String? macAddress;
+  final String? staffName;
+
+  DeviceItem({required this.deviceId, required this.hostname, required this.lastIp, required this.macAddress, required this.staffName});
+
+  factory DeviceItem.fromJson(Map<String, dynamic> json) => DeviceItem(
+        deviceId: json["DeviceId"] as String,
+        hostname: json["Hostname"] as String,
+        lastIp: json["LastIp"] as String?,
+        macAddress: json["MacAddress"] as String?,
+        staffName: json["StaffName"] as String?,
+      );
 }
