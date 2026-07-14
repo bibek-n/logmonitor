@@ -56,11 +56,13 @@ export default function HeaderClient({
   const [alerts, setAlerts] = useState(initialAlerts);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
-  // Seeded from whatever was already in the bell at page load, so the first poll doesn't
-  // pop a toast for every pre-existing alert - only ones that show up after that point.
-  const lastSeenRef = useRef<number>(
-    initialAlerts.length > 0 ? Math.max(...initialAlerts.map((a) => new Date(a.EventTime).getTime())) : Date.now()
-  );
+  // Deliberately NOT seeded from the max EventTime already in initialAlerts - a USB event
+  // (or any alert) that landed a few seconds before this page loaded would already be in
+  // that server-rendered list, which used to mean it was treated as "already seen" and
+  // never got a toast at all, even though the admin was seeing it for the first time. A
+  // short grace window before mount means anything genuinely recent still pops once,
+  // while true backlog (alerts from hours/days ago) stays silent.
+  const lastSeenRef = useRef<number>(Date.now() - 2 * 60 * 1000);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,7 @@ export default function HeaderClient({
           toast.show({
             type: a.Severity === "critical" || a.Severity === "warning" ? "error" : "info",
             message: a.Detail,
+            duration: 6000,
           });
         }
         if (fresh.length > 0) {
@@ -91,6 +94,7 @@ export default function HeaderClient({
       }
     }
 
+    poll();
     const id = setInterval(poll, ALERTS_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
