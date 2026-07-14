@@ -31,6 +31,14 @@ async function main() {
     ALTER TABLE DeviceMetrics ADD DiskTotalGB FLOAT NULL
   `;
 
+  // Unrelated pre-existing bug hit live on a real workstation: some BIOSes report their
+  // release date in a long verbose format ("Tuesday, December 2, 2025 5:45:00 PM") rather
+  // than the short "MM/DD/YYYY" this column was originally sized for, truncating and
+  // throwing a 500 on every hardware upload for that device.
+  await db.query`
+    ALTER TABLE DeviceHardwareInfo ALTER COLUMN BiosReleaseDate NVARCHAR(100) NULL
+  `;
+
   console.log("Disk health columns ready.");
   process.exit(0);
 }

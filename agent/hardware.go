@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
@@ -60,8 +62,17 @@ type HardwareInfo struct {
 	SerialNumber            string `json:"serialNumber"`
 }
 
+// Every subprocess this file spawns gets a hard timeout - confirmed live that a PowerShell
+// child process can hang indefinitely when spawned from inside a Windows Service (no console
+// session), even for calls that return instantly when run interactively during development.
+// Since CollectHardwareInfo() runs synchronously on the heartbeat tick, one hung child process
+// used to freeze the agent's entire main loop forever, not just leave one field blank.
+const subprocessTimeout = 10 * time.Second
+
 func runOut(name string, args ...string) string {
-	out, err := exec.Command(name, args...).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), subprocessTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, name, args...).Output()
 	if err != nil {
 		return ""
 	}
