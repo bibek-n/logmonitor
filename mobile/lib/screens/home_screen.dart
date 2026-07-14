@@ -4,9 +4,9 @@ import "login_screen.dart";
 import "notifications_screen.dart";
 import "website_security_screen.dart";
 import "endpoint_agents_screen.dart";
+import "cameras_screen.dart";
 
-/// Landing screen after login. Cameras (live-view) still needs native WebRTC support and
-/// is the one remaining "coming soon" tile - everything else is wired up.
+/// Landing screen after login - every tile is wired up to a real screen.
 class HomeScreen extends StatelessWidget {
   final ApiClient apiClient;
   const HomeScreen({super.key, required this.apiClient});
@@ -40,7 +40,11 @@ class HomeScreen extends StatelessWidget {
             label: "Notifications",
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NotificationsScreen(apiClient: apiClient))),
           ),
-          const _Tile(icon: Icons.videocam_outlined, label: "Cameras", comingSoon: true),
+          _Tile(
+            icon: Icons.videocam_outlined,
+            label: "Cameras",
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CamerasScreen(apiClient: apiClient))),
+          ),
           _Tile(
             icon: Icons.security_outlined,
             label: "Website Security",

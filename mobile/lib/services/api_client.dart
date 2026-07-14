@@ -148,6 +148,39 @@ class ApiClient {
     if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to load devices.");
     return (data["devices"] as List).map((e) => DeviceItem.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  Future<List<CameraItem>> fetchCameras() async {
+    final res = await http.get(Uri.parse("$baseUrl/api/mobile/cameras"), headers: await _authHeaders());
+    final data = await _decode(res);
+    if (data["ok"] != true) throw ApiException(data["error"] ?? "Failed to load cameras.");
+    return (data["cameras"] as List).map((e) => CameraItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// WHEP signaling for live-view - the response is either raw SDP (Content-Type:
+  /// application/sdp) on success, or the usual {ok:false, error} JSON on failure. Always
+  /// HTTP 200 either way (see the route itself for why), so Content-Type is what
+  /// distinguishes them, not the status code.
+  Future<String> sendCameraOffer(int cameraId, String offerSdp) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/mobile/cameras/$cameraId/webrtc"),
+      headers: {"Content-Type": "application/sdp", "Authorization": "Bearer ${await token}"},
+      body: offerSdp,
+    );
+    if (res.statusCode != 200) {
+      throw ApiException("Server error (HTTP ${res.statusCode}). Please try again.");
+    }
+    final contentType = res.headers["content-type"] ?? "";
+    if (contentType.contains("application/sdp")) {
+      return res.body;
+    }
+    try {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      throw ApiException(data["error"] ?? "Failed to start stream.");
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException("Unexpected response from server.");
+    }
+  }
 }
 
 class NotificationItem {
@@ -235,5 +268,37 @@ class DeviceItem {
         lastIp: json["LastIp"] as String?,
         macAddress: json["MacAddress"] as String?,
         staffName: json["StaffName"] as String?,
+      );
+}
+
+class CameraItem {
+  final int id;
+  final int nvrId;
+  final String nvrName;
+  final String channelName;
+  final String status;
+  final String? label;
+  final String? location;
+
+  CameraItem({
+    required this.id,
+    required this.nvrId,
+    required this.nvrName,
+    required this.channelName,
+    required this.status,
+    required this.label,
+    required this.location,
+  });
+
+  String get displayName => label ?? channelName;
+
+  factory CameraItem.fromJson(Map<String, dynamic> json) => CameraItem(
+        id: json["Id"] as int,
+        nvrId: json["NvrId"] as int,
+        nvrName: json["NvrName"] as String,
+        channelName: json["ChannelName"] as String,
+        status: json["Status"] as String,
+        label: json["Label"] as String?,
+        location: json["Location"] as String?,
       );
 }
