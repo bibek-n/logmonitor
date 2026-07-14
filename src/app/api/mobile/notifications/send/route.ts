@@ -16,21 +16,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid staffId" });
   }
 
-  const db = await getDb();
-  if (staffId !== null) {
-    const staffResult = await db.request().input("id", sql.Int, staffId).query<{ Id: number }>("SELECT Id FROM Staff WHERE Id = @id");
-    if (!staffResult.recordset[0]) return NextResponse.json({ ok: false, error: "Employee not found" });
+  try {
+    const db = await getDb();
+    if (staffId !== null) {
+      const staffResult = await db.request().input("id", sql.Int, staffId).query<{ Id: number }>("SELECT Id FROM Staff WHERE Id = @id");
+      if (!staffResult.recordset[0]) return NextResponse.json({ ok: false, error: "Employee not found" });
+    }
+
+    await db
+      .request()
+      .input("staffId", sql.Int, staffId)
+      .input("message", sql.NVarChar, message)
+      .input("sentByUserId", sql.Int, admin.userId)
+      .input("sentByUsername", sql.NVarChar, admin.username)
+      .query(
+        "INSERT INTO EmployeeNotifications (StaffId, Message, SentByUserId, SentByUsername) VALUES (@staffId, @message, @sentByUserId, @sentByUsername)"
+      );
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Failed to send notification" });
   }
-
-  await db
-    .request()
-    .input("staffId", sql.Int, staffId)
-    .input("message", sql.NVarChar, message)
-    .input("sentByUserId", sql.Int, admin.userId)
-    .input("sentByUsername", sql.NVarChar, admin.username)
-    .query(
-      "INSERT INTO EmployeeNotifications (StaffId, Message, SentByUserId, SentByUsername) VALUES (@staffId, @message, @sentByUserId, @sentByUsername)"
-    );
-
-  return NextResponse.json({ ok: true });
 }

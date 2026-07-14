@@ -15,12 +15,16 @@ export async function GET(req: NextRequest) {
   const admin = await requireMobileAdmin(req);
   if (!isMobileSession(admin)) return admin;
 
-  const db = await getDb();
-  const result = await db.query<NotificationRow>(`
-    SELECT TOP 100 n.Id, n.StaffId, s.Name AS StaffName, n.Message, n.SentByUsername, n.CreatedAt
-    FROM EmployeeNotifications n
-    LEFT JOIN Staff s ON s.Id = n.StaffId
-    ORDER BY n.Id DESC
-  `);
-  return NextResponse.json({ ok: true, notifications: result.recordset });
+  try {
+    const db = await getDb();
+    const result = await db.query<NotificationRow>(`
+      SELECT TOP 100 n.Id, n.StaffId, s.Name AS StaffName, n.Message, n.SentByUsername, n.CreatedAt
+      FROM EmployeeNotifications n
+      LEFT JOIN Staff s ON s.Id = n.StaffId
+      ORDER BY n.Id DESC
+    `);
+    return NextResponse.json({ ok: true, notifications: result.recordset });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Failed to load notifications" });
+  }
 }
