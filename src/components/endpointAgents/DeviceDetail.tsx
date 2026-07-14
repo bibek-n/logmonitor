@@ -113,6 +113,8 @@ export interface DeviceAlertRow {
 export interface UsbEventRow {
   eventType: string;
   deviceName: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
   serialNumber: string | null;
   storageCapacityGB: number | null;
   detectedAt: string;

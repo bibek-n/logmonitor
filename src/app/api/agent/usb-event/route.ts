@@ -26,11 +26,12 @@ export async function POST(req: NextRequest) {
     .input("eventType", sql.VarChar, body.eventType)
     .input("deviceName", sql.NVarChar, body.deviceName ?? null)
     .input("vendorId", sql.VarChar, body.vendorId || null)
+    .input("vendorName", sql.NVarChar, body.vendorName || null)
     .input("serialNumber", sql.NVarChar, body.serialNumber || null)
     .input("storageCapacityGB", sql.Float, body.storageCapacityGB ?? null)
     .query(`
-      INSERT INTO DeviceUsbEvents (DeviceId, EventType, DeviceName, VendorId, SerialNumber, StorageCapacityGB)
-      VALUES (@deviceId, @eventType, @deviceName, @vendorId, @serialNumber, @storageCapacityGB)
+      INSERT INTO DeviceUsbEvents (DeviceId, EventType, DeviceName, VendorId, VendorName, SerialNumber, StorageCapacityGB)
+      VALUES (@deviceId, @eventType, @deviceName, @vendorId, @vendorName, @serialNumber, @storageCapacityGB)
     `);
 
   return NextResponse.json({ ok: true });

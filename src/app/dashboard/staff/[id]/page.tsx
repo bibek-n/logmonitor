@@ -5,7 +5,21 @@ import { getDb, sql } from "@/lib/db";
 import { parseRouterDurationToSeconds } from "@/lib/mikrotikParser";
 import { classifyDevice } from "@/lib/deviceType";
 import { formatDuration } from "@/lib/staffStatus";
+import { parseJsonArray } from "@/lib/parseJsonArray";
 import { Avatar } from "@/components/ui/Avatar";
+import { DeviceReportToggle } from "@/components/staff/DeviceReportToggle";
+import type {
+  HardwareInfo,
+  DiskRow,
+  DiskSpace,
+  SecurityStatus,
+  NetworkInfo,
+  ProcessRow,
+  ServiceRow,
+  SoftwareRow,
+  DeviceAlertRow,
+  UsbEventRow,
+} from "@/components/endpointAgents/DeviceDetail";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +163,98 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     );
   const linkedDevice = linkedDeviceResult.recordset[0] ?? null;
 
+  // Full device report, fetched only when a PC is actually linked - same queries as the
+  // Endpoint Agents detail page, reused here so an admin doesn't have to leave this page to
+  // see CPU/RAM/disk health/security/etc. for this specific employee's machine.
+  let latestMetrics: { cpuPct: number | null; memPct: number | null; diskPct: number | null } | null = null;
+  let deviceHardware: HardwareInfo | null = null;
+  let deviceDisks: DiskRow[] = [];
+  let deviceDiskSpace: DiskSpace | null = null;
+  let deviceSecurity: SecurityStatus | null = null;
+  let deviceNetwork: NetworkInfo | null = null;
+  let deviceProcesses: ProcessRow[] = [];
+  let deviceServices: ServiceRow[] = [];
+  let deviceSoftware: SoftwareRow[] = [];
+  let deviceAlerts: DeviceAlertRow[] = [];
+  let deviceUsbEvents: UsbEventRow[] = [];
+
+  if (linkedDevice) {
+    const did = linkedDevice.DeviceId;
+    const [metricsRes, hwRes, disksRes, diskSpaceRes, secRes, netRes, procRes, svcRes, swRes, alertsRes, usbRes] = await Promise.all([
+      db.request().input("id", sql.VarChar, did).query<{ CpuPct: number | null; MemPct: number | null; DiskPct: number | null }>(
+        "SELECT TOP 1 CpuPct, MemPct, DiskPct FROM DeviceMetrics WHERE DeviceId = @id ORDER BY ReceivedAt DESC"
+      ),
+      db.request().input("id", sql.VarChar, did).query<HardwareInfo>(`
+        SELECT CpuModel AS cpuModel, CpuManufacturer AS cpuManufacturer, CpuCores AS cpuCores, CpuThreads AS cpuThreads,
+          CpuClockMhz AS cpuClockMhz, MemoryTotalMB AS memoryTotalMB, DiskModel AS diskModel, DiskType AS diskType,
+          DiskCapacityGB AS diskCapacityGB, GpuName AS gpuName, OsEdition AS osEdition, OsBuild AS osBuild,
+          KernelVersion AS kernelVersion, Architecture AS architecture
+        FROM DeviceHardwareInfo WHERE DeviceId = @id
+      `),
+      db.request().input("id", sql.VarChar, did).query<DiskRow>(`
+        SELECT DiskIndex AS diskIndex, Model AS model, Type AS type, CapacityGB AS capacityGB,
+          HealthStatus AS healthStatus, OperationalStatus AS operationalStatus, TemperatureCelsius AS temperatureCelsius
+        FROM DeviceDisks WHERE DeviceId = @id ORDER BY DiskIndex ASC
+      `),
+      db.request().input("id", sql.VarChar, did).query<DiskSpace>(
+        "SELECT TOP 1 DiskFreeGB AS freeGB, DiskTotalGB AS totalGB FROM DeviceMetrics WHERE DeviceId = @id ORDER BY ReceivedAt DESC"
+      ),
+      db.request().input("id", sql.VarChar, did).query<SecurityStatus>(`
+        SELECT AntivirusStatus AS antivirusStatus, DefenderStatus AS defenderStatus, FirewallEnabled AS firewallEnabled,
+          FirewallRulesCount AS firewallRulesCount, BitLockerStatus AS bitLockerStatus, LuksStatus AS luksStatus,
+          SecureBootEnabled AS secureBootEnabled, TpmVersion AS tpmVersion, SELinuxStatus AS selinuxStatus,
+          AppArmorStatus AS apparmorStatus, FailedLoginCount24h AS failedLoginCount24h
+        FROM DeviceSecurityStatus WHERE DeviceId = @id
+      `),
+      db.request().input("id", sql.VarChar, did).query<{
+        currentIp: string | null; publicIp: string | null; gatewayIp: string | null; dnsServers: string | null;
+        wifiSsid: string | null; vpnActive: boolean | null; ethernetConnected: boolean | null;
+        openPortsJson: string | null; listeningPortsJson: string | null;
+      }>(`
+        SELECT CurrentIp AS currentIp, PublicIp AS publicIp, GatewayIp AS gatewayIp, DnsServers AS dnsServers,
+          WifiSsid AS wifiSsid, VpnActive AS vpnActive, EthernetConnected AS ethernetConnected,
+          OpenPortsJson AS openPortsJson, ListeningPortsJson AS listeningPortsJson
+        FROM DeviceNetworkInfo WHERE DeviceId = @id
+      `),
+      db.request().input("id", sql.VarChar, did).query<{ ProcessesJson: string }>(
+        "SELECT ProcessesJson FROM DeviceProcessSnapshot WHERE DeviceId = @id"
+      ),
+      db.request().input("id", sql.VarChar, did).query<{ ServicesJson: string }>(
+        "SELECT ServicesJson FROM DeviceServiceSnapshot WHERE DeviceId = @id"
+      ),
+      db.request().input("id", sql.VarChar, did).query<{ SoftwareJson: string }>(
+        "SELECT SoftwareJson FROM DeviceSoftwareSnapshot WHERE DeviceId = @id"
+      ),
+      db.request().input("id", sql.VarChar, did).query<DeviceAlertRow>(`
+        SELECT TOP 20 Id AS id, AlertType AS alertType, Severity AS severity, Message AS message,
+          TriggeredAt AS triggeredAt, ResolvedAt AS resolvedAt
+        FROM DeviceAlerts WHERE DeviceId = @id ORDER BY TriggeredAt DESC
+      `),
+      db.request().input("id", sql.VarChar, did).query<UsbEventRow>(`
+        SELECT TOP 20 EventType AS eventType, DeviceName AS deviceName, VendorId AS vendorId,
+          VendorName AS vendorName, SerialNumber AS serialNumber,
+          StorageCapacityGB AS storageCapacityGB, DetectedAt AS detectedAt
+        FROM DeviceUsbEvents WHERE DeviceId = @id ORDER BY DetectedAt DESC
+      `),
+    ]);
+
+    const m = metricsRes.recordset[0];
+    latestMetrics = m ? { cpuPct: m.CpuPct, memPct: m.MemPct, diskPct: m.DiskPct } : null;
+    deviceHardware = hwRes.recordset[0] ?? null;
+    deviceDisks = disksRes.recordset;
+    deviceDiskSpace = diskSpaceRes.recordset[0] ?? null;
+    deviceSecurity = secRes.recordset[0] ?? null;
+    const netRow = netRes.recordset[0];
+    deviceNetwork = netRow
+      ? { ...netRow, openPorts: parseJsonArray<number>(netRow.openPortsJson), listeningPorts: parseJsonArray<number>(netRow.listeningPortsJson) }
+      : null;
+    deviceProcesses = parseJsonArray<ProcessRow>(procRes.recordset[0]?.ProcessesJson);
+    deviceServices = parseJsonArray<ServiceRow>(svcRes.recordset[0]?.ServicesJson);
+    deviceSoftware = parseJsonArray<SoftwareRow>(swRes.recordset[0]?.SoftwareJson);
+    deviceAlerts = alertsRes.recordset;
+    deviceUsbEvents = usbRes.recordset;
+  }
+
   const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : "warning";
   // MikroTik gives a precise "last seen X ago" from the lease; Sophos-side only tells us the
   // device was still in the firewall's ARP table as of its last poll — coarser, still useful.
@@ -238,15 +344,30 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       <div className="dash-panel">
         <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>{t("assignedEndpointAgentTitle")}</h2>
         {linkedDevice ? (
-          <p style={{ fontSize: "0.85rem", margin: 0 }}>
-            <Link href={`/dashboard/endpoint-agents/${linkedDevice.DeviceId}`} style={{ color: "var(--series-1)" }}>
-              {linkedDevice.Hostname}
-            </Link>{" "}
-            <span style={{ color: "var(--ink-muted)" }}>
-              ({linkedDevice.OS}) &middot; {t("lastHeartbeatLabel")}{" "}
-              {linkedDevice.LastHeartbeat ? new Date(linkedDevice.LastHeartbeat).toLocaleString() : t("neverLabel")}
-            </span>
-          </p>
+          <div>
+            <p style={{ fontSize: "0.85rem", margin: "0 0 0.75rem" }}>
+              <Link href={`/dashboard/endpoint-agents/${linkedDevice.DeviceId}`} style={{ color: "var(--series-1)" }}>
+                {linkedDevice.Hostname}
+              </Link>{" "}
+              <span style={{ color: "var(--ink-muted)" }}>
+                ({linkedDevice.OS}) &middot; {t("lastHeartbeatLabel")}{" "}
+                {linkedDevice.LastHeartbeat ? new Date(linkedDevice.LastHeartbeat).toLocaleString() : t("neverLabel")}
+              </span>
+            </p>
+            <DeviceReportToggle
+              latestMetrics={latestMetrics}
+              hardware={deviceHardware}
+              disks={deviceDisks}
+              diskSpace={deviceDiskSpace}
+              security={deviceSecurity}
+              network={deviceNetwork}
+              processes={deviceProcesses}
+              services={deviceServices}
+              software={deviceSoftware}
+              alerts={deviceAlerts}
+              usbEvents={deviceUsbEvents}
+            />
+          </div>
         ) : (
           <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: 0 }}>
             {t.rich("noPcLinkedNotice", {

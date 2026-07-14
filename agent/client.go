@@ -193,6 +193,7 @@ func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {
 		"eventType":         eventType,
 		"deviceName":        d.Name,
 		"vendorId":          d.VendorID,
+		"vendorName":        d.VendorName,
 		"serialNumber":      d.SerialNumber,
 		"storageCapacityGB": d.CapacityGB,
 	})

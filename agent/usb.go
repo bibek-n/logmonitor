@@ -9,6 +9,7 @@ type UsbDeviceInfo struct {
 	ID           string  `json:"id"` // stable key used to diff insert/removal across polls
 	Name         string  `json:"name"`
 	VendorID     string  `json:"vendorId"`
+	VendorName   string  `json:"vendorName"` // resolved company name, e.g. "Alcor Micro" for VID 058F
 	SerialNumber string  `json:"serialNumber"`
 	CapacityGB   float64 `json:"capacityGB"`
 }

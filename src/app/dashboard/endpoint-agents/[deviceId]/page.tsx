@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getDb, sql } from "@/lib/db";
 import { getAdminSession } from "@/lib/requireAdmin";
 import { matchDeviceByMac } from "@/lib/deviceMatch";
+import { parseJsonArray } from "@/lib/parseJsonArray";
 import {
   DeviceDetail,
   type DeviceDetailData,
@@ -18,16 +19,6 @@ import {
   type DeviceAlertRow,
   type UsbEventRow,
 } from "@/components/endpointAgents/DeviceDetail";
-
-function parseJsonArray<T>(json: string | null | undefined): T[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 export const dynamic = "force-dynamic";
 
@@ -189,7 +180,8 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
         FROM DeviceAlerts WHERE DeviceId = @deviceId ORDER BY TriggeredAt DESC
       `),
       db.request().input("deviceId", sql.VarChar, deviceId).query<UsbEventRow>(`
-        SELECT TOP 20 EventType AS eventType, DeviceName AS deviceName, SerialNumber AS serialNumber,
+        SELECT TOP 20 EventType AS eventType, DeviceName AS deviceName, VendorId AS vendorId,
+          VendorName AS vendorName, SerialNumber AS serialNumber,
           StorageCapacityGB AS storageCapacityGB, DetectedAt AS detectedAt
         FROM DeviceUsbEvents WHERE DeviceId = @deviceId ORDER BY DetectedAt DESC
       `),

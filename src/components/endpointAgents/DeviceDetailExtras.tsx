@@ -298,6 +298,7 @@ function AlertsAndUsbCard({ alerts, usbEvents }: { alerts: DeviceAlertRow[]; usb
               <Usb size={12} style={{ color: u.eventType === "insert" ? "var(--success)" : "var(--ink-muted)" }} />
               <span>
                 {u.eventType === "insert" ? "Inserted" : "Removed"}: {u.deviceName ?? "Unknown device"}
+                {u.vendorName ? ` — ${u.vendorName}` : u.vendorId ? ` — VID ${u.vendorId}` : ""}
                 {u.storageCapacityGB ? ` (${u.storageCapacityGB.toFixed(0)} GB)` : ""}
               </span>
               <span style={{ color: "var(--ink-muted)", marginLeft: "auto", flexShrink: 0 }}>
