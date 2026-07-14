@@ -12,7 +12,7 @@ const (
 	securityInterval  = 3 * time.Minute
 	networkInterval   = 3 * time.Minute
 	hardwareInterval  = 24 * time.Hour
-	usbPollInterval   = 30 * time.Second
+	usbPollInterval   = 5 * time.Second
 	updateInterval    = 1 * time.Hour
 	logsInterval      = 60 * time.Second
 )
@@ -30,16 +30,13 @@ func Run(cfg *Config, stop <-chan struct{}) {
 
 	var screenshotMonitoringActive bool
 	var lastIntervalCapture time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUsbPoll, lastUpdateCheck, lastLogs time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUpdateCheck, lastLogs time.Time
 
-	// Seeded with whatever's already plugged in at startup, not left empty - otherwise
-	// every agent restart (which happens on every update, i.e. routinely) would replay a
-	// synthetic "insert" event for every already-connected device, none of which is a real
-	// insertion. Only devices that change state *after* this point are genuine events.
-	knownUsbDevices := map[string]UsbDeviceInfo{}
-	for _, d := range CollectUsbDevices() {
-		knownUsbDevices[d.ID] = d
-	}
+	// USB detection runs on its own fast ticker rather than piggybacking on the main
+	// heartbeat loop below - the heartbeat interval is 30s, which made a plug/unplug take
+	// up to 30s just to be *detected*, on top of however long the dashboard's own poll
+	// took to notice it. Decoupling it here means it's bounded by usbPollInterval alone.
+	go runUsbPolling(client, stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -83,10 +80,6 @@ func Run(cfg *Config, stop <-chan struct{}) {
 
 			now := time.Now()
 
-			if now.Sub(lastUsbPoll) >= usbPollInterval {
-				pollUsbDevices(client, knownUsbDevices)
-				lastUsbPoll = now
-			}
 			if now.Sub(lastProcesses) >= processesInterval {
 				if err := client.PostProcesses(CollectProcesses()); err != nil {
 					log.Printf("process snapshot upload failed: %v", err)
@@ -150,10 +143,35 @@ func captureAndUpload(client *Client, capturedBy string) {
 	}
 }
 
+// runUsbPolling owns knownUsbDevices exclusively - nothing else touches it - and ticks
+// independently of the main heartbeat loop so USB detection latency is bounded by
+// usbPollInterval alone, not by however long the heartbeat interval happens to be set to.
+func runUsbPolling(client *Client, stop <-chan struct{}) {
+	// Seeded with whatever's already plugged in at startup, not left empty - otherwise
+	// every agent restart (which happens on every update, i.e. routinely) would replay a
+	// synthetic "insert" event for every already-connected device, none of which is a real
+	// insertion. Only devices that change state *after* this point are genuine events.
+	known := map[string]UsbDeviceInfo{}
+	for _, d := range CollectUsbDevices() {
+		known[d.ID] = d
+	}
+
+	ticker := time.NewTicker(usbPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			pollUsbDevices(client, known)
+		}
+	}
+}
+
 // pollUsbDevices diffs the current USB storage device list against the last known set
 // and reports insert/removal events — this is polling-based (not a live OS event
-// subscription) to keep the cross-platform implementation simple and dependency-free;
-// a 30s worst-case detection delay is an acceptable tradeoff for an audit trail.
+// subscription) to keep the cross-platform implementation simple and dependency-free.
 func pollUsbDevices(client *Client, known map[string]UsbDeviceInfo) {
 	current := CollectUsbDevices()
 	currentIDs := map[string]bool{}

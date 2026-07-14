@@ -11,7 +11,7 @@ import { useMobileSidebar } from "./MobileSidebarContext";
 import { useToast } from "./ui/Toast";
 import type { AlertRow } from "@/lib/alerts";
 
-const ALERTS_POLL_INTERVAL_MS = 20000;
+const ALERTS_POLL_INTERVAL_MS = 6000;
 
 function useBreadcrumb(pathname: string, overviewFallback: string): string[] {
   return useMemo(() => {
