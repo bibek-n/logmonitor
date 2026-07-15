@@ -108,15 +108,47 @@ func pollNotifications(cfg *chatConfig) (*notificationsResponse, error) {
 	return &out, nil
 }
 
-func openBrowser(target string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", target)
-	default:
-		cmd = exec.Command("xdg-open", target)
+// chromiumAppModePaths lists where a Chromium-based browser is commonly installed, checked
+// in order - Edge first since it ships with Windows 10/11 by default, Chrome as the most
+// likely alternative. "--app=" mode renders the page in its own window with no address bar,
+// tabs, or bookmarks - the closest thing to a native desktop chat window without embedding
+// a whole browser engine into this binary (which would need something like WebView2, itself
+// unavailable on the Windows 7 machines this agent also has to support).
+func chromiumAppModePaths() []string {
+	var paths []string
+	programFiles := []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)")}
+	for _, pf := range programFiles {
+		if pf == "" {
+			continue
+		}
+		paths = append(paths,
+			filepath.Join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+			filepath.Join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+		)
 	}
-	_ = cmd.Start()
+	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+		paths = append(paths, filepath.Join(localAppData, "Google", "Chrome", "Application", "chrome.exe"))
+	}
+	return paths
+}
+
+func openBrowser(target string) {
+	if runtime.GOOS == "windows" {
+		for _, browserPath := range chromiumAppModePaths() {
+			if _, err := os.Stat(browserPath); err != nil {
+				continue
+			}
+			cmd := exec.Command(browserPath, "--app="+target, "--window-size=420,640")
+			if cmd.Start() == nil {
+				return
+			}
+		}
+		// No Chromium-based browser found (or it failed to launch) - fall back to whatever
+		// the default browser is, in a normal tabbed window, rather than not opening at all.
+		_ = exec.Command("cmd", "/c", "start", "", target).Start()
+		return
+	}
+	_ = exec.Command("xdg-open", target).Start()
 }
 
 func main() {

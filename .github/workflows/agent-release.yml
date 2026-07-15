@@ -72,8 +72,9 @@ jobs:
   # Windows 7 box turned out to be 32-bit, and Windows gives no useful error for an
   # architecture mismatch (just "this version of %1 is not compatible", no crash log, no
   # visible failure at all if launched from a GUI) — found the hard way onboarding one.
-  # Only builds the main agent, not the chat companion or Linux variants - Windows 7 is the
-  # one legacy-OS case this exists for.
+  # Only builds Windows targets - Windows 7 is the one legacy-OS case this exists for. Covers
+  # the chat companion too now, not just the main agent - it's a separate `package main`
+  # under ./chattray (see that package's own comment for why), built the same way.
   build-win7:
     runs-on: ubuntu-latest
     strategy:
@@ -81,8 +82,16 @@ jobs:
         include:
           - goarch: amd64
             out: agent-win7.exe
+            pkg: .
           - goarch: 386
             out: agent-win7-x86.exe
+            pkg: .
+          - goarch: amd64
+            out: chattray-win7.exe
+            pkg: ./chattray
+          - goarch: 386
+            out: chattray-win7-x86.exe
+            pkg: ./chattray
     steps:
       - uses: actions/checkout@v4
 
@@ -102,7 +111,7 @@ jobs:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" .
+        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" "${{ matrix.pkg }}"
 
       - uses: actions/upload-artifact@v4
         with:
