@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Loader2, ZoomIn, ZoomOut, Maximize2, Calendar } from "lucide-react";
+import { X, Loader2, ZoomIn, ZoomOut, Maximize2, Calendar, Rewind, FastForward } from "lucide-react";
 
 interface PlaybackModalProps {
   cameraId: number;
@@ -48,6 +48,11 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
   const [pathName, setPathName] = useState<string | null>(null);
   const [phase, setPhase] = useState<"picking" | "connecting" | "playing" | "error">("picking");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Start time of whichever session is currently loading/playing - distinct from the
+  // date/startTime form fields above (which track what's typed into the picker, and get
+  // synced FROM this when skipping forward/back so the picker stays consistent with what's
+  // actually on screen).
+  const [sessionStart, setSessionStart] = useState<Date | null>(null);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -117,15 +122,34 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
     }
   }
 
-  async function loadRecording() {
+  async function deletePath(p: string) {
+    try {
+      await fetch(`/api/admin/nvr/cameras/${cameraId}/playback`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pathName: p }),
+      });
+    } catch {
+      // best-effort cleanup - not worth surfacing an error for
+    }
+  }
+
+  // Shared by the initial "Play recording" button and the forward/rewind skip buttons -
+  // skipping isn't a real seek (this is a live-restreamed WebRTC connection, not a
+  // scrubbable file), so "skip" actually means: tear down the current session and open a
+  // new one starting at a shifted time.
+  async function startSessionAt(start: Date) {
     setPhase("connecting");
     setErrorMessage(null);
     resetZoom();
 
-    const [h, m] = startTime.split(":").map(Number);
-    const start = new Date(`${date}T00:00:00`);
-    start.setHours(h, m, 0, 0);
+    if (pathName) await deletePath(pathName);
+    setPathName(null);
+
     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+    setSessionStart(start);
+    setDate(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`);
+    setStartTime(`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`);
 
     try {
       const res = await fetch(`/api/admin/nvr/cameras/${cameraId}/playback`, {
@@ -142,20 +166,23 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
     }
   }
 
+  function loadRecording() {
+    const [h, m] = startTime.split(":").map(Number);
+    const start = new Date(`${date}T00:00:00`);
+    start.setHours(h, m, 0, 0);
+    startSessionAt(start);
+  }
+
+  function skip(deltaMinutes: number) {
+    const base = sessionStart ?? new Date();
+    startSessionAt(new Date(base.getTime() + deltaMinutes * 60 * 1000));
+  }
+
   async function stopPlayback() {
-    if (!pathName) return;
-    const p = pathName;
+    if (pathName) await deletePath(pathName);
     setPathName(null);
+    setSessionStart(null);
     setPhase("picking");
-    try {
-      await fetch(`/api/admin/nvr/cameras/${cameraId}/playback`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pathName: p }),
-      });
-    } catch {
-      // best-effort cleanup - not worth surfacing an error for
-    }
   }
 
   useEffect(() => {
@@ -233,13 +260,21 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
     };
   }, [pathName, cameraId]);
 
+  // A plain `[]`-deps cleanup here would close over pathName's initial (always-null) value
+  // and never actually clean up on unmount - kept in sync via a ref instead so the
+  // unmount-time cleanup always sees whatever path is actually live at that moment.
+  const pathNameRef = useRef<string | null>(null);
+  useEffect(() => {
+    pathNameRef.current = pathName;
+  }, [pathName]);
+
   useEffect(() => {
     return () => {
-      if (pathName) {
+      if (pathNameRef.current) {
         fetch(`/api/admin/nvr/cameras/${cameraId}/playback`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pathName }),
+          body: JSON.stringify({ pathName: pathNameRef.current }),
           keepalive: true,
         }).catch(() => {});
       }
@@ -308,7 +343,38 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
             <Calendar size={14} />
             {phase === "connecting" ? "Loading..." : pathName ? "Stop" : "Play recording"}
           </button>
+
+          {sessionStart && (
+            <div className="flex flex-col gap-1">
+              <label style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)" }}>Skip</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => skip(-durationMinutes)}
+                  disabled={phase === "connecting"}
+                  title={`Rewind ${durationMinutes} min`}
+                  style={{ width: 34, height: 34, borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <Rewind size={15} />
+                </button>
+                <button
+                  onClick={() => skip(durationMinutes)}
+                  disabled={phase === "connecting"}
+                  title={`Forward ${durationMinutes} min`}
+                  style={{ width: 34, height: 34, borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <FastForward size={15} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+        {sessionStart && (
+          <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.72rem", margin: "-0.4rem 0 0.75rem" }}>
+            Currently playing from {sessionStart.toLocaleString()}. Skip jumps by the selected duration ({durationMinutes} min) since this is a live-restreamed
+            connection, not a scrubbable file - there's no frame-accurate seek bar or fast-forward speed control here (the video element's speed only applies to
+            downloadable files, not a live stream).
+          </p>
+        )}
 
         <div
           ref={containerRef}

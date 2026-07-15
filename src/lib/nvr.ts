@@ -41,10 +41,14 @@ function pad2(n: number): string {
 
 // Dahua's proprietary recorded-playback RTSP endpoint (distinct from /cam/realmonitor used
 // for live view) - same host/port/credential pattern as rtspUrlFor, confirmed this NVR
-// accepts the connection (RTSP handshake succeeds) for this URL shape. The exact start/end
-// time format is the one most commonly documented for Dahua-OEM firmware
-// (YYYY_MM_DD_HH_MM_SS); this hasn't been visually confirmed against actual recorded
-// footage yet - if the returned time window is off, this is the first thing to adjust.
+// accepts the connection (RTSP handshake succeeds) for this URL shape.
+//
+// IMPORTANT: the NVR indexes recordings by its own LOCAL clock, not UTC - it was confirmed
+// live (wrong-day playback) that formatting these in UTC shifts the request across a
+// midnight boundary whenever the offset between UTC and the NVR's local timezone pushes the
+// requested time into the previous/next day. This server and the NVR are in the same
+// physical office, so the Node process's own local time (Date's non-UTC getters) already
+// matches the NVR's clock - deliberately NOT using getUTC*() here.
 export function playbackRtspUrlFor(
   nvr: Pick<NvrDeviceRow, "IpAddress" | "RtspPort" | "Username" | "Password" | "RtspUsername" | "RtspPassword">,
   channelNumber: number,
@@ -55,7 +59,7 @@ export function playbackRtspUrlFor(
   const user = encodeURIComponent(nvr.RtspUsername || nvr.Username);
   const pass = encodeURIComponent(nvr.RtspPassword || nvr.Password);
   const fmt = (d: Date) =>
-    `${d.getUTCFullYear()}_${pad2(d.getUTCMonth() + 1)}_${pad2(d.getUTCDate())}_${pad2(d.getUTCHours())}_${pad2(d.getUTCMinutes())}_${pad2(d.getUTCSeconds())}`;
+    `${d.getFullYear()}_${pad2(d.getMonth() + 1)}_${pad2(d.getDate())}_${pad2(d.getHours())}_${pad2(d.getMinutes())}_${pad2(d.getSeconds())}`;
   return `rtsp://${user}:${pass}@${nvr.IpAddress}:${nvr.RtspPort}/cam/playback?channel=${channelNumber}&subtype=${subtype}&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}`;
 }
 
