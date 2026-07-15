@@ -12,6 +12,8 @@ import { CompanyProfileSection } from "./CompanyProfileSection";
 import { OrganizationSection } from "./OrganizationSection";
 import { UsersAccessSection } from "./UsersAccessSection";
 import { SecuritySection } from "./SecuritySection";
+import { PasskeysSection } from "./PasskeysSection";
+import { AccountSecurityChecklist } from "./AccountSecurityChecklist";
 import { SmtpEmailSection } from "./SmtpEmailSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { NotificationsSection } from "./NotificationsSection";
@@ -49,7 +51,15 @@ function SettingsContent({ active, data }: { active: string; data: SettingsIniti
     case "users-access":
       return <UsersAccessSection initialData={data.usersAccess} />;
     case "security":
-      return <SecuritySection initialData={data.security} />;
+      return (
+        <div className="flex flex-col gap-6">
+          <AccountSecurityChecklist />
+          <SecuritySection initialData={data.security} />
+          <div id="passkeys-section">
+            <PasskeysSection />
+          </div>
+        </div>
+      );
     case "smtp-email":
       return <SmtpEmailSection initialData={data.smtp} initialLogs={data.smtpLogs} />;
     case "integrations":
