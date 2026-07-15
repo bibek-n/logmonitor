@@ -373,7 +373,8 @@
           "sslChecker": "SSL/TLS प्रमाणपत्र जांचकर्ता",
           "headerViewer": "HTTP / HTTPS रिस्पॉन्स हेडर व्यूअर",
           "gaTagFinder": "GA टैग खोजक",
-          "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट"
+          "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट",
+          "websitePerformance": "वेबसाइट गति और प्रदर्शन"
         }
       },
       "emailDelivery": {

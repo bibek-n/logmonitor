@@ -373,7 +373,8 @@
           "sslChecker": "SSL/TLS-Zertifikatsprüfer",
           "headerViewer": "HTTP-/HTTPS-Antwort-Header-Anzeige",
           "gaTagFinder": "GA-Tag-Finder",
-          "websiteSecurityAudit": "Website-Sicherheitsaudit"
+          "websiteSecurityAudit": "Website-Sicherheitsaudit",
+          "websitePerformance": "Website-Geschwindigkeit & Leistung"
         }
       },
       "emailDelivery": {
