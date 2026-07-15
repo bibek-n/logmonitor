@@ -111,19 +111,26 @@ export async function POST(req: NextRequest) {
   if (disks.length > 0) {
     await db.request().input("deviceId", sql.VarChar, device.deviceId).query("DELETE FROM DeviceDisks WHERE DeviceId = @deviceId");
     for (const disk of disks) {
-      await db
-        .request()
-        .input("deviceId", sql.VarChar, device.deviceId)
-        .input("diskIndex", sql.Int, disk.index ?? 0)
-        .input("model", sql.NVarChar, disk.model ?? null)
-        .input("type", sql.VarChar, disk.type ?? null)
-        .input("capacityGB", sql.Float, disk.capacityGB ?? null)
-        .input("healthStatus", sql.NVarChar, disk.healthStatus || null)
-        .input("operationalStatus", sql.NVarChar, disk.operationalStatus || null)
-        .input("temperatureCelsius", sql.Float, typeof disk.temperatureCelsius === "number" ? disk.temperatureCelsius : null)
-        .query(
-          "INSERT INTO DeviceDisks (DeviceId, DiskIndex, Model, Type, CapacityGB, HealthStatus, OperationalStatus, TemperatureCelsius) VALUES (@deviceId, @diskIndex, @model, @type, @capacityGB, @healthStatus, @operationalStatus, @temperatureCelsius)"
-        );
+      try {
+        await db
+          .request()
+          .input("deviceId", sql.VarChar, device.deviceId)
+          .input("diskIndex", sql.Int, disk.index ?? 0)
+          .input("model", sql.NVarChar, disk.model ?? null)
+          .input("type", sql.VarChar, disk.type ?? null)
+          .input("capacityGB", sql.Float, disk.capacityGB ?? null)
+          .input("healthStatus", sql.NVarChar, disk.healthStatus || null)
+          .input("operationalStatus", sql.NVarChar, disk.operationalStatus || null)
+          .input("temperatureCelsius", sql.Float, typeof disk.temperatureCelsius === "number" ? disk.temperatureCelsius : null)
+          .query(
+            "INSERT INTO DeviceDisks (DeviceId, DiskIndex, Model, Type, CapacityGB, HealthStatus, OperationalStatus, TemperatureCelsius) VALUES (@deviceId, @diskIndex, @model, @type, @capacityGB, @healthStatus, @operationalStatus, @temperatureCelsius)"
+          );
+      } catch (err) {
+        // One malformed disk (e.g. an unexpectedly long field from an unusual controller)
+        // shouldn't drop every other disk on this device - the DELETE above already ran,
+        // so failing hard here would leave the device with zero disk rows at all.
+        console.error(`disk insert failed for device ${device.deviceId}, disk index ${disk.index}:`, err);
+      }
     }
   }
 
@@ -131,17 +138,24 @@ export async function POST(req: NextRequest) {
   if (interfaces.length > 0) {
     await db.request().input("deviceId", sql.VarChar, device.deviceId).query("DELETE FROM DeviceNetworkInterfaces WHERE DeviceId = @deviceId");
     for (const iface of interfaces) {
-      await db
-        .request()
-        .input("deviceId", sql.VarChar, device.deviceId)
-        .input("name", sql.NVarChar, iface.name ?? null)
-        .input("macAddress", sql.VarChar, iface.macAddress ?? null)
-        .input("ipAddresses", sql.NVarChar, Array.isArray(iface.ipAddresses) ? iface.ipAddresses.join(", ") : null)
-        .input("isUp", sql.Bit, iface.isUp ?? null)
-        .input("speedMbps", sql.Int, iface.speedMbps ?? null)
-        .query(
-          "INSERT INTO DeviceNetworkInterfaces (DeviceId, InterfaceName, MacAddress, IpAddresses, IsUp, SpeedMbps) VALUES (@deviceId, @name, @macAddress, @ipAddresses, @isUp, @speedMbps)"
-        );
+      try {
+        await db
+          .request()
+          .input("deviceId", sql.VarChar, device.deviceId)
+          .input("name", sql.NVarChar, iface.name ?? null)
+          .input("macAddress", sql.VarChar, iface.macAddress ?? null)
+          .input("ipAddresses", sql.NVarChar, Array.isArray(iface.ipAddresses) ? iface.ipAddresses.join(", ") : null)
+          .input("isUp", sql.Bit, iface.isUp ?? null)
+          .input("speedMbps", sql.Int, iface.speedMbps ?? null)
+          .query(
+            "INSERT INTO DeviceNetworkInterfaces (DeviceId, InterfaceName, MacAddress, IpAddresses, IsUp, SpeedMbps) VALUES (@deviceId, @name, @macAddress, @ipAddresses, @isUp, @speedMbps)"
+          );
+      } catch (err) {
+        // Same reasoning as the disk loop above - e.g. a virtual/tunnel adapter reporting
+        // a malformed MAC (seen live: "00:00:00:00:00:00:00", longer than a real MAC)
+        // shouldn't drop every other real interface on this device.
+        console.error(`network interface insert failed for device ${device.deviceId}, interface ${iface.name}:`, err);
+      }
     }
   }
 
