@@ -12,6 +12,14 @@ export const THEMES: ThemeDef[] = [
   { id: "slate", label: "Slate", swatch: "#6d84e6" },
   { id: "sunset", label: "Sunset", swatch: "#f59e0b" },
   { id: "nord", label: "Nord", swatch: "#88c0d0" },
+  { id: "crimson", label: "Crimson", swatch: "#f43f5e" },
+  { id: "violet", label: "Violet", swatch: "#8b5cf6" },
+  { id: "forest", label: "Forest", swatch: "#6b9962" },
+  { id: "rose-light", label: "Rose Light", swatch: "#e11d48" },
+  { id: "amber-light", label: "Amber Light", swatch: "#d97706" },
+  { id: "graphite", label: "Graphite", swatch: "#22d3ee" },
+  { id: "solarized", label: "Solarized", swatch: "#2aa198" },
+  { id: "cyberpunk", label: "Cyberpunk", swatch: "#ff00ea" },
 ];
 
 export const DEFAULT_THEME = "midnight";

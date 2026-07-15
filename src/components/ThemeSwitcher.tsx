@@ -64,6 +64,8 @@ export default function ThemeSwitcher() {
             top: "calc(100% + 0.5rem)",
             zIndex: 50,
             minWidth: 180,
+            maxHeight: 340,
+            overflowY: "auto",
             background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: 12,

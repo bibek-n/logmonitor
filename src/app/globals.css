@@ -9,7 +9,7 @@
 }
 
 /* ============================================================
-   Theme registry — 7 selectable themes, switched via
+   Theme registry — 15 selectable themes, switched via
    [data-theme] on <html> (set before paint by the no-flash
    script in the root layout). Each theme defines the same
    variable names so every component can stay theme-agnostic.
@@ -191,6 +191,198 @@
   --series-2: var(--success);
 }
 
+:root[data-theme="crimson"] {
+  --bg: #1a0e12;
+  --surface: #241318;
+  --surface-2: #331a22;
+  --border: rgba(255, 255, 255, 0.08);
+  --ink: #fdf2f4;
+  --ink-secondary: #fecdd3;
+  --ink-muted: #c48a94;
+
+  --primary: #f43f5e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #ec4899;
+  --serious: #fb7185;
+
+  --plane: var(--bg);
+  --grid: #3d1f28;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="violet"] {
+  --bg: #150f26;
+  --surface: #1e1638;
+  --surface-2: #291d4a;
+  --border: rgba(255, 255, 255, 0.08);
+  --ink: #f5f3ff;
+  --ink-secondary: #ddd6fe;
+  --ink-muted: #a599c9;
+
+  --primary: #8b5cf6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #a78bfa;
+  --serious: #c084fc;
+
+  --plane: var(--bg);
+  --grid: #352a52;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="forest"] {
+  --bg: #0f1611;
+  --surface: #171f19;
+  --surface-2: #202b23;
+  --border: rgba(255, 255, 255, 0.08);
+  --ink: #edf3ee;
+  --ink-secondary: #c3d3c7;
+  --ink-muted: #869488;
+
+  --primary: #6b9962;
+  --success: #84cc16;
+  --warning: #eab308;
+  --danger: #dc2626;
+  --info: #4ade80;
+  --serious: #a3a86b;
+
+  --plane: var(--bg);
+  --grid: #29342b;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="rose-light"] {
+  --bg: #fff5f7;
+  --surface: #ffffff;
+  --surface-2: #ffe4e9;
+  --border: rgba(159, 18, 57, 0.1);
+  --ink: #3f0d1a;
+  --ink-secondary: #7c2d3f;
+  --ink-muted: #a4677a;
+
+  --primary: #e11d48;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #db2777;
+  --serious: #f97373;
+
+  --plane: var(--bg);
+  --grid: #fbd0d9;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="amber-light"] {
+  --bg: #fffbeb;
+  --surface: #ffffff;
+  --surface-2: #fef3c7;
+  --border: rgba(120, 53, 15, 0.12);
+  --ink: #451a03;
+  --ink-secondary: #78350f;
+  --ink-muted: #a16207;
+
+  --primary: #d97706;
+  --success: #059669;
+  --warning: #ca8a04;
+  --danger: #dc2626;
+  --info: #0891b2;
+  --serious: #ea580c;
+
+  --plane: var(--bg);
+  --grid: #fde68a;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="graphite"] {
+  --bg: #0a0a0c;
+  --surface: #131316;
+  --surface-2: #1c1c20;
+  --border: rgba(255, 255, 255, 0.08);
+  --ink: #f4f4f5;
+  --ink-secondary: #d4d4d8;
+  --ink-muted: #8f8f96;
+
+  --primary: #22d3ee;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #67e8f9;
+  --serious: #fb923c;
+
+  --plane: var(--bg);
+  --grid: #232327;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="solarized"] {
+  --bg: #002b36;
+  --surface: #073642;
+  --surface-2: #0f4a5a;
+  --border: rgba(255, 255, 255, 0.08);
+  --ink: #fdf6e3;
+  --ink-secondary: #eee8d5;
+  --ink-muted: #93a1a1;
+
+  --primary: #2aa198;
+  --success: #859900;
+  --warning: #b58900;
+  --danger: #dc322f;
+  --info: #268bd2;
+  --serious: #cb4b16;
+
+  --plane: var(--bg);
+  --grid: #0a4b5c;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
+:root[data-theme="cyberpunk"] {
+  --bg: #0a0014;
+  --surface: #14001f;
+  --surface-2: #1f0033;
+  --border: rgba(255, 255, 255, 0.1);
+  --ink: #f0e6ff;
+  --ink-secondary: #d9b3ff;
+  --ink-muted: #9370b8;
+
+  --primary: #ff00ea;
+  --success: #00ff9f;
+  --warning: #ffea00;
+  --danger: #ff2965;
+  --info: #00e5ff;
+  --serious: #ff6b35;
+
+  --plane: var(--bg);
+  --grid: #2a0a40;
+  --good: var(--success);
+  --critical: var(--danger);
+  --series-1: var(--primary);
+  --series-2: var(--info);
+}
+
 body {
   margin: 0;
   background: var(--plane);
@@ -286,6 +478,47 @@ button.submit:disabled {
   display: flex;
   background: var(--plane);
   color: var(--ink);
+  position: relative;
+}
+
+.dash-mobile-backdrop {
+  display: none;
+}
+
+/* Mobile off-canvas sidebar: hidden by default, only takes effect at narrow widths so
+   the desktop rail-collapse behavior (SidebarShell's own width animation) is untouched. */
+@media (max-width: 768px) {
+  .dash-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+  }
+
+  .dash-shell[data-mobile-sidebar-open="true"] .dash-sidebar {
+    transform: translateX(0);
+  }
+
+  .dash-shell[data-mobile-sidebar-open="true"] .dash-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .dash-mobile-menu-btn {
+    display: flex !important;
+  }
+
+  .dash-mobile-close {
+    display: block !important;
+  }
+
+  .dash-content {
+    padding: 1rem;
+  }
 }
 
 .dash-sidebar {
@@ -326,7 +559,7 @@ button.submit:disabled {
 }
 
 .dash-nav a.active {
-  background: var(--series-1);
+  background: var(--success);
   color: #ffffff;
   font-weight: 600;
 }
@@ -415,8 +648,10 @@ button.submit:disabled {
 
 .dash-content {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 1.5rem 2rem;
-  max-width: 1200px;
+  max-width: none;
 }
 
 .dash-content h1 {
