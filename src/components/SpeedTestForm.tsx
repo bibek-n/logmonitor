@@ -23,6 +23,16 @@ interface PhaseState {
 
 const EMPTY_PHASE: PhaseState = { mbps: null, done: false, failed: null };
 
+// Ping/download/upload each get a band of the bar; there's no real byte-level progress
+// signal from the SSE stream (just periodic mbps readouts), so within a running band the
+// value creeps toward - but never quite reaches - that band's upper bound, closing the gap
+// a bit more with each streamed update, so it still visibly moves during a slow phase
+// instead of sitting frozen between two fixed jumps.
+function bumpWithinBand(start: number, end: number, ticks: number): number {
+  const pct = 1 - 1 / (1 + ticks * 0.35);
+  return Math.min(end - 1, start + (end - start) * pct);
+}
+
 function StatTile({ label, value, status }: { label: string; value: string; status: string }) {
   return (
     <div className={`stat-tile status-${status}`}>
@@ -44,7 +54,10 @@ export default function SpeedTestForm({ category, servers, freeTextLabel, freeTe
   const [upload, setUpload] = useState<PhaseState>(EMPTY_PHASE);
   const [error, setError] = useState<string | null>(null);
   const [points, setPoints] = useState<BandwidthPoint[]>([]);
+  const [progress, setProgress] = useState(0);
   const lastDownloadMbps = useRef(0);
+  const downloadTicks = useRef(0);
+  const uploadTicks = useRef(0);
 
   async function run(e: FormEvent) {
     e.preventDefault();
@@ -55,7 +68,10 @@ export default function SpeedTestForm({ category, servers, freeTextLabel, freeTe
     setUpload(EMPTY_PHASE);
     setError(null);
     setPoints([]);
+    setProgress(4);
     lastDownloadMbps.current = 0;
+    downloadTicks.current = 0;
+    uploadTicks.current = 0;
 
     try {
       const res = await fetch("/api/speed-test/run", {
@@ -93,22 +109,29 @@ export default function SpeedTestForm({ category, servers, freeTextLabel, freeTe
           } else if (evt.phase === "ping") {
             if (evt.status === "done") setPing({ avg: evt.avgMs, loss: evt.lossPct });
             if (evt.status === "failed") setPingFailed(evt.error);
+            setProgress(15);
           } else if (evt.phase === "download") {
             if (evt.status === "failed") {
               setDownload({ mbps: null, done: true, failed: evt.error });
+              setProgress(60);
             } else {
               setDownload({ mbps: evt.mbps, done: evt.status === "done", failed: null });
               lastDownloadMbps.current = evt.mbps;
               setPoints((pts) => [...pts, { t: new Date().toISOString(), rx: evt.mbps, tx: 0 }]);
+              downloadTicks.current += 1;
+              setProgress(evt.status === "done" ? 60 : bumpWithinBand(15, 60, downloadTicks.current));
             }
           } else if (evt.phase === "upload") {
             if (evt.status === "failed") {
               setUpload({ mbps: null, done: true, failed: evt.error });
+              setProgress(100);
             } else {
               setUpload({ mbps: evt.mbps, done: evt.status === "done", failed: null });
               // Carry the download line forward as a flat reference while upload ramps up,
               // so the chart reads as one continuous timeline across both phases.
               setPoints((pts) => [...pts, { t: new Date().toISOString(), rx: lastDownloadMbps.current, tx: evt.mbps }]);
+              uploadTicks.current += 1;
+              setProgress(evt.status === "done" ? 100 : bumpWithinBand(60, 100, uploadTicks.current));
             }
           }
         }
@@ -201,6 +224,24 @@ export default function SpeedTestForm({ category, servers, freeTextLabel, freeTe
         <div style={{ marginTop: "1rem" }}>
           <h2 style={{ fontSize: "0.9rem", marginTop: 0, marginBottom: "0.5rem" }}>Bandwidth Usage</h2>
           <BandwidthChart points={points} unit="Mbps" />
+        </div>
+      )}
+
+      {running && (
+        <div style={{ marginTop: "1.25rem" }}>
+          <div style={{ height: 6, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
+            <div
+              style={{
+                width: `${progress}%`,
+                height: "100%",
+                background: "var(--primary)",
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.35rem", textAlign: "right" }}>
+            {progress < 15 ? "Pinging..." : progress < 60 ? "Testing download..." : "Testing upload..."}
+          </div>
         </div>
       )}
     </div>
