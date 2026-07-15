@@ -7,25 +7,55 @@ import { useTranslations } from "next-intl";
 import { ArrowUpDown, ChevronUp, ChevronDown, Check } from "lucide-react";
 import { TOP_ITEMS, NAV_GROUPS, type NavItem, type NavGroup } from "@/lib/navRoutes";
 import { loadNavOrder, saveNavOrder, applyOrder, moveItem, type SidebarOrder } from "@/lib/navOrder";
+import { labelStyle } from "./sidebarLabelStyle";
 
 interface SidebarProps {
   collapsed: boolean;
   onExpandRail: () => void;
+  qaAccess?: boolean;
 }
 
-export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
+export default function Sidebar({ collapsed, onExpandRail, qaAccess = false }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
+  // Every group is visible to every authenticated user except "qaTesting", which is gated
+  // by the qa_view permission (resolved server-side in DashboardLayout and threaded down
+  // through SidebarShell) — the only permission-gated nav group in this app.
+  const visibleNavGroups = NAV_GROUPS.filter((g) => g.key !== "qaTesting" || qaAccess);
   // Collapsed by default — except the group containing the current page, so navigating
   // straight to a page inside a group shows its submenu open without a click.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(NAV_GROUPS.map((g) => [g.label, !g.items.some((i) => pathname.startsWith(i.href))]))
+    Object.fromEntries(visibleNavGroups.map((g) => [g.label, !g.items.some((i) => pathname.startsWith(i.href))]))
   );
   const [order, setOrder] = useState<SidebarOrder>({ topOrder: [], groupOrder: [], itemOrder: {} });
   const [reorderMode, setReorderMode] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   useEffect(() => {
     setOrder(loadNavOrder());
+  }, []);
+
+  // Red badge on "Employee Chat" so a new message is visible from anywhere in the
+  // dashboard, not just while already on the chat page - HeaderClient separately toasts
+  // for the same unread messages, this just keeps the nav item itself lit up.
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await fetch("/api/admin/chat/unread");
+        if (!res.ok) return;
+        const data: { ok: boolean; count: number } = await res.json();
+        if (!cancelled && data.ok) setUnreadChatCount(data.count);
+      } catch {
+        // Transient network hiccup - just try again on the next tick.
+      }
+    }
+    poll();
+    const id = setInterval(poll, 6000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   function persist(next: SidebarOrder) {
@@ -43,7 +73,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
   }
 
   const topItems = applyOrder(TOP_ITEMS, (i) => i.href, order.topOrder);
-  const groups = applyOrder(NAV_GROUPS, (g) => g.label, order.groupOrder);
+  const groups = applyOrder(visibleNavGroups, (g) => g.label, order.groupOrder);
 
   function moveTopItem(index: number, direction: "up" | "down") {
     const reordered = moveItem(topItems, index, direction);
@@ -70,7 +100,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
   };
 
   return (
-    <nav className="dash-nav">
+    <nav className="dash-nav" aria-label="Main navigation">
       {!collapsed && (
         <button
           type="button"
@@ -104,10 +134,45 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
               href={item.href}
               className={isActive(item.href) ? "active" : ""}
               title={collapsed ? t(`top.${item.key}`) : undefined}
+              aria-current={isActive(item.href) ? "page" : undefined}
               style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}
             >
-              <Icon size={17} style={{ flexShrink: 0 }} />
-              {!collapsed && <span>{t(`top.${item.key}`)}</span>}
+              <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                <Icon size={17} style={{ color: item.key === "employeeChat" && unreadChatCount > 0 ? "var(--danger)" : undefined }} />
+                {item.key === "employeeChat" && unreadChatCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -3,
+                      right: -3,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "var(--danger)",
+                      border: "2px solid var(--surface)",
+                    }}
+                  />
+                )}
+              </span>
+              <span style={labelStyle(collapsed, { color: item.key === "employeeChat" && unreadChatCount > 0 ? "var(--danger)" : undefined })}>
+                {t(`top.${item.key}`)}
+              </span>
+              {item.key === "employeeChat" && unreadChatCount > 0 && !collapsed && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    background: "var(--danger)",
+                    color: "#fff",
+                    borderRadius: 999,
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    padding: "0.05rem 0.4rem",
+                    flexShrink: 0,
+                  }}
+                >
+                  {unreadChatCount}
+                </span>
+              )}
             </Link>
             {reorderMode && !collapsed && (
               <div className="flex flex-col" style={{ flexShrink: 0 }}>
@@ -140,19 +205,23 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
                     : setCollapsedGroups((c) => ({ ...c, [group.label]: !c[group.label] }))
                 }
                 title={collapsed ? t(`groups.${group.key}.label`) : undefined}
+                aria-label={t(`groups.${group.key}.label`)}
                 style={{
                   justifyContent: collapsed ? "center" : "flex-start",
-                  color: groupHasActiveItem ? "var(--primary)" : undefined,
+                  color: groupHasActiveItem ? "var(--success)" : undefined,
                   flex: 1,
                   minWidth: 0,
                 }}
               >
                 <GroupIcon size={16} style={{ flexShrink: 0 }} />
-                {!collapsed && (
-                  <>
-                    <span style={{ flex: 1 }}>{t(`groups.${group.key}.label`)}</span>
-                    {!reorderMode && <span className={`chevron ${isGroupCollapsed ? "collapsed" : ""}`}>&#9662;</span>}
-                  </>
+                <span style={labelStyle(collapsed, { flex: 1 })}>{t(`groups.${group.key}.label`)}</span>
+                {!reorderMode && (
+                  <span
+                    className={`chevron ${isGroupCollapsed ? "collapsed" : ""}`}
+                    style={labelStyle(collapsed, { flexShrink: 0 })}
+                  >
+                    &#9662;
+                  </span>
                 )}
               </button>
               {reorderMode && !collapsed && (
@@ -175,6 +244,7 @@ export default function Sidebar({ collapsed, onExpandRail }: SidebarProps) {
                       <Link
                         href={item.href}
                         className={isActive(item.href) ? "active" : ""}
+                        aria-current={isActive(item.href) ? "page" : undefined}
                         style={{ display: "flex", alignItems: "center", gap: "0.55rem", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}
                       >
                         <Icon size={14} style={{ flexShrink: 0 }} />

@@ -10,12 +10,14 @@ interface ToastItem {
   id: number;
   type: ToastType;
   message: string;
+  onClick?: () => void;
 }
 
 interface ShowToastOptions {
   type: ToastType;
   message: string;
   duration?: number;
+  onClick?: () => void;
 }
 
 interface ToastContextValue {
@@ -45,9 +47,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    ({ type, message, duration = 4000 }: ShowToastOptions) => {
+    ({ type, message, duration = 4000, onClick }: ShowToastOptions) => {
       const id = nextId.current++;
-      setToasts((prev) => [...prev, { id, type, message }]);
+      setToasts((prev) => [...prev, { id, type, message, onClick }]);
       setTimeout(() => dismiss(id), duration);
     },
     [dismiss]
@@ -68,16 +70,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <div
                   key={t.id}
                   className="flex items-start gap-2 rounded-xl border px-4 py-3"
+                  onClick={() => {
+                    t.onClick?.();
+                    if (t.onClick) dismiss(t.id);
+                  }}
                   style={{
                     background: "var(--surface)",
                     borderColor: "var(--border)",
                     boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+                    cursor: t.onClick ? "pointer" : "default",
                   }}
                 >
                   <Icon size={18} color={color} style={{ flexShrink: 0, marginTop: 1 }} />
                   <span style={{ fontSize: "0.85rem", color: "var(--ink)", flex: 1 }}>{t.message}</span>
                   <button
-                    onClick={() => dismiss(t.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dismiss(t.id);
+                    }}
                     aria-label="Dismiss"
                     style={{ background: "none", border: "none", color: "var(--ink-muted)", cursor: "pointer", padding: 0 }}
                   >

@@ -63,6 +63,10 @@ export default function HeaderClient({
   // short grace window before mount means anything genuinely recent still pops once,
   // while true backlog (alerts from hours/days ago) stays silent.
   const lastSeenRef = useRef<number>(Date.now() - 2 * 60 * 1000);
+  // Same grace-window reasoning as lastSeenRef above, tracked separately by message Id
+  // (not time) since that's what /api/admin/chat/unread naturally keys off of.
+  const lastSeenChatIdRef = useRef<number>(-1);
+  const chatIdsSeeded = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,13 +98,48 @@ export default function HeaderClient({
       }
     }
 
+    async function pollChat() {
+      try {
+        const res = await fetch("/api/admin/chat/unread");
+        if (!res.ok) return;
+        const data: { ok: boolean; messages: { Id: number; StaffId: number; StaffName: string; Message: string }[] } = await res.json();
+        if (cancelled || !data.ok) return;
+
+        // First tick after mount just establishes the high-water mark - existing unread
+        // backlog from before this page load shouldn't toast, only genuinely new arrivals.
+        if (!chatIdsSeeded.current) {
+          chatIdsSeeded.current = true;
+          if (data.messages.length > 0) lastSeenChatIdRef.current = Math.max(...data.messages.map((m) => m.Id));
+          return;
+        }
+
+        const fresh = data.messages.filter((m) => m.Id > lastSeenChatIdRef.current).sort((a, b) => a.Id - b.Id);
+        for (const m of fresh) {
+          toast.show({
+            type: "info",
+            message: `${m.StaffName}: ${m.Message.length > 80 ? m.Message.slice(0, 80) + "…" : m.Message}`,
+            duration: 8000,
+            onClick: () => router.push("/dashboard/chat"),
+          });
+        }
+        if (fresh.length > 0) {
+          lastSeenChatIdRef.current = Math.max(...fresh.map((m) => m.Id));
+        }
+      } catch {
+        // Transient network hiccup - just try again on the next tick.
+      }
+    }
+
     poll();
+    pollChat();
     const id = setInterval(poll, ALERTS_POLL_INTERVAL_MS);
+    const chatId = setInterval(pollChat, ALERTS_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
+      clearInterval(chatId);
     };
-  }, [toast]);
+  }, [toast, router]);
 
   const searchIndex = useMemo(() => {
     const mainGroup = tSidebar("searchMainGroup");
