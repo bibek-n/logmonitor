@@ -6,8 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node server.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "test:db": "tsx scripts/test-db.ts",
+    "test:qa-integration": "tsx scripts/test-qa-integration.ts",
+    "migrate:qa-e2e-test-user": "tsx scripts/migrate-qa-e2e-test-user.ts",
     "migrate:webfilter": "tsx scripts/migrate-webfilter.ts",
     "migrate:systemhealth": "tsx scripts/migrate-systemhealth.ts",
     "migrate:routerlogs": "tsx scripts/migrate-routerlogs.ts",
@@ -19,6 +23,9 @@
     "migrate:ouivendors": "tsx scripts/migrate-ouivendors.ts",
     "migrate:oscolumn": "tsx scripts/migrate-os-column.ts",
     "migrate:websites": "tsx scripts/migrate-websites.ts",
+    "migrate:qa-testing": "tsx scripts/migrate-qa-testing.ts",
+    "migrate:qa-workflow-gates": "tsx scripts/migrate-qa-workflow-gates.ts",
+    "migrate:qa-test-run-types": "tsx scripts/migrate-qa-test-run-types.ts",
     "migrate:speedtestresults": "tsx scripts/migrate-speedtest-results.ts",
     "migrate:endpointagents": "tsx scripts/migrate-endpointagents.ts",
     "migrate:endpointagents-phase2": "tsx scripts/migrate-endpointagents-phase2.ts",
@@ -90,12 +97,16 @@
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/mssql": "^9.1.5",
     "@types/node": "^20.14.15",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
     "tsx": "^4.19.1",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.10"
   }
 }
