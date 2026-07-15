@@ -27,6 +27,7 @@
     "migrate:qa-workflow-gates": "tsx scripts/migrate-qa-workflow-gates.ts",
     "migrate:qa-test-run-types": "tsx scripts/migrate-qa-test-run-types.ts",
     "migrate:qa-advanced-run-types": "tsx scripts/migrate-qa-advanced-run-types.ts",
+    "migrate:qa-run-types-standard": "tsx scripts/migrate-qa-run-types-standard.ts",
     "migrate:speedtestresults": "tsx scripts/migrate-speedtest-results.ts",
     "migrate:endpointagents": "tsx scripts/migrate-endpointagents.ts",
     "migrate:endpointagents-phase2": "tsx scripts/migrate-endpointagents-phase2.ts",
