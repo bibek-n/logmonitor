@@ -551,6 +551,8 @@
       "portColumn": "Port"
     },
     "table": {
+      "searchPlaceholder": "Search by name, hostname, IP, or MAC address...",
+      "noMatchesText": "No employees match your search.",
       "nameColumn": "Name",
       "statusColumn": "Status",
       "departmentColumn": "Department",

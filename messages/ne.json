@@ -551,6 +551,8 @@
       "portColumn": "पोर्ट"
     },
     "table": {
+      "searchPlaceholder": "नाम, होस्टनेम, आईपी वा म्याक ठेगानाबाट खोज्नुहोस्...",
+      "noMatchesText": "तपाईंको खोजसँग कुनै कर्मचारी मेल खाँदैन।",
       "nameColumn": "नाम",
       "statusColumn": "स्थिति",
       "departmentColumn": "विभाग",
