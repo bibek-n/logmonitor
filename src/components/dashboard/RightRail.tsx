@@ -91,7 +91,7 @@ export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monito
 
       <Card>
         <h2 style={{ fontSize: "0.9rem", margin: "0 0 0.4rem", color: "var(--ink)" }}>Top 10 Most Active Devices</h2>
-        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: "0 0 0.5rem" }}>By web filter events, last 24h</p>
+        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: "0 0 0.5rem" }}>By web filter events, last 4h</p>
         {topDevices.length === 0 ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem" }}>No activity in the last 24h.</p>
         ) : (

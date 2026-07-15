@@ -154,10 +154,12 @@ export default async function DashboardHome() {
       `SELECT TOP 1 PingMs, DownloadMbps, UploadMbps, CreatedAt FROM SpeedTestResults ORDER BY CreatedAt DESC`
     ),
     db.query<{ Earliest: string | null }>(`SELECT MIN(ReceivedAt) AS Earliest FROM SystemHealthLogs`),
+    // 4h rolling window (not 24h) so a device that's actually gone quiet drops out of the
+    // list within a few hours instead of lingering on yesterday's activity all day.
     db.query<{ SrcIp: string; EventCount: number }>(`
       SELECT TOP 10 SrcIp, COUNT(*) AS EventCount
       FROM WebFilterLogs
-      WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
+      WHERE ReceivedAt >= DATEADD(HOUR, -4, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
       GROUP BY SrcIp
       ORDER BY COUNT(*) DESC
     `),
