@@ -37,7 +37,7 @@ export default async function WebsitePerformancePage() {
 
   return (
     <div>
-      <h1>Speed &amp; Performance</h1>
+      <h1>Website Speed &amp; Performance</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
         Real-browser page speed testing (Core Web Vitals, resource breakdown, optimization checks) for every website
         already registered under Audit &gt; Websites. Powered by Google PageSpeed Insights (Lighthouse) - no separate

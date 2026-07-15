@@ -142,7 +142,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/audit/header-viewer", key: "headerViewer", label: "HTTP / HTTPS Response Header Viewer", icon: FileCode },
       { href: "/dashboard/audit/ga-tag-finder", key: "gaTagFinder", label: "GA Tag Finder", icon: BarChart3 },
       { href: "/dashboard/audit/website-security", key: "websiteSecurityAudit", label: "Website Security Audit", icon: ShieldAlert },
-      { href: "/dashboard/audit/website-performance", key: "websitePerformance", label: "Speed & Performance", icon: Gauge },
+      { href: "/dashboard/audit/website-performance", key: "websitePerformance", label: "Website Speed & Performance", icon: Gauge },
     ],
   },
   {
