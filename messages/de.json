@@ -499,6 +499,7 @@
       "addButton": "Hinzufügen",
       "noEmployeesYetEmptyState": "Noch keine Mitarbeiter hinzugefügt.",
       "noEmployeesWithDeviceType": "Keine Mitarbeiter mit einem Gerät vom Typ „{deviceType}“.",
+      "noEmployeesMatchFilter": "Keine Mitarbeiter entsprechen dem ausgewählten Filter.",
       "clearFilterLink": "Filter zurücksetzen",
       "errors": {
         "nameRequired": "Name ist erforderlich.",

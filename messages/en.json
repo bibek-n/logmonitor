@@ -499,6 +499,7 @@
       "addButton": "Add",
       "noEmployeesYetEmptyState": "No employees added yet.",
       "noEmployeesWithDeviceType": "No employees with a \"{deviceType}\" device.",
+      "noEmployeesMatchFilter": "No employees match the selected filter.",
       "clearFilterLink": "Clear filter",
       "errors": {
         "nameRequired": "Name is required.",

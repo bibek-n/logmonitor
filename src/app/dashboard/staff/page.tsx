@@ -15,18 +15,6 @@ interface AvailableDevice {
   Source: "Mikrotik" | "Sophos";
 }
 
-function StatTile({ label, value, status }: { label: string; value: string | number; status: string }) {
-  return (
-    <div className={`stat-tile status-${status}`}>
-      <div className="label">
-        <span className={`status-dot status-${status}`} />
-        {label}
-      </div>
-      <div className="value">{value}</div>
-    </div>
-  );
-}
-
 function FilterTile({
   label,
   value,
@@ -64,10 +52,23 @@ function FilterTile({
 export default async function StaffPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; type?: string }>;
+  searchParams: Promise<{ error?: string; type?: string; status?: string }>;
 }) {
-  const { error, type: typeFilter } = await searchParams;
+  const { error, type: typeFilter, status: statusFilter } = await searchParams;
   const t = await getTranslations("employees.list");
+
+  // Builds a staff URL preserving whichever of the two filter dimensions (device type,
+  // status) isn't being changed by this particular tile - so e.g. clicking "Online" while
+  // "PC/Laptop" is already selected narrows to online PCs/laptops rather than clobbering it.
+  function staffHref(overrides: { type?: string | null; status?: string | null }): string {
+    const nextType = overrides.type !== undefined ? overrides.type : typeFilter;
+    const nextStatus = overrides.status !== undefined ? overrides.status : statusFilter;
+    const params = new URLSearchParams();
+    if (nextType) params.set("type", nextType);
+    if (nextStatus) params.set("status", nextStatus);
+    const qs = params.toString();
+    return qs ? `/dashboard/staff?${qs}` : "/dashboard/staff";
+  }
   const ERROR_CODES = new Set(["nameRequired", "duplicateMac"]);
   const errorMessage = error && ERROR_CODES.has(error) ? t(`errors.${error}`) : null;
   const db = await getDb();
@@ -138,10 +139,17 @@ export default async function StaffPage({
   const mobileCount = assigned.filter((s) => s.deviceType === "Mobile").length;
   const otherCount = assigned.filter((s) => s.deviceType === "Other").length;
 
-  const visibleEmployees = typeFilter ? employees.filter((s) => s.MacAddress && s.deviceType === typeFilter) : employees;
+  const visibleEmployees = employees.filter((s) => {
+    if (typeFilter && (!s.MacAddress || s.deviceType !== typeFilter)) return false;
+    if (statusFilter === "online" && !s.isOnline) return false;
+    if (statusFilter === "offline" && (!s.MacAddress || s.isOnline)) return false;
+    if (statusFilter === "unassigned" && s.MacAddress) return false;
+    return true;
+  });
 
   const deviceTypeLabel =
     typeFilter === "PC/Laptop" ? t("pcLaptopLabel") : typeFilter === "Mobile" ? t("mobileLabel") : t("otherLabel");
+  const hasActiveFilter = Boolean(typeFilter || statusFilter);
 
   return (
     <div>
@@ -169,10 +177,34 @@ export default async function StaffPage({
       )}
 
       <div className="stat-grid">
-        <StatTile label={t("totalEmployeesLabel")} value={employees.length} status="unknown" />
-        <StatTile label={t("onlineLabel")} value={online} status={online > 0 ? "good" : "unknown"} />
-        <StatTile label={t("offlineLabel")} value={offline} status={offline > 0 ? "warning" : "good"} />
-        <StatTile label={t("unassignedDeviceLabel")} value={unassigned} status={unassigned > 0 ? "warning" : "good"} />
+        <FilterTile
+          label={t("totalEmployeesLabel")}
+          value={employees.length}
+          status="unknown"
+          href={staffHref({ type: null, status: null })}
+          active={!hasActiveFilter}
+        />
+        <FilterTile
+          label={t("onlineLabel")}
+          value={online}
+          status={online > 0 ? "good" : "unknown"}
+          href={staffHref({ status: statusFilter === "online" ? null : "online" })}
+          active={statusFilter === "online"}
+        />
+        <FilterTile
+          label={t("offlineLabel")}
+          value={offline}
+          status={offline > 0 ? "warning" : "good"}
+          href={staffHref({ status: statusFilter === "offline" ? null : "offline" })}
+          active={statusFilter === "offline"}
+        />
+        <FilterTile
+          label={t("unassignedDeviceLabel")}
+          value={unassigned}
+          status={unassigned > 0 ? "warning" : "good"}
+          href={staffHref({ status: statusFilter === "unassigned" ? null : "unassigned" })}
+          active={statusFilter === "unassigned"}
+        />
       </div>
 
       <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginBottom: "0.4rem" }}>
@@ -183,28 +215,28 @@ export default async function StaffPage({
           label={t("allDevicesLabel")}
           value={assigned.length}
           status="unknown"
-          href="/dashboard/staff"
+          href={staffHref({ type: null })}
           active={!typeFilter}
         />
         <FilterTile
           label={t("pcLaptopLabel")}
           value={pcCount}
           status={typeFilter === "PC/Laptop" ? "good" : "unknown"}
-          href={typeFilter === "PC/Laptop" ? "/dashboard/staff" : `/dashboard/staff?type=${encodeURIComponent("PC/Laptop")}`}
+          href={staffHref({ type: typeFilter === "PC/Laptop" ? null : "PC/Laptop" })}
           active={typeFilter === "PC/Laptop"}
         />
         <FilterTile
           label={t("mobileLabel")}
           value={mobileCount}
           status={typeFilter === "Mobile" ? "good" : "unknown"}
-          href={typeFilter === "Mobile" ? "/dashboard/staff" : "/dashboard/staff?type=Mobile"}
+          href={staffHref({ type: typeFilter === "Mobile" ? null : "Mobile" })}
           active={typeFilter === "Mobile"}
         />
         <FilterTile
           label={t("otherLabel")}
           value={otherCount}
           status={typeFilter === "Other" ? "good" : "unknown"}
-          href={typeFilter === "Other" ? "/dashboard/staff" : "/dashboard/staff?type=Other"}
+          href={staffHref({ type: typeFilter === "Other" ? null : "Other" })}
           active={typeFilter === "Other"}
         />
       </div>
@@ -231,8 +263,8 @@ export default async function StaffPage({
           <p style={{ color: "var(--ink-muted)" }}>{t("noEmployeesYetEmptyState")}</p>
         ) : visibleEmployees.length === 0 ? (
           <p style={{ color: "var(--ink-muted)" }}>
-            {t("noEmployeesWithDeviceType", { deviceType: deviceTypeLabel })}{" "}
-            <Link href="/dashboard/staff" style={{ color: "var(--series-1)" }}>
+            {typeFilter ? t("noEmployeesWithDeviceType", { deviceType: deviceTypeLabel }) : t("noEmployeesMatchFilter")}{" "}
+            <Link href={staffHref({ type: null, status: null })} style={{ color: "var(--series-1)" }}>
               {t("clearFilterLink")}
             </Link>
           </p>

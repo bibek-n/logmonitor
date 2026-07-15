@@ -499,6 +499,7 @@
       "addButton": "जोड़ें",
       "noEmployeesYetEmptyState": "अभी तक कोई कर्मचारी नहीं जोड़ा गया है।",
       "noEmployeesWithDeviceType": "\"{deviceType}\" डिवाइस वाला कोई कर्मचारी नहीं है।",
+      "noEmployeesMatchFilter": "चयनित फ़िल्टर से कोई कर्मचारी मेल नहीं खाता।",
       "clearFilterLink": "फ़िल्टर साफ़ करें",
       "errors": {
         "nameRequired": "नाम आवश्यक है।",

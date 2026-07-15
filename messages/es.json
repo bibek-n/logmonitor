@@ -499,6 +499,7 @@
       "addButton": "Agregar",
       "noEmployeesYetEmptyState": "Aún no se han agregado empleados.",
       "noEmployeesWithDeviceType": "No hay empleados con un dispositivo de tipo \"{deviceType}\".",
+      "noEmployeesMatchFilter": "Ningún empleado coincide con el filtro seleccionado.",
       "clearFilterLink": "Borrar filtro",
       "errors": {
         "nameRequired": "El nombre es obligatorio.",
