@@ -166,7 +166,7 @@ function WebsitePerformanceDetailClientInner({ website }: { website: WebsiteInfo
   return (
     <div>
       <Link href="/dashboard/audit/website-performance" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--ink-muted)", fontSize: "0.85rem", marginBottom: "0.75rem" }}>
-        <ArrowLeft size={14} /> Back to Speed &amp; Performance
+        <ArrowLeft size={14} /> Back to Website Speed &amp; Performance
       </Link>
 
       <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: "1rem" }}>

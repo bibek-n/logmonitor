@@ -297,7 +297,7 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
       await sendNotificationEmail({
         to: RECIPIENTS,
         subject: `Performance alert: ${site?.Name ?? url} (${device})`,
-        body: `Performance monitoring detected ${alertLines.length} threshold breach(es) for ${site?.Name ?? url} (${site?.Url ?? url}):\n\n${alertLines.map((l) => `- ${l}`).join("\n")}\n\nView details in LogMonitor under Audit > Speed & Performance.`,
+        body: `Performance monitoring detected ${alertLines.length} threshold breach(es) for ${site?.Name ?? url} (${site?.Url ?? url}):\n\n${alertLines.map((l) => `- ${l}`).join("\n")}\n\nView details in LogMonitor under Audit > Website Speed & Performance.`,
       });
     }
 
