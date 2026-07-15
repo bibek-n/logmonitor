@@ -8,7 +8,7 @@ export async function GET() {
 
   const db = await getDb();
   const result = await db.query`
-    SELECT TOP 100 Id, FileName, SizeBytes, Status, ErrorMessage, TriggeredByUsername,
+    SELECT TOP 100 Id, FileName, SizeBytes, Status, ErrorMessage, TriggeredByUsername, BackupType,
       CONVERT(VARCHAR(19), CreatedAt, 126) AS CreatedAt
     FROM BackupHistory
     ORDER BY CreatedAt DESC
