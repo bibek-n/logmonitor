@@ -53,6 +53,13 @@ const BANDWIDTH_RANGES: { key: BandwidthRange; hours: number }[] = [
   { key: "30D", hours: 24 * 30 },
 ];
 
+// Infrastructure IPs that generate their own heavy WebFilterLogs traffic and would
+// otherwise dominate "Top Active Devices" forever - not an employee's device, so excluded
+// from that widget. 192.168.1.7 is the Sophos firewall/gateway appliance itself (confirmed
+// via its VMware-VM MAC prefix and its DeviceName always logging as "TULIP-TECHNOLOGIES",
+// never a person's PC, with no MikroTik lease or Staff match at all).
+const TOP_DEVICES_EXCLUDED_IPS = ["192.168.1.7"];
+
 export default async function DashboardHome() {
   const t = await getTranslations("dashboardHome");
   const db = await getDb();
@@ -155,11 +162,14 @@ export default async function DashboardHome() {
     ),
     db.query<{ Earliest: string | null }>(`SELECT MIN(ReceivedAt) AS Earliest FROM SystemHealthLogs`),
     // 4h rolling window (not 24h) so a device that's actually gone quiet drops out of the
-    // list within a few hours instead of lingering on yesterday's activity all day.
+    // list within a few hours instead of lingering on yesterday's activity all day. Infra
+    // IPs (see TOP_DEVICES_EXCLUDED_IPS) are excluded so the firewall's own traffic doesn't
+    // permanently occupy the list.
     db.query<{ SrcIp: string; EventCount: number }>(`
       SELECT TOP 10 SrcIp, COUNT(*) AS EventCount
       FROM WebFilterLogs
       WHERE ReceivedAt >= DATEADD(HOUR, -4, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
+        AND SrcIp NOT IN (${TOP_DEVICES_EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
       GROUP BY SrcIp
       ORDER BY COUNT(*) DESC
     `),
