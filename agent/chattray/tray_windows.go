@@ -30,7 +30,11 @@ func runTray(cfg *chatConfig) {
 	})
 	tray.OnClick(openChat)
 
-	if err := tray.Show(0, "LogMonitor Chat"); err != nil {
+	// Resource ID 1 - the icon embedded via rsrc_windows.syso (generated from chat-icon.ico
+	// with `rsrc -ico chat-icon.ico -o rsrc_windows.syso`, linked in automatically by the Go
+	// build - see chat-icon.ico's neighboring rsrc_windows.syso). rsrc assigns the first (and
+	// here, only) icon group resource ID 1 when no manifest resource precedes it.
+	if err := tray.Show(1, "LogMonitor Chat"); err != nil {
 		return
 	}
 
