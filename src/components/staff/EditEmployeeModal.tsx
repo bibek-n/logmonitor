@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Modal } from "@/components/ui/Modal";
@@ -28,6 +28,26 @@ export interface EditableEmployee {
   Position: string | null;
   Address: string | null;
   PhotoPath: string | null;
+  DepartmentId: number | null;
+  TeamId: number | null;
+  BranchOfficeId: number | null;
+  JobDesignationId: number | null;
+}
+
+interface OrgOption {
+  Id: number;
+  Name?: string;
+  Title?: string;
+}
+
+async function fetchOptions(path: string): Promise<OrgOption[]> {
+  try {
+    const res = await fetch(path);
+    const data = await res.json();
+    return res.ok && data.ok ? data.data : [];
+  } catch {
+    return [];
+  }
 }
 
 export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmployee; onClose: () => void }) {
@@ -38,13 +58,35 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
     name: employee.Name,
     email: employee.Email ?? "",
     phone: employee.Phone ?? "",
-    department: employee.Department ?? "",
-    position: employee.Position ?? "",
     address: employee.Address ?? "",
+    departmentId: employee.DepartmentId ?? "",
+    teamId: employee.TeamId ?? "",
+    branchOfficeId: employee.BranchOfficeId ?? "",
+    jobDesignationId: employee.JobDesignationId ?? "",
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(employee.PhotoPath);
   const [saving, setSaving] = useState(false);
+  const [departments, setDepartments] = useState<OrgOption[]>([]);
+  const [teams, setTeams] = useState<OrgOption[]>([]);
+  const [branchOffices, setBranchOffices] = useState<OrgOption[]>([]);
+  const [jobDesignations, setJobDesignations] = useState<OrgOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetchOptions("/api/admin/settings/organization/departments"),
+      fetchOptions("/api/admin/settings/organization/teams"),
+      fetchOptions("/api/admin/settings/organization/branch-offices"),
+      fetchOptions("/api/admin/settings/organization/job-designations"),
+    ]).then(([d, tm, b, j]) => {
+      setDepartments(d);
+      setTeams(tm);
+      setBranchOffices(b);
+      setJobDesignations(j);
+      setOptionsLoading(false);
+    });
+  }, []);
 
   function onPhotoChange(file: File | null) {
     setPhotoFile(file);
@@ -61,7 +103,16 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
       const res = await fetch(`/api/admin/staff/${employee.Id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          address: form.address,
+          departmentId: form.departmentId || null,
+          teamId: form.teamId || null,
+          branchOfficeId: form.branchOfficeId || null,
+          jobDesignationId: form.jobDesignationId || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
@@ -139,11 +190,70 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           <div>
             <label style={labelStyle}>{t("departmentLabel")}</label>
-            <input style={fieldStyle} value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
+            <select
+              style={fieldStyle}
+              value={form.departmentId}
+              disabled={optionsLoading}
+              onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {departments.map((d) => (
+                <option key={d.Id} value={d.Id}>
+                  {d.Name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>{t("teamLabel")}</label>
+            <select
+              style={fieldStyle}
+              value={form.teamId}
+              disabled={optionsLoading}
+              onChange={(e) => setForm((f) => ({ ...f, teamId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {teams.map((tm) => (
+                <option key={tm.Id} value={tm.Id}>
+                  {tm.Name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div>
+            <label style={labelStyle}>{t("branchOfficeLabel")}</label>
+            <select
+              style={fieldStyle}
+              value={form.branchOfficeId}
+              disabled={optionsLoading}
+              onChange={(e) => setForm((f) => ({ ...f, branchOfficeId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {branchOffices.map((b) => (
+                <option key={b.Id} value={b.Id}>
+                  {b.Name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label style={labelStyle}>{t("positionLabel")}</label>
-            <input style={fieldStyle} value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} />
+            <select
+              style={fieldStyle}
+              value={form.jobDesignationId}
+              disabled={optionsLoading}
+              onChange={(e) => setForm((f) => ({ ...f, jobDesignationId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {jobDesignations.map((j) => (
+                <option key={j.Id} value={j.Id}>
+                  {j.Title}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

@@ -82,7 +82,13 @@ export default async function StaffPage({
     Position: string | null;
     Address: string | null;
     PhotoPath: string | null;
-  }>("SELECT Id, Email, Phone, Department, Position, Address, PhotoPath FROM Staff");
+    DepartmentId: number | null;
+    TeamId: number | null;
+    BranchOfficeId: number | null;
+    JobDesignationId: number | null;
+  }>(
+    "SELECT Id, Email, Phone, Department, Position, Address, PhotoPath, DepartmentId, TeamId, BranchOfficeId, JobDesignationId FROM Staff"
+  );
   const profileById = new Map(profileResult.recordset.map((p) => [p.Id, p]));
   const employees: EmployeeRow[] = staff.map((s) => {
     const profile = profileById.get(s.Id);
@@ -94,6 +100,10 @@ export default async function StaffPage({
       Position: profile?.Position ?? null,
       Address: profile?.Address ?? null,
       PhotoPath: profile?.PhotoPath ?? null,
+      DepartmentId: profile?.DepartmentId ?? null,
+      TeamId: profile?.TeamId ?? null,
+      BranchOfficeId: profile?.BranchOfficeId ?? null,
+      JobDesignationId: profile?.JobDesignationId ?? null,
     };
   });
 
