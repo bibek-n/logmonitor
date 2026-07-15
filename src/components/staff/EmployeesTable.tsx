@@ -49,7 +49,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
           </thead>
           <tbody>
             {employees.map((s) => {
-              const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "warning";
+              const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "critical";
               return (
                 <tr key={s.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
                   <td style={{ padding: "0.5rem" }}>

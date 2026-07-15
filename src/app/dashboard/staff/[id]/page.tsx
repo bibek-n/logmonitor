@@ -255,7 +255,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     deviceUsbEvents = usbRes.recordset;
   }
 
-  const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : "warning";
+  const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : "critical";
   // MikroTik gives a precise "last seen X ago" from the lease; Sophos-side only tells us the
   // device was still in the firewall's ARP table as of its last poll — coarser, still useful.
   const seenAt =
