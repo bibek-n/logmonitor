@@ -27,7 +27,7 @@ export default async function RootLayout({
     cookieLocale && (routing.locales as readonly string[]).includes(cookieLocale) ? cookieLocale : routing.defaultLocale;
 
   return (
-    <html lang={lang} className={inter.variable}>
+    <html lang={lang} className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Sets data-theme from localStorage before first paint so switching themes doesn't
             flash the default on reload. Must run synchronously, before hydration. */}
