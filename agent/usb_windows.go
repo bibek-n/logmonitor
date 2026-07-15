@@ -162,7 +162,7 @@ func cleanManufacturer(m string) string {
 // monitored PC and needed fixing.
 func CollectUsbDevices() []UsbDeviceInfo {
 	out := runPowerShellJSON(`
-$pnp = @(Get-CimInstance -ClassName Win32_PnPEntity | Where-Object {$_.DeviceID -like 'USB\VID_*' -and $_.Name -notlike '*Root Hub*' -and $_.Name -notlike '*Host Controller*'} | Select-Object Name,Manufacturer,DeviceID)
+$pnp = @(Get-WmiObject -Class Win32_PnPEntity | Where-Object {$_.DeviceID -like 'USB\VID_*' -and $_.Name -notlike '*Root Hub*' -and $_.Name -notlike '*Host Controller*'} | Select-Object Name,Manufacturer,DeviceID)
 $phys = @()
 if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
   $phys = @(Get-PhysicalDisk | Where-Object {$_.BusType -eq 'USB'} | Select-Object FriendlyName,SerialNumber,Size)

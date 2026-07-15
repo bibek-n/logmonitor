@@ -56,21 +56,17 @@ func CollectAllInterfaces() []NetworkInterfaceInfo {
 
 func interfaceSpeedMbps(name string) int {
 	if runtime.GOOS == "windows" {
+		// Get-NetAdapter requires PowerShell 3.0+ (Windows 8+) - Win32_NetworkAdapter's
+		// Speed property (bits/sec) has been available since Windows 2000 and works
+		// identically on every supported Windows version.
+		nameEscaped := strings.ReplaceAll(name, "'", "''")
 		out := runOut("powershell", "-NoProfile", "-Command",
-			"(Get-NetAdapter -Name '"+name+"' -ErrorAction SilentlyContinue).LinkSpeed")
-		// LinkSpeed is like "1 Gbps" or "100 Mbps" — normalize to Mbps.
-		fields := strings.Fields(out)
-		if len(fields) != 2 {
+			"(Get-WmiObject -Class Win32_NetworkAdapter -Filter \"NetConnectionID='"+nameEscaped+"'\" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Speed)")
+		bps, err := strconv.ParseFloat(strings.TrimSpace(out), 64)
+		if err != nil || bps <= 0 {
 			return 0
 		}
-		value, err := strconv.ParseFloat(fields[0], 64)
-		if err != nil {
-			return 0
-		}
-		if strings.EqualFold(fields[1], "Gbps") {
-			return int(value * 1000)
-		}
-		return int(value)
+		return int(bps / 1_000_000)
 	}
 	speed := runOut("cat", "/sys/class/net/"+name+"/speed")
 	if v, err := strconv.Atoi(speed); err == nil && v > 0 {
@@ -153,8 +149,10 @@ func fetchPublicIP() string {
 
 func detectGateway() string {
 	if runtime.GOOS == "windows" {
+		// Get-NetRoute requires PowerShell 3.0+ (Windows 8+) - Win32_NetworkAdapterConfiguration's
+		// DefaultIPGateway has been available since Windows 2000.
 		out := runOut("powershell", "-NoProfile", "-Command",
-			"(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 -ExpandProperty NextHop)")
+			"(Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' -ErrorAction SilentlyContinue | Where-Object {$_.DefaultIPGateway} | Select-Object -First 1 -ExpandProperty DefaultIPGateway) | Select-Object -First 1")
 		return strings.TrimSpace(out)
 	}
 	out := runOut("sh", "-c", "ip route show default 2>/dev/null | awk '/default/ {print $3; exit}'")
@@ -163,8 +161,11 @@ func detectGateway() string {
 
 func detectDNSServers() []string {
 	if runtime.GOOS == "windows" {
+		// Get-DnsClientServerAddress requires PowerShell 3.0+ (Windows 8+) -
+		// Win32_NetworkAdapterConfiguration's DNSServerSearchOrder has been available since
+		// Windows 2000.
 		out := runOut("powershell", "-NoProfile", "-Command",
-			"(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object {$_.ServerAddresses.Count -gt 0} | Select-Object -First 1 -ExpandProperty ServerAddresses) -join ','")
+			"(Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' -ErrorAction SilentlyContinue | Where-Object {$_.DNSServerSearchOrder} | Select-Object -First 1 -ExpandProperty DNSServerSearchOrder) -join ','")
 		if out == "" {
 			return nil
 		}

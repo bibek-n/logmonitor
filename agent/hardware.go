@@ -79,6 +79,16 @@ func runOut(name string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// All Windows WMI queries in this file deliberately use Get-WmiObject rather than the
+// newer Get-CimInstance - confirmed live that Get-CimInstance doesn't exist at all on
+// Windows 7 (PowerShell 2.0, no CIM cmdlets until PS3.0/Windows 8), which meant every
+// field in this struct came back empty there. Get-WmiObject has been available since
+// PowerShell 1.0 and is still fully functional on Windows 10/11, so this one code path
+// covers every supported Windows version. The exception is applyWindowsDiskHealth's
+// Get-PhysicalDisk/Get-StorageReliabilityCounter, which have no legacy equivalent - the
+// modern Storage Management API they wrap genuinely doesn't exist pre-Windows 8, so disk
+// health/SMART data is a real, unavoidable gap on Windows 7, not a fixable compatibility
+// issue.
 func CollectHardwareInfo() HardwareInfo {
 	var hw HardwareInfo
 
@@ -119,7 +129,7 @@ func collectDiskInfo(hw *HardwareInfo) {
 		// Format-Table-free CSV-ish output, one physical disk per block separated by a marker,
 		// so multiple disks can be parsed without ambiguity.
 		out := runOut("powershell", "-NoProfile", "-Command",
-			"Get-CimInstance -ClassName Win32_DiskDrive | ForEach-Object { \"$($_.Index)|$($_.Model)|$($_.MediaType)|$($_.Size)\" }")
+			"Get-WmiObject -Class Win32_DiskDrive | ForEach-Object { \"$($_.Index)|$($_.Model)|$($_.MediaType)|$($_.Size)\" }")
 		if out == "" {
 			return
 		}
@@ -231,7 +241,7 @@ func applyWindowsDiskHealth(disks []DiskInfo) {
 func collectGpuInfo(hw *HardwareInfo) {
 	if runtime.GOOS == "windows" {
 		hw.GpuName = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_VideoController | Select-Object -First 1 -ExpandProperty Name)")
+			"(Get-WmiObject -Class Win32_VideoController | Select-Object -First 1 -ExpandProperty Name)")
 		return
 	}
 	if _, err := exec.LookPath("lspci"); err != nil {
@@ -246,7 +256,7 @@ func collectGpuInfo(hw *HardwareInfo) {
 func collectOsEdition(hw *HardwareInfo) {
 	if runtime.GOOS == "windows" {
 		hw.OsEdition = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
+			"(Get-WmiObject -Class Win32_OperatingSystem).Caption")
 		return
 	}
 	out := runOut("sh", "-c", ". /etc/os-release 2>/dev/null; echo \"$PRETTY_NAME\"")
@@ -259,31 +269,31 @@ func collectOsEdition(hw *HardwareInfo) {
 func collectSystemIdentity(hw *HardwareInfo) {
 	if runtime.GOOS == "windows" {
 		hw.MotherboardManufacturer = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BaseBoard).Manufacturer")
+			"(Get-WmiObject -Class Win32_BaseBoard).Manufacturer")
 		hw.MotherboardModel = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BaseBoard).Product")
+			"(Get-WmiObject -Class Win32_BaseBoard).Product")
 		hw.MotherboardSerial = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BaseBoard).SerialNumber")
+			"(Get-WmiObject -Class Win32_BaseBoard).SerialNumber")
 		hw.BiosManufacturer = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BIOS).Manufacturer")
+			"(Get-WmiObject -Class Win32_BIOS).Manufacturer")
 		hw.BiosVersion = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BIOS).SMBIOSBIOSVersion")
+			"(Get-WmiObject -Class Win32_BIOS).SMBIOSBIOSVersion")
 		if raw := runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BIOS).ReleaseDate"); raw != "" {
+			"(Get-WmiObject -Class Win32_BIOS).ReleaseDate"); raw != "" {
 			hw.BiosReleaseDate = raw
 		}
 		hw.SystemManufacturer = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_ComputerSystem).Manufacturer")
+			"(Get-WmiObject -Class Win32_ComputerSystem).Manufacturer")
 		hw.SystemModel = runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_ComputerSystem).Model")
+			"(Get-WmiObject -Class Win32_ComputerSystem).Model")
 		// BIOS serial is the standard, reliable cross-vendor serial number; product UUID
 		// is a fallback when BIOS serial is blank (common on VMs / some OEM images).
 		if serial := runOut("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance -ClassName Win32_BIOS).SerialNumber"); serial != "" && !strings.EqualFold(serial, "To be filled by O.E.M.") {
+			"(Get-WmiObject -Class Win32_BIOS).SerialNumber"); serial != "" && !strings.EqualFold(serial, "To be filled by O.E.M.") {
 			hw.SerialNumber = serial
 		} else {
 			hw.SerialNumber = runOut("powershell", "-NoProfile", "-Command",
-				"(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID")
+				"(Get-WmiObject -Class Win32_ComputerSystemProduct).UUID")
 		}
 		return
 	}
