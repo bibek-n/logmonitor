@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Gauge, Play, ExternalLink, Settings, RefreshCw } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card } from "@/components/ui/Card";
@@ -167,6 +168,7 @@ function SummaryCards() {
 
 function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerformanceSummary[] }) {
   const toast = useToast();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [speedFilter, setSpeedFilter] = useState("");
   const [monitorFilter, setMonitorFilter] = useState("");
@@ -203,6 +205,7 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
       const data = await res.json();
       if (data.ok) {
         toast.show({ type: "success", message: "Performance test started/completed." });
+        router.refresh();
       } else {
         toast.show({ type: "error", message: data.error ?? "Failed to run test." });
       }
@@ -224,6 +227,7 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
       body: JSON.stringify({ enabled, testDevice: w.TestDevice ?? "Both" }),
     });
     toast.show({ type: "success", message: enabled ? "Monitoring enabled." : "Monitoring disabled." });
+    router.refresh();
   }
 
   async function bulkRun() {
@@ -237,6 +241,7 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
       });
       const data = await res.json();
       toast.show({ type: data.ok ? "success" : "error", message: data.ok ? `Started tests for ${selected.size} website(s).` : data.error ?? "Bulk run failed." });
+      if (data.ok) router.refresh();
     } finally {
       setBulkBusy(false);
     }
@@ -253,6 +258,7 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
       });
       const data = await res.json();
       toast.show({ type: data.ok ? "success" : "error", message: data.ok ? `Updated ${selected.size} website(s).` : data.error ?? "Bulk update failed." });
+      if (data.ok) router.refresh();
     } finally {
       setBulkBusy(false);
     }

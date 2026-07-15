@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,7 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 
 export function SecuritySection({ initialData }: { initialData: SecuritySettingsData | null }) {
   const toast = useToast();
+  const router = useRouter();
   const t = useTranslations("settings.security");
   const [form, setForm] = useState({
     passwordMinLength: initialData?.PasswordMinLength ?? 8,
@@ -49,6 +51,7 @@ export function SecuritySection({ initialData }: { initialData: SecuritySettings
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
       toast.show({ type: "success", message: t("settingsSavedToast") });
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {

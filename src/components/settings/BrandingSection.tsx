@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,7 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 
 export function BrandingSection({ initialData }: { initialData: BrandingData | null }) {
   const toast = useToast();
+  const router = useRouter();
   const t = useTranslations("settings.branding");
   const [form, setForm] = useState({
     primaryColor: initialData?.PrimaryColor ?? "#3B82F6",
@@ -66,6 +68,7 @@ export function BrandingSection({ initialData }: { initialData: BrandingData | n
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
 
       toast.show({ type: "success", message: t("brandingSavedToast") });
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {

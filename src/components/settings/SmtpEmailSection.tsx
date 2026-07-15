@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +33,7 @@ const labelStyle: React.CSSProperties = { fontSize: "0.78rem", color: "var(--ink
 export function SmtpEmailSection({ initialData, initialLogs }: { initialData: SmtpSettingsData | null; initialLogs: EmailLogRow[] }) {
   const t = useTranslations("settings.smtpEmail");
   const toast = useToast();
+  const router = useRouter();
   const [form, setForm] = useState({
     host: initialData?.Host ?? "",
     port: initialData?.Port ? String(initialData.Port) : "587",
@@ -67,6 +69,7 @@ export function SmtpEmailSection({ initialData, initialLogs }: { initialData: Sm
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
       toast.show({ type: "success", message: t("smtpSettingsSavedToast") });
       setForm((f) => ({ ...f, password: "" }));
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrongError") });
     } finally {

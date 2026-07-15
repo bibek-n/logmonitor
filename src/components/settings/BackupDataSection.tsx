@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { DownloadCloud, DatabaseBackup } from "lucide-react";
+import { DownloadCloud, DatabaseBackup, FileArchive } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -20,6 +20,7 @@ interface BackupHistoryRow {
   Status: string;
   ErrorMessage: string | null;
   TriggeredByUsername: string | null;
+  BackupType: string;
   CreatedAt: string;
 }
 
@@ -60,6 +61,8 @@ export function BackupDataSection({
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [runningBackup, setRunningBackup] = useState(false);
   const [confirmBackupOpen, setConfirmBackupOpen] = useState(false);
+  const [runningWebsiteBackup, setRunningWebsiteBackup] = useState(false);
+  const [confirmWebsiteBackupOpen, setConfirmWebsiteBackupOpen] = useState(false);
 
   async function saveSchedule() {
     setSavingSchedule(true);
@@ -72,6 +75,7 @@ export function BackupDataSection({
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
       toast.show({ type: "success", message: t("scheduleSavedToast") });
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
@@ -95,6 +99,22 @@ export function BackupDataSection({
     }
   }
 
+  async function runWebsiteBackup() {
+    setRunningWebsiteBackup(true);
+    try {
+      const res = await fetch("/api/admin/settings/backup/website", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("websiteBackupFailedError"));
+      toast.show({ type: "success", message: t("websiteBackupCompletedToast", { fileName: data.fileName }) });
+      router.refresh();
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("websiteBackupFailedToast") });
+    } finally {
+      setRunningWebsiteBackup(false);
+      setConfirmWebsiteBackupOpen(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3" id="field-database-backup">
@@ -102,6 +122,9 @@ export function BackupDataSection({
         <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={() => setConfirmBackupOpen(true)} disabled={runningBackup}>
             <DatabaseBackup size={15} /> {runningBackup ? t("runningBackupButton") : t("runBackupButton")}
+          </Button>
+          <Button onClick={() => setConfirmWebsiteBackupOpen(true)} disabled={runningWebsiteBackup} variant="secondary">
+            <FileArchive size={15} /> {runningWebsiteBackup ? t("runningWebsiteBackupButton") : t("runWebsiteBackupButton")}
           </Button>
           <a href="/api/admin/settings/backup/export" id="field-data-export">
             <Button variant="secondary" type="button">
@@ -174,7 +197,7 @@ export function BackupDataSection({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                {[t("fileColumn"), t("sizeColumn"), t("statusColumn"), t("byColumn"), t("whenColumn")].map((h) => (
+                {[t("typeColumn"), t("fileColumn"), t("sizeColumn"), t("statusColumn"), t("byColumn"), t("whenColumn")].map((h) => (
                   <th key={h} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
                     {h}
                   </th>
@@ -184,6 +207,7 @@ export function BackupDataSection({
             <tbody>
               {initialHistory.map((b) => (
                 <tr key={b.Id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "0.4rem 0.6rem" }}>{b.BackupType === "website" ? t("websiteTypeLabel") : t("databaseTypeLabel")}</td>
                   <td style={{ padding: "0.4rem 0.6rem" }}>{b.FileName}</td>
                   <td style={{ padding: "0.4rem 0.6rem" }}>{formatBytes(b.SizeBytes)}</td>
                   <td style={{ padding: "0.4rem 0.6rem" }}>
@@ -195,7 +219,7 @@ export function BackupDataSection({
               ))}
               {initialHistory.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ padding: "1rem", textAlign: "center", color: "var(--ink-muted)" }}>
+                  <td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "var(--ink-muted)" }}>
                     {t("noBackupsYet")}
                   </td>
                 </tr>
@@ -214,6 +238,17 @@ export function BackupDataSection({
         confirmLabel={t("confirmBackupButton")}
         tone="primary"
         loading={runningBackup}
+      />
+
+      <ConfirmDialog
+        open={confirmWebsiteBackupOpen}
+        onClose={() => setConfirmWebsiteBackupOpen(false)}
+        onConfirm={runWebsiteBackup}
+        title={t("confirmWebsiteBackupTitle")}
+        message={t("confirmWebsiteBackupMessage")}
+        confirmLabel={t("confirmWebsiteBackupButton")}
+        tone="primary"
+        loading={runningWebsiteBackup}
       />
     </div>
   );

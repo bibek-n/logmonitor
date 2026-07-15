@@ -78,6 +78,7 @@ export function NotificationsSection({
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
       toast.show({ type: "success", message: t("preferencesSaved") });
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
     } finally {
