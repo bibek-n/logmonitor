@@ -42,6 +42,14 @@ const VENDOR_RULES: { pattern: RegExp; type: DeviceType }[] = [
   { pattern: /fujitsu/i, type: "PC/Laptop" },
   { pattern: /liteon/i, type: "PC/Laptop" }, // common laptop WiFi/NIC OEM
   { pattern: /^apple/i, type: "PC/Laptop" }, // no hostname signal + Apple vendor: assume Mac
+  // Contract ODMs that build laptops for the big brands above - their own MAC OUI shows up
+  // directly (not relabeled as "Dell"/"HP"/etc.) often enough on our network to be worth
+  // naming explicitly, rather than silently falling through to "Other".
+  { pattern: /wistron/i, type: "PC/Laptop" },
+  { pattern: /pegatron/i, type: "PC/Laptop" },
+  { pattern: /quanta computer/i, type: "PC/Laptop" },
+  { pattern: /compal/i, type: "PC/Laptop" },
+  { pattern: /clevo|shenzhen kaifa/i, type: "PC/Laptop" },
 
   // --- Other (networking / IoT / peripherals) ---
   { pattern: /tp-link/i, type: "Other" },
