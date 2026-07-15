@@ -28,6 +28,7 @@
     "migrate:qa-test-run-types": "tsx scripts/migrate-qa-test-run-types.ts",
     "migrate:qa-advanced-run-types": "tsx scripts/migrate-qa-advanced-run-types.ts",
     "migrate:qa-run-types-standard": "tsx scripts/migrate-qa-run-types-standard.ts",
+    "migrate:qa-structural-core": "tsx scripts/migrate-qa-structural-core.ts",
     "migrate:speedtestresults": "tsx scripts/migrate-speedtest-results.ts",
     "migrate:endpointagents": "tsx scripts/migrate-endpointagents.ts",
     "migrate:endpointagents-phase2": "tsx scripts/migrate-endpointagents-phase2.ts",
@@ -57,6 +58,7 @@
     "migrate:passkeys": "tsx scripts/migrate-passkeys.ts",
     "migrate:nvr": "tsx scripts/migrate-nvr.ts",
     "migrate:website-schedule": "tsx scripts/migrate-website-schedule.ts",
+    "migrate:website-performance": "tsx scripts/migrate-website-performance.ts",
     "migrate:employee-notifications": "tsx scripts/migrate-employee-notifications.ts",
     "migrate:disk-health": "tsx scripts/migrate-disk-health.ts",
     "migrate:usb-vendor": "tsx scripts/migrate-usb-vendor.ts",
@@ -64,7 +66,8 @@
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",
     "poll:sophosclients": "tsx syslog/poll-sophos-clients.ts",
-    "scan:website-security": "tsx scripts/run-website-security-daily-scan.ts"
+    "scan:website-security": "tsx scripts/run-website-security-daily-scan.ts",
+    "scan:website-performance": "tsx scripts/run-website-performance-scheduled-scan.ts"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",

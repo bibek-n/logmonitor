@@ -45,6 +45,23 @@ import {
   Settings,
   PlusCircle,
   Workflow,
+  MessageCircle,
+  Camera,
+  Bell,
+  FlaskConical,
+  ClipboardCheck,
+  FolderTree,
+  ListChecks,
+  PlayCircle,
+  Zap,
+  Bug,
+  BarChart2,
+  Rocket,
+  FileText,
+  ClipboardList,
+  Flag,
+  Cloud,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 
@@ -68,6 +85,9 @@ export interface NavGroup {
 export const TOP_ITEMS: NavItem[] = [
   { href: "/dashboard", key: "overview", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/staff", key: "staff", label: "Employees", icon: Users },
+  { href: "/dashboard/chat", key: "employeeChat", label: "Employee Chat", icon: MessageCircle },
+  { href: "/dashboard/cameras", key: "cameras", label: "Cameras", icon: Camera },
+  { href: "/dashboard/notifications", key: "sendNotification", label: "Send Notification", icon: Bell },
   { href: "/dashboard/network-diagram", key: "networkDiagram", label: "Network Diagram", icon: Workflow },
   { href: "/dashboard/settings", key: "companySettings", label: "Company Settings", icon: Settings },
 ];
@@ -121,6 +141,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/audit/ssl-checker", key: "sslChecker", label: "SSL/TLS Certificate Checker", icon: Lock },
       { href: "/dashboard/audit/header-viewer", key: "headerViewer", label: "HTTP / HTTPS Response Header Viewer", icon: FileCode },
       { href: "/dashboard/audit/ga-tag-finder", key: "gaTagFinder", label: "GA Tag Finder", icon: BarChart3 },
+      { href: "/dashboard/audit/website-security", key: "websiteSecurityAudit", label: "Website Security Audit", icon: ShieldAlert },
+      { href: "/dashboard/audit/website-performance", key: "websitePerformance", label: "Speed & Performance", icon: Gauge },
     ],
   },
   {
@@ -189,6 +211,29 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/website/slider", key: "sliderManagement", label: "Slider Management", icon: ImageIcon },
       { href: "/dashboard/website/tickets", key: "supportTickets", label: "Support Tickets", icon: Ticket },
       { href: "/dashboard/website/contact-messages", key: "contactMessages", label: "Contact Messages", icon: Inbox },
+    ],
+  },
+  // Visibility of this group alone (not any other) is gated by qa_view — see canAccessQa()
+  // in requireQaPermission.ts and the qaAccess prop threaded through
+  // DashboardLayout -> SidebarShell -> Sidebar.
+  {
+    key: "qaTesting",
+    label: "QA Testing",
+    icon: FlaskConical,
+    items: [
+      { href: "/dashboard/qa", key: "qaDashboard", label: "QA Dashboard", icon: ClipboardCheck },
+      { href: "/dashboard/qa/requirements", key: "requirements", label: "Requirements", icon: FileText },
+      { href: "/dashboard/qa/test-suites", key: "testSuites", label: "Test Suites", icon: FolderTree },
+      { href: "/dashboard/qa/test-cases", key: "testCases", label: "Test Cases", icon: ListChecks },
+      { href: "/dashboard/qa/test-plans", key: "testPlans", label: "Test Plans", icon: ClipboardList },
+      { href: "/dashboard/qa/milestones", key: "milestones", label: "Milestones", icon: Flag },
+      { href: "/dashboard/qa/test-runs", key: "testRuns", label: "Test Runs", icon: PlayCircle },
+      { href: "/dashboard/qa/execute", key: "executeTest", label: "Execute Test", icon: Zap },
+      { href: "/dashboard/qa/bugs", key: "bugs", label: "Bugs", icon: Bug },
+      { href: "/dashboard/qa/releases", key: "releases", label: "Releases", icon: Rocket },
+      { href: "/dashboard/qa/environments", key: "environments", label: "Environments", icon: Cloud },
+      { href: "/dashboard/qa/builds", key: "builds", label: "Builds", icon: Package },
+      { href: "/dashboard/qa/reports", key: "reports", label: "QA Reports", icon: BarChart2 },
     ],
   },
 ];

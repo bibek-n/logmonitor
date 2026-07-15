@@ -32,6 +32,12 @@ export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
         -- never show up under the ResolvedAt IS NULL rule above. Surface them for a while
         -- by recency instead.
         OR (da.AlertType IN ('usb_insert', 'usb_removal') AND da.TriggeredAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()))
+      UNION ALL
+      SELECT wpa.TriggeredAt AS EventTime, wpa.Severity,
+        w.Name + ': ' + wpa.Detail AS Detail
+      FROM WebsitePerformanceAlerts wpa
+      JOIN Websites w ON w.Id = wpa.WebsiteId
+      WHERE wpa.ResolvedAt IS NULL
     ) alerts
     ORDER BY EventTime DESC
   `);
