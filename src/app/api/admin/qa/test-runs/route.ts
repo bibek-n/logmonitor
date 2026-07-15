@@ -46,7 +46,10 @@ export async function GET(req: NextRequest) {
       r.OperatingSystem, r.Device,
       CONVERT(VARCHAR(10), r.StartDate, 126) AS StartDate,
       CONVERT(VARCHAR(10), r.EndDate, 126) AS EndDate,
-      r.Status, r.RunTypeId, rt.Name AS RunTypeName, r.DeployedBuildVersion,
+      r.Status, r.RunTypeId, rt.Name AS RunTypeName,
+      r.EnvironmentId, env.Name AS EnvironmentName,
+      r.BuildId, b.BuildNumber AS BuildNumber,
+      r.DeployedBuildVersion,
       CONVERT(VARCHAR(19), r.DeployedAt, 126) AS DeployedAt,
       r.QaApprovedByUserId, CONVERT(VARCHAR(19), r.QaApprovedAt, 126) AS QaApprovedAt,
       r.CreatedByUserId,
@@ -54,6 +57,8 @@ export async function GET(req: NextRequest) {
       CONVERT(VARCHAR(19), r.UpdatedAt, 126) AS UpdatedAt
     FROM QaTestRuns r
     LEFT JOIN QaTestRunTypes rt ON rt.Id = r.RunTypeId
+    LEFT JOIN QaEnvironments env ON env.Id = r.EnvironmentId
+    LEFT JOIN QaBuilds b ON b.Id = r.BuildId
     ${where}
     ORDER BY ${sortColumn} ${sortDir}
     OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
@@ -74,6 +79,8 @@ export async function POST(req: NextRequest) {
   const projectId = Number(body?.projectId);
   const releaseId = body?.releaseId != null ? Number(body.releaseId) : null;
   const runTypeId = body?.runTypeId != null ? Number(body.runTypeId) : null;
+  const environmentId = body?.environmentId != null ? Number(body.environmentId) : null;
+  const buildId = body?.buildId != null ? Number(body.buildId) : null;
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description = typeof body?.description === "string" ? (body.description.trim() || null) : null;
   const environment = typeof body?.environment === "string" ? (body.environment.trim() || null) : null;
@@ -87,6 +94,8 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(projectId)) return NextResponse.json({ ok: false, error: "A valid projectId is required." }, { status: 400 });
   if (releaseId !== null && !Number.isInteger(releaseId)) return NextResponse.json({ ok: false, error: "Invalid releaseId." }, { status: 400 });
   if (runTypeId !== null && !Number.isInteger(runTypeId)) return NextResponse.json({ ok: false, error: "Invalid runTypeId." }, { status: 400 });
+  if (environmentId !== null && !Number.isInteger(environmentId)) return NextResponse.json({ ok: false, error: "Invalid environmentId." }, { status: 400 });
+  if (buildId !== null && !Number.isInteger(buildId)) return NextResponse.json({ ok: false, error: "Invalid buildId." }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, error: "Test run name is required." }, { status: 400 });
   if (name.length > MAX_NAME_LENGTH) return NextResponse.json({ ok: false, error: `Name must be ${MAX_NAME_LENGTH} characters or fewer.` }, { status: 400 });
   if (description && description.length > MAX_DESCRIPTION_LENGTH) {
@@ -108,6 +117,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Run type not found." }, { status: 404 });
     }
   }
+  if (environmentId !== null) {
+    const environmentCheck = await db.request().input("id", sql.Int, environmentId).query<{ Id: number }>(
+      "SELECT Id FROM QaEnvironments WHERE Id = @id AND IsActive = 1"
+    );
+    if (!environmentCheck.recordset[0]) {
+      return NextResponse.json({ ok: false, error: "Environment not found." }, { status: 404 });
+    }
+  }
+  if (buildId !== null) {
+    const buildCheck = await db.request().input("id", sql.Int, buildId).query<{ Id: number }>(
+      "SELECT Id FROM QaBuilds WHERE Id = @id"
+    );
+    if (!buildCheck.recordset[0]) {
+      return NextResponse.json({ ok: false, error: "Build not found." }, { status: 404 });
+    }
+  }
 
   const run = await withReferenceNumber("QaTestRuns", "TestRunNumber", "TR", async (transaction, testRunNumber) => {
     const insertRequest = new sql.Request(transaction);
@@ -122,23 +147,25 @@ export async function POST(req: NextRequest) {
       .input("operatingSystem", sql.NVarChar, operatingSystem)
       .input("device", sql.NVarChar, device)
       .input("runTypeId", sql.Int, runTypeId)
+      .input("environmentId", sql.Int, environmentId)
+      .input("buildId", sql.Int, buildId)
       .input("createdByUserId", sql.Int, qa.userId)
       .query<QaTestRunRow>(`
         INSERT INTO QaTestRuns (
           TestRunNumber, Name, Description, ProjectId, ReleaseId, Environment, Browser,
-          OperatingSystem, Device, RunTypeId, CreatedByUserId
+          OperatingSystem, Device, RunTypeId, EnvironmentId, BuildId, CreatedByUserId
         )
         OUTPUT INSERTED.Id, INSERTED.TestRunNumber, INSERTED.Name, INSERTED.Description,
           INSERTED.ProjectId, INSERTED.ReleaseId, INSERTED.Environment, INSERTED.Browser,
           INSERTED.OperatingSystem, INSERTED.Device,
           CONVERT(VARCHAR(10), INSERTED.StartDate, 126) AS StartDate,
           CONVERT(VARCHAR(10), INSERTED.EndDate, 126) AS EndDate,
-          INSERTED.Status, INSERTED.RunTypeId, INSERTED.CreatedByUserId,
+          INSERTED.Status, INSERTED.RunTypeId, INSERTED.EnvironmentId, INSERTED.BuildId, INSERTED.CreatedByUserId,
           CONVERT(VARCHAR(19), INSERTED.CreatedAt, 126) AS CreatedAt,
           CONVERT(VARCHAR(19), INSERTED.UpdatedAt, 126) AS UpdatedAt
         VALUES (
           @testRunNumber, @name, @description, @projectId, @releaseId, @environment, @browser,
-          @operatingSystem, @device, @runTypeId, @createdByUserId
+          @operatingSystem, @device, @runTypeId, @environmentId, @buildId, @createdByUserId
         )
       `);
     const row = insertResult.recordset[0];

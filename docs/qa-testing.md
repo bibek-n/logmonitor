@@ -123,12 +123,26 @@ logs to both `AdminAuditLog` and `QaActivityLogs` on mutation.
 | `/dashboard/failure-trend` | GET (`?days=`) | `qa_view_reports` |
 | `/dashboard/tester-activity` | GET (`?days=`) | `qa_view_reports` |
 | `/releases/[id]` | GET, PATCH*** | `qa_view`, `qa_manage_runs` |
+| `/requirements` | GET, POST | `qa_view`, `qa_create` |
+| `/requirements/[id]` | GET, PATCH**** | `qa_view`, `qa_edit` |
+| `/requirements/traceability` | GET (`?projectId=`) | `qa_view` |
+| `/test-plans` | GET, POST | `qa_view`, `qa_manage_runs` |
+| `/test-plans/[id]` | GET, PATCH**** | `qa_view`, `qa_edit` |
+| `/milestones` | GET, POST | `qa_view`, `qa_create` |
+| `/milestones/[id]` | GET, PATCH**** | `qa_view`, `qa_edit` |
+| `/environments` | GET (`?projectId=`), POST | `qa_view`, `qa_create` |
+| `/environments/[id]` | PATCH | `qa_edit` |
+| `/builds` | GET (`?projectId=`), POST | `qa_view`, `qa_create` |
+| `/builds/[id]` | PATCH | `qa_edit` |
 
 \* `DELETE` archives, never hard-deletes (see "No hard delete" above).
 \*\* Only edits the *latest* execution's annotation fields (`ActualResult`/`Notes`/
 `DurationMinutes`) — never the `Result` value itself. To change a result, `POST` a new
 execution; that's what keeps the append-only history trustworthy.
 \*\*\* Marking a release `Released` is gated — see "Workflow gates" below.
+\*\*\*\* Accepts a replace-in-full child-collection field when provided (`testCaseIds` on
+Requirements, `testRunIds` on Test Plans, `testPlanIds` on Milestones) — same pattern as
+`QaTestCaseRunTypes` on test cases: the whole set is deleted and re-inserted, not diffed.
 
 ## Workflow gates
 
@@ -156,10 +170,18 @@ gates pass above) with a proper lookup table plus a many-to-many link to test ca
 creating a run of a given type can auto-load the matching cases instead of picking every case
 by hand:
 
-- `QaTestRunTypes` — 8 seeded types (Smoke Test, Regression Test, Release Test, Security Test,
-  Browser Compatibility Test, Mobile Test, Production Verification Test, Custom Test), each
-  with a description. Admin-managed only via direct DB edit today — no CRUD UI, since the set
-  rarely changes.
+- `QaTestRunTypes` — 42 seeded types across three migrations: the original 8
+  (`migrate:qa-test-run-types`: Smoke/Regression/Release/Security/Browser Compatibility/Mobile/
+  Production Verification/Custom), 25 advanced/non-functional types
+  (`migrate:qa-advanced-run-types`: Load/Stress/Spike/Endurance/Scalability/Failover/Recovery/
+  Backup and Restore/Database Integrity/API Reliability/Network Failure/Session and
+  Concurrency/Permission and Role/Data Migration/Upgrade and Downgrade/Installation/
+  Configuration/Compatibility/Accessibility/Usability/Localization/Audit and Logging/
+  Notification/File Upload Security/Chaos), and 9 more from a supplied "standard list"
+  (`migrate:qa-run-types-standard`: Functional/Sanity/Integration/System/User Acceptance/API/
+  Database/Upgrade/File Upload — kept distinct from their closest existing cousin rather than
+  merged, since they were named separately). Admin-managed only via direct DB edit today — no
+  CRUD UI, since the set rarely changes.
 - `QaTestCaseRunTypes` — junction table (`TestCaseId`, `RunTypeId`). A test case can carry any
   number of run types via the "Run Types" checkbox group on the test case form, separate from
   the single `TestType` field (Functional/Regression/Smoke/.../Security — an orthogonal
@@ -175,16 +197,57 @@ the user can then narrow down before submitting `POST /test-runs` with the final
 `testCaseIds`. Unchecking auto-load (or picking "Custom Test") leaves the picker empty for a
 fully manual run — cases can always be added afterward from the run detail page regardless.
 
+## Structural core: Requirements, Test Plans, Milestones, Environments, Builds
+
+Added by `npm run migrate:qa-structural-core` — the foundational layer beneath a TestRail/
+Zephyr-style tool, built on top of the existing suite/case/run/bug machinery rather than
+replacing any of it. All five follow the same no-hard-delete, Status-lifecycle convention as
+every other QA entity, and none introduce new permission keys (all gated by the existing
+`qa_view`/`qa_create`/`qa_edit`).
+
+- **Requirements** (`QaRequirements`, ref numbers `REQ-00001`) — Title/Description/Category
+  (free text)/Priority (reuses the Low-Critical scale)/Status (New → Approved → Implemented →
+  Verified, or Deprecated). Linked to test cases many-to-many via `QaRequirementTestCases`
+  (`/dashboard/qa/requirements/[id]`'s "Link Test Cases" action). The **Traceability Matrix**
+  (`/dashboard/qa/requirements/traceability`) joins every requirement in a project to its
+  linked cases and each case's latest execution result, computing a coverage % per requirement
+  (Passed executions ÷ linked cases) — read in full per project, not paginated.
+- **Test Plans** (`QaTestPlans`, ref numbers `TP-00001`) — wraps multiple Test Runs via
+  `QaTestPlanRuns`, optionally tied to a Release. The detail page aggregates pass/executed
+  totals across every linked run (same "latest execution per run-case" query as the test run
+  detail page, just summed).
+- **Milestones** (`QaMilestones`) — Sprint or Release Milestone type, optional due date and
+  Release link, wraps multiple Test Plans via `QaMilestoneTestPlans`. Progress is simply
+  completed-plans ÷ linked-plans.
+- **Environments** (`QaEnvironments`) — project-scoped DEV/QA/UAT/STAGING/PRODUCTION-style
+  references (Name/ApiUrl/DatabaseInfo/BuildVersion/ConfigNotes), all free text and
+  **deliberately descriptive-only — no real credentials belong here**, since this is a public
+  repo. Simple list + create/edit modal, no separate detail page.
+- **Builds** (`QaBuilds`) — BuildNumber/GitCommit/Branch/DeploymentDate/Status
+  (Pending/Deployed/Failed/Rolled Back), optionally linked to a Release and an Environment.
+  Same list + modal treatment as Environments.
+
+Both Environments and Builds are wired into Test Run creation: `QaTestRuns.EnvironmentId` and
+`QaTestRuns.BuildId` were added as nullable columns alongside the pre-existing free-text
+`Environment`/`DeployedBuildVersion` fields (same additive, non-destructive pattern used for
+`RunTypeId`) — the "New Test Run" modal shows an optional managed dropdown for each, populated
+per-project, in addition to the always-available free-text inputs.
+
 ## Frontend
 
 | Page | Route |
 |---|---|
 | QA Dashboard | `/dashboard/qa` |
+| Requirements (list, detail, traceability matrix) | `/dashboard/qa/requirements`, `/requirements/[id]`, `/requirements/traceability` |
 | Test Suites (list, detail) | `/dashboard/qa/test-suites`, `/test-suites/[id]` |
 | Test Cases (list, create, detail/edit) | `/dashboard/qa/test-cases`, `/test-cases/new`, `/test-cases/[id]` |
+| Test Plans (list, detail) | `/dashboard/qa/test-plans`, `/test-plans/[id]` |
+| Milestones (list, detail) | `/dashboard/qa/milestones`, `/milestones/[id]` |
 | Test Runs (list, create, detail) | `/dashboard/qa/test-runs`, `/test-runs/[id]` |
 | Execute Test (my assignments, execution screen) | `/dashboard/qa/execute`, `/execute/[runCaseId]` |
 | Bugs (list, create, detail/edit) | `/dashboard/qa/bugs`, `/bugs/[id]` |
+| Environments (list + modal) | `/dashboard/qa/environments` |
+| Builds (list + modal) | `/dashboard/qa/builds` |
 | QA Reports | `/dashboard/qa/reports` |
 
 The "QA Testing" sidebar group is the only permission-gated nav group in this app — every
@@ -224,3 +287,9 @@ form needs a project.
 - CSV import/export exists only for Test Cases.
 - No project-level access restriction (e.g. "Tester X can only see Project Y") — every QA
   permission is global once granted, same as every other role in this app.
+- Explicitly out of scope for the "structural core" pass (deferred per an explicit prioritization
+  decision, not an oversight): live CI/CD integration (GitHub Actions/Jenkins/GitLab/Azure
+  DevOps webhook ingestion), Selenium/Playwright/Cypress automation result import, an in-app
+  API-testing tool (Postman-style collections), Slack/Teams notifications (email is feasible via
+  the app's existing SMTP settings but not yet wired to QA events), a unified file repository
+  browser, global search, and a Kanban board / calendar / activity timeline UI layer.

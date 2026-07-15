@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       OperatingSystem, Device,
       CONVERT(VARCHAR(10), StartDate, 126) AS StartDate,
       CONVERT(VARCHAR(10), EndDate, 126) AS EndDate,
-      Status, RunTypeId, DeployedBuildVersion,
+      Status, RunTypeId, EnvironmentId, BuildId, DeployedBuildVersion,
       CONVERT(VARCHAR(19), DeployedAt, 126) AS DeployedAt,
       QaApprovedByUserId, CONVERT(VARCHAR(19), QaApprovedAt, 126) AS QaApprovedAt,
       CreatedByUserId,
@@ -94,6 +94,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const releaseId = body?.releaseId !== undefined ? (body.releaseId === null ? null : Number(body.releaseId)) : existing.ReleaseId;
   const status = typeof body?.status === "string" && VALID_TEST_RUN_STATUSES.has(body.status) ? body.status : existing.Status;
   const runTypeId = body?.runTypeId !== undefined ? (body.runTypeId === null ? null : Number(body.runTypeId)) : existing.RunTypeId;
+  const environmentId = body?.environmentId !== undefined ? (body.environmentId === null ? null : Number(body.environmentId)) : existing.EnvironmentId;
+  const buildId = body?.buildId !== undefined ? (body.buildId === null ? null : Number(body.buildId)) : existing.BuildId;
 
   // "Deploy Application to QA": recording a build version marks the deployment event —
   // DeployedAt stamps the first time this run records a build (re-sending the same or a new
@@ -118,12 +120,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (runTypeId !== null && !Number.isInteger(runTypeId)) {
     return NextResponse.json({ ok: false, error: "Invalid runTypeId." }, { status: 400 });
   }
+  if (environmentId !== null && !Number.isInteger(environmentId)) {
+    return NextResponse.json({ ok: false, error: "Invalid environmentId." }, { status: 400 });
+  }
+  if (buildId !== null && !Number.isInteger(buildId)) {
+    return NextResponse.json({ ok: false, error: "Invalid buildId." }, { status: 400 });
+  }
   if (runTypeId !== null && runTypeId !== existing.RunTypeId) {
     const runTypeCheck = await db.request().input("id", sql.Int, runTypeId).query<{ Id: number }>(
       "SELECT Id FROM QaTestRunTypes WHERE Id = @id AND IsActive = 1"
     );
     if (!runTypeCheck.recordset[0]) {
       return NextResponse.json({ ok: false, error: "Run type not found." }, { status: 404 });
+    }
+  }
+  if (environmentId !== null && environmentId !== existing.EnvironmentId) {
+    const environmentCheck = await db.request().input("id", sql.Int, environmentId).query<{ Id: number }>(
+      "SELECT Id FROM QaEnvironments WHERE Id = @id AND IsActive = 1"
+    );
+    if (!environmentCheck.recordset[0]) {
+      return NextResponse.json({ ok: false, error: "Environment not found." }, { status: 404 });
+    }
+  }
+  if (buildId !== null && buildId !== existing.BuildId) {
+    const buildCheck = await db.request().input("id", sql.Int, buildId).query<{ Id: number }>(
+      "SELECT Id FROM QaBuilds WHERE Id = @id"
+    );
+    if (!buildCheck.recordset[0]) {
+      return NextResponse.json({ ok: false, error: "Build not found." }, { status: 404 });
     }
   }
 
@@ -158,12 +182,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .input("device", sql.NVarChar, device)
     .input("releaseId", sql.Int, releaseId)
     .input("status", sql.VarChar, status)
-    .input("runTypeId", sql.Int, runTypeId);
+    .input("runTypeId", sql.Int, runTypeId)
+    .input("environmentId", sql.Int, environmentId)
+    .input("buildId", sql.Int, buildId);
 
   let setClause = `
     Name = @name, Description = @description, Environment = @environment, Browser = @browser,
     OperatingSystem = @operatingSystem, Device = @device, ReleaseId = @releaseId, Status = @status,
-    RunTypeId = @runTypeId, UpdatedAt = SYSUTCDATETIME()
+    RunTypeId = @runTypeId, EnvironmentId = @environmentId, BuildId = @buildId, UpdatedAt = SYSUTCDATETIME()
   `;
   if (startDate) {
     updateRequest.input("startDate", sql.Date, startDate);

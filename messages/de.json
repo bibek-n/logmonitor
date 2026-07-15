@@ -436,13 +436,18 @@
         "label": "QA-Tests",
         "items": {
           "qaDashboard": "QA-Dashboard",
+          "requirements": "Anforderungen",
           "testSuites": "Testsuiten",
           "testCases": "Testfälle",
+          "testPlans": "Testpläne",
+          "milestones": "Meilensteine",
           "testRuns": "Testläufe",
           "executeTest": "Test ausführen",
           "bugs": "Fehler",
           "reports": "QA-Berichte",
-          "releases": "Releases"
+          "releases": "Releases",
+          "environments": "Umgebungen",
+          "builds": "Builds"
         }
       }
     }

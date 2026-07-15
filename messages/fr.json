@@ -436,13 +436,18 @@
         "label": "Tests QA",
         "items": {
           "qaDashboard": "Tableau de Bord QA",
+          "requirements": "Exigences",
           "testSuites": "Suites de Tests",
           "testCases": "Cas de Test",
+          "testPlans": "Plans de Test",
+          "milestones": "Jalons",
           "testRuns": "Exécutions de Tests",
           "executeTest": "Exécuter le Test",
           "bugs": "Bogues",
           "reports": "Rapports QA",
-          "releases": "Versions"
+          "releases": "Versions",
+          "environments": "Environnements",
+          "builds": "Builds"
         }
       }
     }

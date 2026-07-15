@@ -119,6 +119,10 @@ export interface QaTestRunRow {
   Status: string;
   RunTypeId: number | null;
   RunTypeName?: string | null;
+  EnvironmentId: number | null;
+  EnvironmentName?: string | null;
+  BuildId: number | null;
+  BuildNumber?: string | null;
   DeployedBuildVersion: string | null;
   DeployedAt: string | null;
   QaApprovedByUserId: number | null;
@@ -354,6 +358,189 @@ export function buildBugFilters(sp: URLSearchParams): { conditions: string[]; pa
   if (search && search.trim()) {
     params.push({ name: "search", type: sql.NVarChar, value: `%${search.trim().slice(0, 200)}%` });
     conditions.push("(Title LIKE @search OR BugNumber LIKE @search)");
+  }
+
+  return { conditions, params };
+}
+
+// --- Structural core: Requirements, Test Plans, Milestones, Environments, Builds ---
+// See scripts/migrate-qa-structural-core.ts. All five follow the same no-hard-delete,
+// Status-lifecycle convention as every other QA entity.
+
+export interface QaRequirementRow {
+  Id: number;
+  RequirementNumber: string;
+  ProjectId: number;
+  Title: string;
+  Description: string | null;
+  Category: string | null;
+  Priority: string;
+  Status: string;
+  CreatedByUserId: number | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface QaTestPlanRow {
+  Id: number;
+  TestPlanNumber: string;
+  ProjectId: number;
+  ReleaseId: number | null;
+  Name: string;
+  Description: string | null;
+  Status: string;
+  CreatedByUserId: number | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface QaMilestoneRow {
+  Id: number;
+  ProjectId: number;
+  ReleaseId: number | null;
+  Name: string;
+  MilestoneType: string;
+  DueDate: string | null;
+  Status: string;
+  Description: string | null;
+  CreatedByUserId: number | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface QaEnvironmentRow {
+  Id: number;
+  ProjectId: number;
+  Name: string;
+  ApiUrl: string | null;
+  DatabaseInfo: string | null;
+  BuildVersion: string | null;
+  ConfigNotes: string | null;
+  IsActive: boolean;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface QaBuildRow {
+  Id: number;
+  ProjectId: number;
+  ReleaseId: number | null;
+  BuildNumber: string;
+  GitCommit: string | null;
+  Branch: string | null;
+  DeploymentDate: string | null;
+  EnvironmentId: number | null;
+  Status: string;
+  CreatedByUserId: number | null;
+  CreatedAt: string;
+}
+
+export const VALID_REQUIREMENT_STATUSES = new Set(["New", "Approved", "Implemented", "Verified", "Deprecated"]);
+export const VALID_MILESTONE_STATUSES = new Set(["Planned", "In Progress", "Completed", "Missed"]);
+export const VALID_MILESTONE_TYPES = new Set(["Sprint", "Release Milestone"]);
+export const VALID_BUILD_STATUSES = new Set(["Pending", "Deployed", "Failed", "Rolled Back"]);
+// Test Plans reuse the exact same lifecycle as Test Runs (Planned/In Progress/Paused/
+// Completed/Cancelled) — a plan is "in progress" for as long as any of its linked runs are.
+
+export const ALLOWED_REQUIREMENT_SORT_COLUMNS = new Set(["RequirementNumber", "Title", "Priority", "Status", "CreatedAt"]);
+export const ALLOWED_TEST_PLAN_SORT_COLUMNS = new Set(["TestPlanNumber", "Name", "Status", "CreatedAt"]);
+export const ALLOWED_MILESTONE_SORT_COLUMNS = new Set(["Name", "MilestoneType", "DueDate", "Status", "CreatedAt"]);
+
+export function buildRequirementFilters(sp: URLSearchParams): { conditions: string[]; params: FilterParam[]; error?: string } {
+  const conditions: string[] = [];
+  const params: FilterParam[] = [];
+
+  const projectId = sp.get("projectId");
+  if (projectId) {
+    const value = Number(projectId);
+    if (!Number.isInteger(value)) return { conditions, params, error: "Invalid projectId." };
+    params.push({ name: "projectId", type: sql.Int, value });
+    conditions.push("ProjectId = @projectId");
+  }
+  const status = sp.get("status");
+  if (status) {
+    if (!VALID_REQUIREMENT_STATUSES.has(status)) return { conditions, params, error: "Invalid status filter." };
+    params.push({ name: "status", type: sql.VarChar, value: status });
+    conditions.push("Status = @status");
+  }
+  const priority = sp.get("priority");
+  if (priority) {
+    if (!VALID_PRIORITIES.has(priority)) return { conditions, params, error: "Invalid priority filter." };
+    params.push({ name: "priority", type: sql.VarChar, value: priority });
+    conditions.push("Priority = @priority");
+  }
+  const search = sp.get("search");
+  if (search && search.trim()) {
+    params.push({ name: "search", type: sql.NVarChar, value: `%${search.trim().slice(0, 200)}%` });
+    conditions.push("(Title LIKE @search OR RequirementNumber LIKE @search)");
+  }
+
+  return { conditions, params };
+}
+
+export function buildTestPlanFilters(sp: URLSearchParams): { conditions: string[]; params: FilterParam[]; error?: string } {
+  const conditions: string[] = [];
+  const params: FilterParam[] = [];
+
+  for (const [key, column, type] of [
+    ["projectId", "ProjectId", sql.Int],
+    ["releaseId", "ReleaseId", sql.Int],
+  ] as const) {
+    const raw = sp.get(key);
+    if (raw) {
+      const value = Number(raw);
+      if (!Number.isInteger(value)) return { conditions, params, error: `Invalid ${key}.` };
+      params.push({ name: key, type, value });
+      conditions.push(`${column} = @${key}`);
+    }
+  }
+  const status = sp.get("status");
+  if (status) {
+    if (!VALID_TEST_RUN_STATUSES.has(status)) return { conditions, params, error: "Invalid status filter." };
+    params.push({ name: "status", type: sql.VarChar, value: status });
+    conditions.push("Status = @status");
+  }
+  const search = sp.get("search");
+  if (search && search.trim()) {
+    params.push({ name: "search", type: sql.NVarChar, value: `%${search.trim().slice(0, 200)}%` });
+    conditions.push("(Name LIKE @search OR TestPlanNumber LIKE @search)");
+  }
+
+  return { conditions, params };
+}
+
+export function buildMilestoneFilters(sp: URLSearchParams): { conditions: string[]; params: FilterParam[]; error?: string } {
+  const conditions: string[] = [];
+  const params: FilterParam[] = [];
+
+  for (const [key, column, type] of [
+    ["projectId", "ProjectId", sql.Int],
+    ["releaseId", "ReleaseId", sql.Int],
+  ] as const) {
+    const raw = sp.get(key);
+    if (raw) {
+      const value = Number(raw);
+      if (!Number.isInteger(value)) return { conditions, params, error: `Invalid ${key}.` };
+      params.push({ name: key, type, value });
+      conditions.push(`${column} = @${key}`);
+    }
+  }
+  const status = sp.get("status");
+  if (status) {
+    if (!VALID_MILESTONE_STATUSES.has(status)) return { conditions, params, error: "Invalid status filter." };
+    params.push({ name: "status", type: sql.VarChar, value: status });
+    conditions.push("Status = @status");
+  }
+  const milestoneType = sp.get("milestoneType");
+  if (milestoneType) {
+    if (!VALID_MILESTONE_TYPES.has(milestoneType)) return { conditions, params, error: "Invalid milestoneType filter." };
+    params.push({ name: "milestoneType", type: sql.VarChar, value: milestoneType });
+    conditions.push("MilestoneType = @milestoneType");
+  }
+  const search = sp.get("search");
+  if (search && search.trim()) {
+    params.push({ name: "search", type: sql.NVarChar, value: `%${search.trim().slice(0, 200)}%` });
+    conditions.push("Name LIKE @search");
   }
 
   return { conditions, params };

@@ -436,13 +436,18 @@
         "label": "Pruebas QA",
         "items": {
           "qaDashboard": "Panel QA",
+          "requirements": "Requisitos",
           "testSuites": "Suites de Prueba",
           "testCases": "Casos de Prueba",
+          "testPlans": "Planes de Prueba",
+          "milestones": "Hitos",
           "testRuns": "Ejecuciones de Prueba",
           "executeTest": "Ejecutar Prueba",
           "bugs": "Errores",
           "reports": "Informes QA",
-          "releases": "Lanzamientos"
+          "releases": "Lanzamientos",
+          "environments": "Entornos",
+          "builds": "Compilaciones"
         }
       }
     }

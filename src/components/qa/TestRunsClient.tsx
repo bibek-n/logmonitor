@@ -15,6 +15,8 @@ import { TEST_RUN_STATUS_TONE, toneFor } from "@/lib/qaBadgeTones";
 
 interface QaReleaseOption { Id: number; ProjectId: number; Name: string }
 interface QaRunTypeOption { Id: number; Name: string; Description: string | null }
+interface QaEnvironmentOption { Id: number; ProjectId: number; Name: string }
+interface QaBuildOption { Id: number; ProjectId: number; BuildNumber: string }
 
 interface TestRunRow {
   Id: number;
@@ -35,7 +37,12 @@ const inputStyle: React.CSSProperties = { width: "100%", padding: "0.5rem 0.65re
 const labelStyle: React.CSSProperties = { fontSize: "0.8rem", color: "var(--ink-muted)", display: "block", marginBottom: 4 };
 const STATUSES = ["Planned", "In Progress", "Paused", "Completed", "Cancelled"];
 
-function TestRunsInner({ projects: initialProjects, releases: initialReleases, runTypes, canManage }: { projects: QaProjectOption[]; releases: QaReleaseOption[]; runTypes: QaRunTypeOption[]; canManage: boolean }) {
+function TestRunsInner({
+  projects: initialProjects, releases: initialReleases, runTypes, environments, builds, canManage,
+}: {
+  projects: QaProjectOption[]; releases: QaReleaseOption[]; runTypes: QaRunTypeOption[];
+  environments: QaEnvironmentOption[]; builds: QaBuildOption[]; canManage: boolean;
+}) {
   const toast = useToast();
   const [projects, setProjects] = useState(initialProjects);
   const [releases, setReleases] = useState(initialReleases);
@@ -101,6 +108,8 @@ function TestRunsInner({ projects: initialProjects, releases: initialReleases, r
           projects={projects}
           releases={releases}
           runTypes={runTypes}
+          environments={environments}
+          builds={builds}
           onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
           onReleaseCreated={(r) => setReleases((prev) => [...prev, r])}
           onClose={() => setCreating(false)}
@@ -114,11 +123,13 @@ function TestRunsInner({ projects: initialProjects, releases: initialReleases, r
 interface MatchingCase { Id: number; TestCaseNumber: string; Title: string }
 
 function CreateRunModal({
-  projects, releases, runTypes, onProjectCreated, onReleaseCreated, onClose, onCreated,
+  projects, releases, runTypes, environments, builds, onProjectCreated, onReleaseCreated, onClose, onCreated,
 }: {
   projects: QaProjectOption[];
   releases: QaReleaseOption[];
   runTypes: QaRunTypeOption[];
+  environments: QaEnvironmentOption[];
+  builds: QaBuildOption[];
   onProjectCreated: (p: QaProjectOption) => void;
   onReleaseCreated: (r: QaReleaseOption) => void;
   onClose: () => void;
@@ -131,11 +142,16 @@ function CreateRunModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [runTypeId, setRunTypeId] = useState<number | null>(null);
+  const [environmentId, setEnvironmentId] = useState<number | null>(null);
+  const [buildId, setBuildId] = useState<number | null>(null);
   const [environment, setEnvironment] = useState("");
   const [browser, setBrowser] = useState("");
   const [operatingSystem, setOperatingSystem] = useState("");
   const [device, setDevice] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const environmentsForProject = environments.filter((e) => e.ProjectId === projectId);
+  const buildsForProject = builds.filter((b) => b.ProjectId === projectId);
 
   // "Select a run type → the system lists matching test cases (Auto-Load Test Cases)". A test
   // case can belong to several run types, so the picker always shows the union for this
@@ -194,7 +210,8 @@ function CreateRunModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId, releaseId, name, description, runTypeId, environment, browser, operatingSystem, device,
+          projectId, releaseId, name, description, runTypeId, environmentId, buildId,
+          environment, browser, operatingSystem, device,
           testCaseIds: [...selectedCaseIds],
         }),
       });
@@ -256,9 +273,35 @@ function CreateRunModal({
             options={runTypes.map((t) => ({ label: t.Name, value: String(t.Id) }))}
           />
         </div>
+        {projectId && (environmentsForProject.length > 0 || buildsForProject.length > 0) && (
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+            {environmentsForProject.length > 0 && (
+              <div>
+                <label style={labelStyle}>Environment (managed)</label>
+                <Select
+                  value={environmentId ? String(environmentId) : ""}
+                  onChange={(v) => setEnvironmentId(v ? Number(v) : null)}
+                  placeholder="None"
+                  options={environmentsForProject.map((e) => ({ label: e.Name, value: String(e.Id) }))}
+                />
+              </div>
+            )}
+            {buildsForProject.length > 0 && (
+              <div>
+                <label style={labelStyle}>Build (managed)</label>
+                <Select
+                  value={buildId ? String(buildId) : ""}
+                  onChange={(v) => setBuildId(v ? Number(v) : null)}
+                  placeholder="None"
+                  options={buildsForProject.map((b) => ({ label: b.BuildNumber, value: String(b.Id) }))}
+                />
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
           <div>
-            <label style={labelStyle}>Environment</label>
+            <label style={labelStyle}>Environment (free text)</label>
             <input value={environment} onChange={(e) => setEnvironment(e.target.value)} style={inputStyle} placeholder="Staging, Production..." />
           </div>
           <div>
@@ -321,7 +364,10 @@ function CreateRunModal({
   );
 }
 
-export function TestRunsClient(props: { projects: QaProjectOption[]; releases: QaReleaseOption[]; runTypes: QaRunTypeOption[]; canManage: boolean }) {
+export function TestRunsClient(props: {
+  projects: QaProjectOption[]; releases: QaReleaseOption[]; runTypes: QaRunTypeOption[];
+  environments: QaEnvironmentOption[]; builds: QaBuildOption[]; canManage: boolean;
+}) {
   return (
     <ToastProvider>
       <TestRunsInner {...props} />

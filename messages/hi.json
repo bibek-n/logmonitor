@@ -436,13 +436,18 @@
         "label": "QA परीक्षण",
         "items": {
           "qaDashboard": "QA डैशबोर्ड",
+          "requirements": "आवश्यकताएं",
           "testSuites": "टेस्ट सुइट्स",
           "testCases": "टेस्ट केस",
+          "testPlans": "टेस्ट योजनाएं",
+          "milestones": "माइलस्टोन",
           "testRuns": "टेस्ट रन",
           "executeTest": "टेस्ट चलाएं",
           "bugs": "बग",
           "reports": "QA रिपोर्ट",
-          "releases": "रिलीज़"
+          "releases": "रिलीज़",
+          "environments": "वातावरण",
+          "builds": "बिल्ड"
         }
       }
     }
