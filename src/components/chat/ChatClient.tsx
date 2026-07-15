@@ -79,7 +79,9 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
   const [notifyDraft, setNotifyDraft] = useState("");
   const [notifySending, setNotifySending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageIdRef = useRef<number | null>(null);
 
   async function loadThread(staffId: number, name: string) {
     setSelectedId(staffId);
@@ -119,8 +121,20 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
     return () => clearInterval(interval);
   }, [selectedId]);
 
+  // Same fix as the employee-side chat: only auto-scroll when the last message is
+  // genuinely new (not just a same-content poll refresh), and only when already near the
+  // bottom, so it doesn't yank an admin back down while they're scrolled up reading history.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const latest = messages[messages.length - 1];
+    const isNewMessage = latest && latest.Id !== lastMessageIdRef.current;
+    if (latest) lastMessageIdRef.current = latest.Id;
+    if (!isNewMessage) return;
+
+    const container = scrollContainerRef.current;
+    const nearBottom = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    if (nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -450,7 +464,7 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
               </div>
             )}
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+            <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
               {loading ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", opacity: 0.5 }}>
                   {[55, 38, 65].map((w, i) => (

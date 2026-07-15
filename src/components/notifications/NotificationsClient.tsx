@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Users, User } from "lucide-react";
+import { Send, Users, Bell, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export interface StaffOption {
   Id: number;
@@ -18,17 +19,36 @@ export interface NotificationHistoryRow {
 
 const MAX_MESSAGE_LENGTH = 500;
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return "?";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export function NotificationsClient({ staffOptions, initialHistory }: { staffOptions: StaffOption[]; initialHistory: NotificationHistoryRow[] }) {
+  const toast = useToast();
   const [target, setTarget] = useState<"all" | number>("all");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [history, setHistory] = useState(initialHistory);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [justSentId, setJustSentId] = useState<number | null>(null);
 
   async function handleSend() {
     setError(null);
-    setSuccess(null);
     if (!message.trim()) {
       setError("Message is required.");
       return;
@@ -44,9 +64,10 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
       if (!data.ok) throw new Error(data.error ?? "Failed to send notification");
 
       const staffName = target === "all" ? null : staffOptions.find((s) => s.Id === target)?.Name ?? null;
+      const newId = (history[0]?.Id ?? 0) + 1;
       setHistory((prev) => [
         {
-          Id: prev[0] ? prev[0].Id + 1 : 1,
+          Id: newId,
           StaffId: target === "all" ? null : target,
           StaffName: staffName,
           Message: message.trim(),
@@ -55,12 +76,32 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
         },
         ...prev,
       ]);
-      setSuccess(target === "all" ? "Sent to all employees." : `Sent to ${staffName ?? "employee"}.`);
+      setJustSentId(newId);
+      setTimeout(() => setJustSentId((cur) => (cur === newId ? null : cur)), 2000);
+      toast.show({ type: "success", message: target === "all" ? "Sent to all employees." : `Sent to ${staffName ?? "employee"}.` });
       setMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send notification");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast.show({ type: "error", message: data.error ?? "Failed to delete." });
+        return;
+      }
+      setHistory((prev) => prev.filter((h) => h.Id !== id));
+      toast.show({ type: "success", message: "Removed from history." });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : "Failed to delete." });
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -108,11 +149,6 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
         </div>
 
         {error && <div className="error">{error}</div>}
-        {success && !error && (
-          <div className="error" style={{ background: "var(--success, #10b981)" }}>
-            {success}
-          </div>
-        )}
 
         <button className="submit" onClick={handleSend} disabled={sending} style={{ width: "auto", padding: "0.5rem 1.25rem" }}>
           <span className="flex items-center gap-2">
@@ -123,37 +159,98 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
       </div>
 
       <div className="dash-panel">
-        <h2 style={{ fontSize: "1rem", marginTop: 0 }}>Recently Sent</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+          <h2 style={{ fontSize: "1rem", margin: 0 }}>Recently Sent</h2>
+          {history.length > 0 && <span style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>{history.length} total</span>}
+        </div>
         {history.length === 0 ? (
-          <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>No notifications sent yet.</p>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", padding: "2rem 0", color: "var(--ink-muted)" }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Bell size={20} style={{ color: "var(--primary)" }} />
+            </div>
+            <p style={{ fontSize: "0.85rem", margin: 0 }}>No notifications sent yet.</p>
+          </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.83rem" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "0.4rem" }}>To</th>
-                <th style={{ padding: "0.4rem" }}>Message</th>
-                <th style={{ padding: "0.4rem" }}>Sent By</th>
-                <th style={{ padding: "0.4rem" }}>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((h) => (
-                <tr key={h.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
-                  <td style={{ padding: "0.4rem" }}>
-                    <span className="flex items-center gap-1" style={{ color: "var(--ink-muted)" }}>
-                      {h.StaffId === null ? <Users size={13} /> : <User size={13} />}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {history.map((h) => (
+              <div
+                key={h.Id}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "0.7rem",
+                  padding: "0.65rem 0.75rem",
+                  borderRadius: 10,
+                  background: justSentId === h.Id ? "color-mix(in srgb, var(--success) 12%, var(--surface-2))" : "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  animation: justSentId === h.Id ? "notifPop 0.35s ease-out" : undefined,
+                  transition: "background 0.6s ease",
+                }}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: h.StaffId === null ? "linear-gradient(135deg, var(--warning), var(--danger))" : "linear-gradient(135deg, var(--primary), var(--info))",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {h.StaffId === null ? <Users size={14} /> : initials(h.StaffName ?? "?")}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.15rem" }}>
+                    <strong style={{ fontSize: "0.82rem", color: "var(--ink)" }}>
                       {h.StaffId === null ? "All Employees" : h.StaffName ?? "Unknown"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "0.4rem", maxWidth: 320 }}>{h.Message}</td>
-                  <td style={{ padding: "0.4rem" }}>{h.SentByUsername}</td>
-                  <td style={{ padding: "0.4rem", color: "var(--ink-muted)" }}>{new Date(h.CreatedAt).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </strong>
+                    <span style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>· {relativeTime(h.CreatedAt)}</span>
+                  </div>
+                  <div style={{ fontSize: "0.83rem", color: "var(--ink-secondary)", wordBreak: "break-word" }}>{h.Message}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--ink-muted)", marginTop: "0.2rem" }}>
+                    Sent by {h.SentByUsername} · {new Date(h.CreatedAt).toLocaleString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDelete(h.Id)}
+                  disabled={deletingId === h.Id}
+                  title="Remove from history"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--ink-muted)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    opacity: deletingId === h.Id ? 0.5 : 1,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-muted)")}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes notifPop {
+          0% { transform: scale(0.97); opacity: 0.4; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </>
   );
 }

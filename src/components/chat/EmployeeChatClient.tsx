@@ -37,7 +37,9 @@ export default function EmployeeChatClient({ deviceId, token, staffName }: { dev
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageIdRef = useRef<number | null>(null);
 
   const endpoint = `/api/chat/${deviceId}?token=${encodeURIComponent(token)}`;
 
@@ -60,8 +62,23 @@ export default function EmployeeChatClient({ deviceId, token, staffName }: { dev
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Every poll tick calls setMessages with a freshly-parsed array, even when nothing
+  // actually changed - scrolling on every [messages] change (the old behavior) yanked the
+  // view back to the bottom every 5 seconds, fighting anyone trying to scroll up and read
+  // history. Only auto-scroll when the last message's own id is new, and only if the
+  // reader was already near the bottom (so it doesn't interrupt reading old messages, but
+  // still tracks a live conversation).
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const latest = messages[messages.length - 1];
+    const isNewMessage = latest && latest.Id !== lastMessageIdRef.current;
+    if (latest) lastMessageIdRef.current = latest.Id;
+    if (!isNewMessage) return;
+
+    const container = scrollContainerRef.current;
+    const nearBottom = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    if (nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -157,6 +174,7 @@ export default function EmployeeChatClient({ deviceId, token, staffName }: { dev
 
       {/* Messages */}
       <div
+        ref={scrollContainerRef}
         style={{
           flex: 1,
           overflowY: "auto",
