@@ -1,7 +1,9 @@
-import { HeartPulse, Globe, Gauge, HardDrive, Clock, Users, ShieldAlert, KeyRound, MapPinned } from "lucide-react";
+import { HeartPulse, Globe, Gauge, HardDrive, Clock, Users, ShieldAlert, MapPinned } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DemoBadge } from "./DemoBadge";
 import type { MyIpSummary } from "@/lib/ipTools";
+import type { CountryTraffic } from "@/lib/trafficByCountry";
+import type { ThreatSummary } from "@/lib/threatSummary";
 
 interface LatestSpeedTest {
   pingMs: number | null;
@@ -23,6 +25,8 @@ interface RightRailProps {
   topDevices: TopDevice[];
   monitoringSince: string | null;
   diskFreePct: number | null;
+  trafficByCountry: CountryTraffic[];
+  threatSummary: ThreatSummary;
 }
 
 function healthColor(score: number): string {
@@ -51,7 +55,7 @@ function Row({ icon: Icon, label, value }: { icon: typeof Globe; label: string; 
   );
 }
 
-export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monitoringSince, diskFreePct }: RightRailProps) {
+export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monitoringSince, diskFreePct, trafficByCountry, threatSummary }: RightRailProps) {
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -86,7 +90,7 @@ export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monito
       </Card>
 
       <Card>
-        <h2 style={{ fontSize: "0.9rem", margin: "0 0 0.4rem", color: "var(--ink)" }}>Top 5 Most Active Devices</h2>
+        <h2 style={{ fontSize: "0.9rem", margin: "0 0 0.4rem", color: "var(--ink)" }}>Top 10 Most Active Devices</h2>
         <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: "0 0 0.5rem" }}>By web filter events, last 24h</p>
         {topDevices.length === 0 ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem" }}>No activity in the last 24h.</p>
@@ -106,26 +110,11 @@ export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monito
             <ShieldAlert size={15} />
             Threat Detection
           </h2>
-          <DemoBadge />
         </div>
-        <Row icon={ShieldAlert} label="Blocked (24h)" value="12" />
-        <Row icon={ShieldAlert} label="Critical" value="1" />
+        <Row icon={ShieldAlert} label="Blocked (24h)" value={String(threatSummary.blocked24h)} />
+        <Row icon={ShieldAlert} label="Critical" value={String(threatSummary.critical24h)} />
         <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.4rem" }}>
-          Requires ingesting Sophos IPS/threat-feed logs — not wired up yet.
-        </p>
-      </Card>
-
-      <Card>
-        <div className="flex items-center justify-between" style={{ marginBottom: "0.4rem" }}>
-          <h2 style={{ fontSize: "0.9rem", margin: 0, color: "var(--ink)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            <KeyRound size={15} />
-            VPN Users
-          </h2>
-          <DemoBadge />
-        </div>
-        <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--ink)" }}>3</div>
-        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.2rem" }}>
-          Requires Sophos VPN session tracking — not integrated yet.
+          From Sophos Firewall/IPS/Anti-Virus logs, last 24h.
         </p>
       </Card>
 
@@ -135,27 +124,29 @@ export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monito
             <Users size={15} />
             Traffic by Country
           </h2>
-          <DemoBadge />
         </div>
-        {[
-          { c: "Nepal", pct: 62 },
-          { c: "United States", pct: 18 },
-          { c: "Singapore", pct: 9 },
-          { c: "Other", pct: 11 },
-        ].map((row) => (
-          <div key={row.c} style={{ marginBottom: "0.4rem" }}>
-            <div className="flex justify-between" style={{ fontSize: "0.75rem", color: "var(--ink-secondary)" }}>
-              <span>{row.c}</span>
-              <span>{row.pct}%</span>
-            </div>
-            <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
-              <div style={{ width: `${row.pct}%`, height: "100%", background: "var(--info)" }} />
-            </div>
-          </div>
-        ))}
-        <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.4rem" }}>
-          Real per-request geolocation isn&apos;t computed yet — would reuse the IP-lookup already built for What Is My IP.
-        </p>
+        {trafficByCountry.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem" }}>
+            No outbound traffic seen from the router/firewall in the last 24h yet.
+          </p>
+        ) : (
+          <>
+            {trafficByCountry.map((row) => (
+              <div key={row.country} style={{ marginBottom: "0.4rem" }}>
+                <div className="flex justify-between" style={{ fontSize: "0.75rem", color: "var(--ink-secondary)" }}>
+                  <span>{row.country}</span>
+                  <span>{row.pct}%</span>
+                </div>
+                <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
+                  <div style={{ width: `${row.pct}%`, height: "100%", background: "var(--info)" }} />
+                </div>
+              </div>
+            ))}
+            <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.4rem" }}>
+              Based on destination IPs from the last 24h of MikroTik and Sophos traffic, geolocated.
+            </p>
+          </>
+        )}
       </Card>
     </div>
   );

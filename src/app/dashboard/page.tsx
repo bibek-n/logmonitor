@@ -4,13 +4,18 @@ import { kbitsToMbps } from "@/components/BandwidthChart";
 import { getStaffWithStatus } from "@/lib/staffStatus";
 import { getRecentAlerts } from "@/lib/alerts";
 import { getMyIpSummary, type MyIpSummary } from "@/lib/ipTools";
+import { getTrafficByCountry, type CountryTraffic } from "@/lib/trafficByCountry";
+import { getThreatSummary, type ThreatSummary } from "@/lib/threatSummary";
+import { getWeatherSummary, getNepalCitiesWeather, getSwedenWeather, type WeatherSummary } from "@/lib/weather";
 import { KpiCard, type KpiStatus } from "@/components/dashboard/KpiCard";
 import { BandwidthPanel, type BandwidthDatum, type BandwidthRange } from "@/components/dashboard/BandwidthPanel";
 import { DeviceStatusRow } from "@/components/dashboard/DeviceStatusRow";
 import { AlertsTable } from "@/components/dashboard/AlertsTable";
 import { ActivityTimeline, type TimelineEvent } from "@/components/dashboard/ActivityTimeline";
 import { RightRail } from "@/components/dashboard/RightRail";
-import { Cpu, MemoryStick, HardDrive, Globe, Wifi, ShieldCheck, Network, Laptop, Router } from "lucide-react";
+import { TopOverviewBar } from "@/components/dashboard/TopOverviewBar";
+import { NepaliCalendarCard } from "@/components/dashboard/NepaliCalendarCard";
+import { Cpu, MemoryStick, HardDrive, Globe, Wifi, Laptop, Router } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -52,20 +57,35 @@ export default async function DashboardHome() {
   const t = await getTranslations("dashboardHome");
   const db = await getDb();
 
+  // Everything the page needs — 13 DB queries, staff status, conflicts, alerts, and all 6
+  // external lookups (weather x3, IP, traffic-by-country, threats) — runs in ONE parallel
+  // batch. This used to be 3 sequential stages plus 5 sequentially-awaited external calls
+  // (each with its own timeout up to ~10-12s); with dynamic="force-dynamic" re-running this
+  // on every request, that serialization was the dominant cause of a slow page load. Each
+  // external lookup keeps its own `.catch()` fallback so one slow/down upstream service
+  // still can't block or crash the rest of the page.
   const [
     cpuHistoryRes,
     memHistoryRes,
     diskHistoryRes,
     ifaceRes,
-    webFilterRes,
     routerRes,
-    routerWebRes,
     routerClientsRes,
     bandwidthRes,
     speedTestRes,
     uptimeRes,
     topDevicesRes,
+    sophosNameByIpRes,
     intranetHistoryRes,
+    staff,
+    conflictRes,
+    alerts,
+    myIp,
+    trafficByCountry,
+    threatSummary,
+    weather,
+    nepalCitiesWeather,
+    swedenWeather,
   ] = await Promise.all([
     db.query<{ Fields: string | null; ReceivedAt: string }>(
       `SELECT TOP 20 Fields, ReceivedAt FROM SystemHealthLogs WHERE LogComponent = 'CPU' ORDER BY ReceivedAt DESC`
@@ -84,22 +104,10 @@ export default async function DashboardHome() {
         GROUP BY JSON_VALUE(Fields, '$.interface')
       )
     `),
-    db.query<{ Last24h: number; Prior24h: number; DistinctIps: number }>(`
-      SELECT
-        (SELECT COUNT(*) FROM WebFilterLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Last24h,
-        (SELECT COUNT(*) FROM WebFilterLogs WHERE ReceivedAt >= DATEADD(HOUR, -48, SYSUTCDATETIME()) AND ReceivedAt < DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Prior24h,
-        (SELECT COUNT(DISTINCT SrcIp) FROM WebFilterLogs WHERE SrcIp IS NOT NULL) AS DistinctIps
-    `),
     db.query<{ Last24h: number; ErrorsLast24h: number }>(`
       SELECT
         (SELECT COUNT(*) FROM RouterLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Last24h,
         (SELECT COUNT(*) FROM RouterLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()) AND Severity IN ('error', 'critical', 'alert', 'emergency')) AS ErrorsLast24h
-    `),
-    db.query<{ Total: number; Prior24h: number; DistinctIps: number }>(`
-      SELECT
-        (SELECT COUNT(*) FROM RouterWebLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Total,
-        (SELECT COUNT(*) FROM RouterWebLogs WHERE ReceivedAt >= DATEADD(HOUR, -48, SYSUTCDATETIME()) AND ReceivedAt < DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Prior24h,
-        (SELECT COUNT(DISTINCT SrcIp) FROM RouterWebLogs WHERE SrcIp IS NOT NULL) AS DistinctIps
     `),
     // Combines both network sources (MikroTik RouterClients + Sophos ARP-walk
     // SophosClients), deduped by MAC — a device connected via one network wouldn't be
@@ -147,11 +155,22 @@ export default async function DashboardHome() {
     ),
     db.query<{ Earliest: string | null }>(`SELECT MIN(ReceivedAt) AS Earliest FROM SystemHealthLogs`),
     db.query<{ SrcIp: string; EventCount: number }>(`
-      SELECT TOP 5 SrcIp, COUNT(*) AS EventCount
+      SELECT TOP 10 SrcIp, COUNT(*) AS EventCount
       FROM WebFilterLogs
       WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
       GROUP BY SrcIp
       ORDER BY COUNT(*) DESC
+    `),
+    // WebFilterLogs' SrcIp values always come from the Sophos-side network (192.168.1.x),
+    // which is a different address space than MikroTik's (192.168.20.x) — so resolving a
+    // top-device IP to a staff name has to join against SophosClients specifically, not
+    // getStaffWithStatus()'s generic currentIp (which may have resolved to the MikroTik IP
+    // for a staff member whose router-side poll happened to be the most recent one).
+    db.query<{ IpAddress: string; Name: string }>(`
+      SELECT sc.IpAddress, s.Name
+      FROM SophosClients sc
+      JOIN Staff s ON UPPER(s.MacAddress) = UPPER(sc.MacAddress)
+      WHERE sc.MacAddress IS NOT NULL
     `),
     // Intranet = Sophos Port1 interface bandwidth history (for the sparkline only — the
     // live Rx/Tx value itself comes from `ifaceByName`/`interfaceKpi` below, same as CPU/
@@ -164,9 +183,17 @@ export default async function DashboardHome() {
       WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') = 'Port1'
       ORDER BY ReceivedAt DESC
     `),
+    getStaffWithStatus(),
+    db.query<{ Cnt: number }>(`SELECT COUNT(*) AS Cnt FROM RouterClients WHERE Status = 'conflict'`),
+    getRecentAlerts(10),
+    getMyIpSummary().catch((): MyIpSummary | null => null),
+    getTrafficByCountry().catch((): CountryTraffic[] => []),
+    getThreatSummary().catch((): ThreatSummary => ({ blocked24h: 0, critical24h: 0 })),
+    getWeatherSummary().catch((): WeatherSummary | null => null),
+    getNepalCitiesWeather().catch((): WeatherSummary[] => []),
+    getSwedenWeather().catch((): WeatherSummary | null => null),
   ]);
 
-  const staff = await getStaffWithStatus();
   const staffOnline = staff.filter((s) => s.isOnline).length;
   const staffUnassigned = staff.filter((s) => !s.MacAddress).length;
   const staffOffline = staff.length - staffOnline - staffUnassigned;
@@ -174,20 +201,8 @@ export default async function DashboardHome() {
     (s) => s.MacAddress && (!s.lastSeen || Date.now() - s.lastSeen.getTime() > 24 * 3600 * 1000)
   ).length;
 
-  const [conflictRes, alerts] = await Promise.all([
-    db.query<{ Cnt: number }>(`SELECT COUNT(*) AS Cnt FROM RouterClients WHERE Status = 'conflict'`),
-    getRecentAlerts(10),
-  ]);
   const conflictCount = conflictRes.recordset[0]?.Cnt ?? 0;
   const attentionCount = conflictCount + staffStale;
-
-  // External lookup — never let this block or crash the whole page if ip-api is slow/down.
-  let myIp: MyIpSummary | null = null;
-  try {
-    myIp = await getMyIpSummary();
-  } catch {
-    myIp = null;
-  }
 
   // --- CPU (history -> sparkline + trend + latest) ---
   const cpuHistory = cpuHistoryRes.recordset
@@ -246,13 +261,22 @@ export default async function DashboardHome() {
     if (fields.interface) ifaceByName.set(fields.interface, { fields, receivedAt: row.ReceivedAt });
   }
 
+  // Below 1 Mbps, rendering at a fixed 1-decimal Mbps rounds real (but small) traffic down
+  // to "0.0" — visually indistinguishable from no data at all. Port1/Intranet in particular
+  // is a low-traffic LAN uplink that usually sits well under 1 Mbps, so this switches to
+  // Kbps for small values instead of silently rounding them away.
+  function formatRate(mbps: number): string {
+    if (mbps < 1) return `${(mbps * 1000).toFixed(1)} Kbps`;
+    return `${mbps.toFixed(1)} Mbps`;
+  }
+
   function interfaceKpi(port: string, label: string, icon: typeof Globe) {
     const entry = ifaceByName.get(port);
     const stale = isStale(entry?.receivedAt);
     const status: KpiStatus = !entry ? "unknown" : stale ? "critical" : "good";
     const rx = entry?.fields.receivedkbits ? kbitsToMbps(Number(entry.fields.receivedkbits)) : null;
     const tx = entry?.fields.transmittedkbits ? kbitsToMbps(Number(entry.fields.transmittedkbits)) : null;
-    const value = rx !== null && tx !== null ? `${rx.toFixed(1)} / ${tx.toFixed(1)} Mbps` : t("noData");
+    const value = rx !== null && tx !== null ? `${formatRate(rx)} / ${formatRate(tx)}` : t("noData");
     return { label, icon, value, sub: stale ? t("noRecentData") : t("rxTxLatest"), status };
   }
 
@@ -271,11 +295,9 @@ export default async function DashboardHome() {
     .map((r) => ({ value: kbitsToMbps(Number(r.Rx)) + kbitsToMbps(Number(r.Tx)) }))
     .reverse();
 
-  // --- Web Filter / Router events / Router web / Router clients ---
-  const webFilterStats = webFilterRes.recordset[0];
+  // --- Router events / Router clients ---
   const routerStats = routerRes.recordset[0];
   const routerStatus: KpiStatus = (routerStats?.ErrorsLast24h ?? 0) > 0 ? "warning" : "good";
-  const routerWebStats = routerWebRes.recordset[0];
   const routerClientsStats = routerClientsRes.recordset[0];
 
   // --- Right rail: latest speed test, monitoring uptime, top devices ---
@@ -289,10 +311,13 @@ export default async function DashboardHome() {
     : null;
   const monitoringSince = uptimeRes.recordset[0]?.Earliest ?? null;
 
+  // sophosNameByIp first (WebFilterLogs' SrcIp is always a Sophos-side IP), falling back to
+  // the generic currentIp map for the rare case a staff row has no SophosClients entry at all.
+  const sophosNameByIp = new Map(sophosNameByIpRes.recordset.map((r) => [r.IpAddress, r.Name]));
   const staffByIp = new Map(staff.filter((s) => s.currentIp).map((s) => [s.currentIp as string, s.Name]));
   const topDevices = topDevicesRes.recordset.map((r) => ({
     ip: r.SrcIp,
-    name: staffByIp.get(r.SrcIp) ?? null,
+    name: sophosNameByIp.get(r.SrcIp) ?? staffByIp.get(r.SrcIp) ?? null,
     eventCount: r.EventCount,
   }));
 
@@ -323,11 +348,16 @@ export default async function DashboardHome() {
   const wlanKpi = interfaceKpi("Port2", t("wlanLabel"), Wifi);
 
   return (
-    <div className="mx-auto" style={{ maxWidth: 1600 }}>
+    <div className="mx-auto" style={{ width: "100%" }}>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
         {t("subtitle")}
       </p>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 mb-6">
+        <NepaliCalendarCard />
+        <TopOverviewBar weather={weather} nepalCitiesWeather={nepalCitiesWeather} swedenWeather={swedenWeather} />
+      </div>
 
       <div className="grid gap-6 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         <KpiCard
@@ -374,22 +404,6 @@ export default async function DashboardHome() {
           sparkline={intranetSparkline}
         />
         <KpiCard
-          icon={ShieldCheck}
-          title={t("firewallEvents")}
-          value={`${webFilterStats?.Last24h ?? 0}`}
-          sub={t("internalIpsTotal24h", { count: webFilterStats?.DistinctIps ?? 0 })}
-          status={(webFilterStats?.Last24h ?? 0) > 0 ? "good" : "unknown"}
-          trendPct={trendPct(webFilterStats?.Last24h ?? null, webFilterStats?.Prior24h ?? null)}
-        />
-        <KpiCard
-          icon={Network}
-          title={t("routerConnections")}
-          value={`${routerWebStats?.Total ?? 0}`}
-          sub={t("internalIpsTotal24h", { count: routerWebStats?.DistinctIps ?? 0 })}
-          status={(routerWebStats?.Total ?? 0) > 0 ? "good" : "unknown"}
-          trendPct={trendPct(routerWebStats?.Total ?? null, routerWebStats?.Prior24h ?? null)}
-        />
-        <KpiCard
           icon={Laptop}
           title={t("connectedDevices")}
           value={`${routerClientsStats?.ConnectedNow ?? 0}`}
@@ -419,6 +433,8 @@ export default async function DashboardHome() {
           topDevices={topDevices}
           monitoringSince={monitoringSince}
           diskFreePct={worstDiskEntry ? 100 - worstDiskEntry.pct : null}
+          trafficByCountry={trafficByCountry}
+          threatSummary={threatSummary}
         />
       </div>
     </div>
