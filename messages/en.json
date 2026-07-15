@@ -330,6 +330,7 @@
       "cameras": "Cameras",
       "sendNotification": "Send Notification",
       "networkDiagram": "Network Diagram",
+      "websitePerformance": "Website Speed & Performance",
       "companySettings": "Company Settings"
     },
     "groups": {
@@ -373,8 +374,7 @@
           "sslChecker": "SSL/TLS Certificate Checker",
           "headerViewer": "HTTP / HTTPS Response Header Viewer",
           "gaTagFinder": "GA Tag Finder",
-          "websiteSecurityAudit": "Website Security Audit",
-          "websitePerformance": "Website Speed & Performance"
+          "websiteSecurityAudit": "Website Security Audit"
         }
       },
       "emailDelivery": {
