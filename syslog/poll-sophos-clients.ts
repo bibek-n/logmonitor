@@ -46,6 +46,25 @@ function walkArpTable(): Promise<Map<string, string>> {
   });
 }
 
+// Endpoint-agent-enrolled devices already report their real hostname and NIC MAC
+// addresses (DeviceNetworkInterfaces), so we use that as a fallback for devices
+// `ping -a` can't resolve (non-Windows, NetBIOS disabled, etc.) instead of leaving
+// Hostname null for anyone who happens to have the agent installed.
+async function loadDeviceHostnameMap(): Promise<Map<string, string>> {
+  const db = await getDb();
+  const r = await db.query`
+    SELECT dni.MacAddress, d.Hostname
+    FROM DeviceNetworkInterfaces dni
+    JOIN Devices d ON d.DeviceId = dni.DeviceId
+    WHERE dni.MacAddress IS NOT NULL
+  `;
+  const map = new Map<string, string>();
+  for (const row of r.recordset as { MacAddress: string; Hostname: string }[]) {
+    map.set(row.MacAddress.toUpperCase(), row.Hostname);
+  }
+  return map;
+}
+
 // Our server is on the same LAN, so `ping -a` resolves a NetBIOS/DNS hostname for
 // Windows devices in one shot ("Pinging HOSTNAME [ip] ..."). Non-Windows devices
 // (phones, etc.) just won't resolve — that's expected, not an error. The same reply
@@ -70,10 +89,12 @@ async function pingProbe(ip: string): Promise<{ hostname: string | null; ttl: nu
 async function pollOnce() {
   const db = await getDb();
   const arpMap = await walkArpTable();
+  const deviceHostnames = await loadDeviceHostnameMap();
 
   const probed = await Promise.all(
     Array.from(arpMap.entries()).map(async ([ip, mac]) => {
-      const { hostname, ttl } = await pingProbe(ip);
+      const { hostname: pingedHostname, ttl } = await pingProbe(ip);
+      const hostname = pingedHostname ?? deviceHostnames.get(mac.toUpperCase()) ?? null;
       return { ip, mac, hostname, os: classifyOS(hostname, ttl) };
     })
   );
