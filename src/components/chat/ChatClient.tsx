@@ -217,8 +217,8 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
     }
   }
 
-  function startNewChat() {
-    const id = Number(newChatStaffId);
+  function startNewChat(staffIdValue: string) {
+    const id = Number(staffIdValue);
     const staff = allStaff.find((s) => s.Id === id);
     if (!staff) return;
     if (!staffList.some((s) => s.Id === id)) {
@@ -265,8 +265,13 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
           <select
             value={newChatStaffId}
             onChange={(e) => {
-              setNewChatStaffId(e.target.value);
-              if (e.target.value) startNewChat();
+              const value = e.target.value;
+              setNewChatStaffId(value);
+              // Pass the picked value straight through instead of relying on the
+              // newChatStaffId state — reading it here would see the pre-update value
+              // (setState in the same handler doesn't apply until the next render), which
+              // was opening the *previous* selection instead of the one just picked.
+              if (value) startNewChat(value);
             }}
             style={{ width: "100%", padding: "0.5rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)", fontSize: "0.82rem" }}
           >
