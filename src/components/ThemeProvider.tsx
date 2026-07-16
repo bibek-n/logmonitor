@@ -30,6 +30,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // localStorage can throw in locked-down browser contexts; theme still applies for this
       // page load, it just won't persist — not worth failing the whole interaction over.
     }
+    try {
+      // The real persistence mechanism (see root layout: read server-side, sets data-theme
+      // before any HTML is even sent) — a cookie is sent on every request whether or not
+      // client storage is available, unlike localStorage above, which some browser privacy
+      // settings silently disable (exactly what was causing the theme to revert on reload).
+      document.cookie = `${THEME_STORAGE_KEY}=${id}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {
+      // document.cookie can throw too in sufficiently locked-down contexts — same fallback
+      // reasoning as the localStorage catch above.
+    }
   }, []);
 
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
