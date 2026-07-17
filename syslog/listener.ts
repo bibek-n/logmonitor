@@ -116,23 +116,6 @@ async function handleSophosEvent(raw: string, fields: Record<string, string>) {
     `);
 }
 
-async function handleRouterLog(raw: string) {
-  const p = parseMikrotikLog(raw);
-  const db = await getDb();
-  await db
-    .request()
-    .input("deviceTimestamp", sql.DateTime2, p.deviceTimestamp)
-    .input("hostname", sql.NVarChar, p.hostname)
-    .input("facility", sql.NVarChar, p.facility)
-    .input("severity", sql.NVarChar, p.severity)
-    .input("message", sql.NVarChar, p.message)
-    .input("rawMessage", sql.NVarChar, raw)
-    .query(`
-      INSERT INTO RouterLogs (DeviceTimestamp, Hostname, Facility, Severity, Message, RawMessage)
-      VALUES (@deviceTimestamp, @hostname, @facility, @severity, @message, @rawMessage)
-    `);
-}
-
 async function handleRouterWebConn(raw: string, deviceTimestamp: Date | null, message: string) {
   const conn = parseWebConn(message);
   const reverseDns = conn.dstIp ? await reverseDnsLookup(conn.dstIp) : null;
@@ -188,9 +171,9 @@ mikrotikServer.on("message", async (msg, rinfo) => {
     const p = parseMikrotikLog(raw);
     if (isWebConnMessage(p.message)) {
       await handleRouterWebConn(raw, p.deviceTimestamp, p.message!);
-    } else {
-      await handleRouterLog(raw);
     }
+    // Non-webconn MikroTik messages (router log lines) are intentionally dropped -
+    // the Router Logs feature/table was removed.
   } catch (err) {
     console.error(`Failed to process MikroTik syslog message from ${rinfo.address}:`, err);
     console.error("Raw message:", raw);

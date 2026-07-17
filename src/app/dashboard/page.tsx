@@ -76,7 +76,6 @@ export default async function DashboardHome() {
     memHistoryRes,
     diskHistoryRes,
     ifaceRes,
-    routerRes,
     routerClientsRes,
     bandwidthRes,
     speedTestRes,
@@ -110,11 +109,6 @@ export default async function DashboardHome() {
         WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') IN ('Port1', 'Port2')
         GROUP BY JSON_VALUE(Fields, '$.interface')
       )
-    `),
-    db.query<{ Last24h: number; ErrorsLast24h: number }>(`
-      SELECT
-        (SELECT COUNT(*) FROM RouterLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME())) AS Last24h,
-        (SELECT COUNT(*) FROM RouterLogs WHERE ReceivedAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()) AND Severity IN ('error', 'critical', 'alert', 'emergency')) AS ErrorsLast24h
     `),
     // Combines both network sources (MikroTik RouterClients + Sophos ARP-walk
     // SophosClients), deduped by MAC — a device connected via one network wouldn't be
@@ -307,9 +301,7 @@ export default async function DashboardHome() {
     .map((r) => ({ value: kbitsToMbps(Number(r.Rx)) + kbitsToMbps(Number(r.Tx)) }))
     .reverse();
 
-  // --- Router events / Router clients ---
-  const routerStats = routerRes.recordset[0];
-  const routerStatus: KpiStatus = (routerStats?.ErrorsLast24h ?? 0) > 0 ? "warning" : "good";
+  // --- Router clients ---
   const routerClientsStats = routerClientsRes.recordset[0];
 
   // --- Right rail: latest speed test, monitoring uptime, top devices ---
@@ -420,7 +412,7 @@ export default async function DashboardHome() {
           title={t("connectedDevices")}
           value={`${routerClientsStats?.ConnectedNow ?? 0}`}
           sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
-          status={routerStatus}
+          status="good"
         />
       </div>
 

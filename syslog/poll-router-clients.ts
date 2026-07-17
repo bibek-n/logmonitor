@@ -18,7 +18,6 @@ const HOST = process.env.ROUTER_HOST!;
 const USER = process.env.ROUTER_USER!;
 const PASSWORD = process.env.ROUTER_PASSWORD!;
 const INTERVAL_MS = Number(process.env.ROUTER_POLL_INTERVAL_MS || 120000);
-const BANDWIDTH_INTERFACES = ["ether1", "internet_port"];
 
 const KV_REGEX = /(\S+?)=(?:"([^"]*)"|(\S*))/g;
 
@@ -106,15 +105,23 @@ async function pollOnce() {
     }
     console.log(`[${new Date().toISOString()}] Polled ${lines.length} router client leases.`);
 
+    // Fetched once and reused for both bandwidth polling and the RouterInterfaces upsert
+    // below, so every interface the router actually reports gets a bandwidth history -
+    // not just a hardcoded subset. monitor-traffic is queried one interface at a time
+    // (not comma-joined) because a multi-interface call produces a misaligned column
+    // layout - see parseMonitorTraffic's comment in mikrotikParser.ts.
+    const ifaceResult = await ssh.execCommand("/interface print terse");
+    const interfaces = parseInterfaceList(ifaceResult.stdout);
+
     let bandwidthCount = 0;
-    for (const iface of BANDWIDTH_INTERFACES) {
-      const trafficResult = await ssh.execCommand(`/interface monitor-traffic interface=${iface} once`);
+    for (const iface of interfaces) {
+      const trafficResult = await ssh.execCommand(`/interface monitor-traffic interface=${iface.name} once`);
       const rate = parseMonitorTraffic(trafficResult.stdout);
       if (rate.rxMbps === null && rate.txMbps === null) continue;
 
       await db
         .request()
-        .input("interface", sql.NVarChar, rate.interface ?? iface)
+        .input("interface", sql.NVarChar, rate.interface ?? iface.name)
         .input("rxMbps", sql.Decimal(10, 3), rate.rxMbps)
         .input("txMbps", sql.Decimal(10, 3), rate.txMbps)
         .query(`INSERT INTO RouterBandwidth (Interface, RxMbps, TxMbps) VALUES (@interface, @rxMbps, @txMbps)`);
@@ -152,8 +159,6 @@ async function pollOnce() {
       `);
     console.log(`[${new Date().toISOString()}] Polled router health (CPU ${resource.cpuLoadPct ?? "?"}%, temp ${health.temperature ?? "?"}C).`);
 
-    const ifaceResult = await ssh.execCommand("/interface print terse");
-    const interfaces = parseInterfaceList(ifaceResult.stdout);
     for (const iface of interfaces) {
       await db
         .request()

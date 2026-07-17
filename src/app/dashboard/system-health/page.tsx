@@ -1,5 +1,5 @@
 import { getDb, sql } from "@/lib/db";
-import BandwidthChart, { kbitsToMB } from "@/components/BandwidthChart";
+import BandwidthChart, { kbitsToMbps } from "@/components/BandwidthChart";
 
 export const dynamic = "force-dynamic";
 
@@ -72,9 +72,11 @@ function parseJson(json: string | null): Record<string, string> {
   }
 }
 
-// Only these physical interfaces are shown, labeled with their real-world role.
+// Only these physical interfaces are shown, labeled with their real-world role. Port1 is
+// confirmed as the LAN/intranet uplink by the Sophos device's own syslog data (it sends
+// "display_interface":"INTRANET" for Port1 specifically — no other port has a custom alias).
 const INTERFACE_LABELS: Record<string, string> = {
-  Port1: "Internet",
+  Port1: "Intranet",
   Port2: "WLAN",
 };
 
@@ -107,8 +109,29 @@ export default async function SystemHealthPage() {
     .filter((r) => r.Rx !== null && r.Tx !== null)
     .map((r) => ({
       t: r.ReceivedAt,
-      rx: kbitsToMB(Number(r.Rx)),
-      tx: kbitsToMB(Number(r.Tx)),
+      rx: kbitsToMbps(Number(r.Rx)),
+      tx: kbitsToMbps(Number(r.Tx)),
+    }))
+    .reverse();
+
+  const intranetHistoryResult = await db
+    .request()
+    .input("ifName", sql.NVarChar, "Port1")
+    .query<BandwidthRow>(`
+      SELECT TOP 50 ReceivedAt,
+        JSON_VALUE(Fields, '$.receivedkbits') AS Rx,
+        JSON_VALUE(Fields, '$.transmittedkbits') AS Tx
+      FROM SystemHealthLogs
+      WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') = @ifName
+      ORDER BY ReceivedAt DESC
+    `);
+
+  const intranetPoints = intranetHistoryResult.recordset
+    .filter((r) => r.Rx !== null && r.Tx !== null)
+    .map((r) => ({
+      t: r.ReceivedAt,
+      rx: kbitsToMbps(Number(r.Rx)),
+      tx: kbitsToMbps(Number(r.Tx)),
     }))
     .reverse();
 
@@ -151,6 +174,7 @@ export default async function SystemHealthPage() {
               const isMemory = component === "Memory";
               const isCpu = component === "CPU";
               const isWlan = component === "Interface" && fields.interface === "Port2";
+              const isIntranet = component === "Interface" && fields.interface === "Port1";
 
               const totalGB = isMemory ? bytesToGB(fields.total_memory) : null;
               const usedGB = isMemory ? bytesToGB(fields.used) : null;
@@ -223,7 +247,8 @@ export default async function SystemHealthPage() {
                     </div>
                   )}
 
-                  {isWlan && <BandwidthChart points={wlanPoints} />}
+                  {isWlan && <BandwidthChart points={wlanPoints} unit="Mbps" />}
+                  {isIntranet && <BandwidthChart points={intranetPoints} unit="Mbps" />}
                 </div>
               );
             })}

@@ -62,6 +62,8 @@ import {
   Flag,
   Cloud,
   Package,
+  Shield,
+  Terminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -101,7 +103,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/router-clients", key: "routerClients", label: "Router Clients", icon: Laptop2 },
       { href: "/dashboard/router-health", key: "routerHealth", label: "Router Health", icon: HeartPulse },
-      { href: "/dashboard/router-logs", key: "routerLogs", label: "Router Logs", icon: ScrollText },
       { href: "/dashboard/router-web", key: "routerWeb", label: "Router Web Connections", icon: Globe },
     ],
   },
@@ -141,8 +142,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/audit/health-check", key: "healthCheck", label: "Website Health Check", icon: HeartPulse },
       { href: "/dashboard/audit/ssl-checker", key: "sslChecker", label: "SSL/TLS Certificate Checker", icon: Lock },
       { href: "/dashboard/audit/header-viewer", key: "headerViewer", label: "HTTP / HTTPS Response Header Viewer", icon: FileCode },
+      { href: "/dashboard/audit/security-headers", key: "securityHeaders", label: "Security Headers", icon: Shield },
       { href: "/dashboard/audit/ga-tag-finder", key: "gaTagFinder", label: "GA Tag Finder", icon: BarChart3 },
       { href: "/dashboard/audit/website-security", key: "websiteSecurityAudit", label: "Website Security Audit", icon: ShieldAlert },
+      { href: "/dashboard/audit/wordpress-scan", key: "wordpressScan", label: "WordPress Deep Scan", icon: Terminal },
     ],
   },
   {

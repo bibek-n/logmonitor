@@ -345,7 +345,6 @@
         "items": {
           "routerClients": "राउटर क्लाइंट",
           "routerHealth": "राउटर स्वास्थ्य",
-          "routerLogs": "राउटर लॉग",
           "routerWeb": "राउटर वेब कनेक्शन"
         }
       },
@@ -379,8 +378,10 @@
           "healthCheck": "वेबसाइट स्वास्थ्य जांच",
           "sslChecker": "SSL/TLS प्रमाणपत्र जांचकर्ता",
           "headerViewer": "HTTP / HTTPS रिस्पॉन्स हेडर व्यूअर",
+          "securityHeaders": "सुरक्षा हेडर",
           "gaTagFinder": "GA टैग खोजक",
-          "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट"
+          "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट",
+          "wordpressScan": "वर्डप्रेस डीप स्कैन"
         }
       },
       "emailDelivery": {

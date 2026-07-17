@@ -345,7 +345,6 @@
         "items": {
           "routerClients": "Router-Clients",
           "routerHealth": "Router-Zustand",
-          "routerLogs": "Router-Protokolle",
           "routerWeb": "Router-Webverbindungen"
         }
       },
@@ -379,8 +378,10 @@
           "healthCheck": "Website-Gesundheitsprüfung",
           "sslChecker": "SSL/TLS-Zertifikatsprüfer",
           "headerViewer": "HTTP-/HTTPS-Antwort-Header-Anzeige",
+          "securityHeaders": "Sicherheits-Header",
           "gaTagFinder": "GA-Tag-Finder",
-          "websiteSecurityAudit": "Website-Sicherheitsaudit"
+          "websiteSecurityAudit": "Website-Sicherheitsaudit",
+          "wordpressScan": "WordPress-Tiefenscan"
         }
       },
       "emailDelivery": {

@@ -1,4 +1,5 @@
-import { getDb } from "@/lib/db";
+import { getDb, sql } from "@/lib/db";
+import BandwidthChart from "@/components/BandwidthChart";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,29 @@ interface InterfaceRow {
   LastLinkUpTime: string | null;
   LastLinkDownTime: string | null;
   LinkDowns: number | null;
+}
+
+interface BandwidthRow {
+  ReceivedAt: string;
+  RxMbps: number | null;
+  TxMbps: number | null;
+}
+
+async function bandwidthPoints(iface: string) {
+  const db = await getDb();
+  const result = await db
+    .request()
+    .input("iface", sql.NVarChar, iface)
+    .query<BandwidthRow>(`
+      SELECT TOP 50 ReceivedAt, RxMbps, TxMbps
+      FROM RouterBandwidth
+      WHERE Interface = @iface
+      ORDER BY ReceivedAt DESC
+    `);
+  return result.recordset
+    .filter((r) => r.RxMbps !== null && r.TxMbps !== null)
+    .map((r) => ({ t: r.ReceivedAt, rx: Number(r.RxMbps), tx: Number(r.TxMbps) }))
+    .reverse();
 }
 
 interface ActiveUserRow {
@@ -86,13 +110,14 @@ export default async function RouterHealthPage() {
   const latestResult = await db.query<HealthRow>("SELECT TOP 1 * FROM RouterHealth ORDER BY ReceivedAt DESC");
   const latest = latestResult.recordset[0] ?? null;
 
-  const historyResult = await db.query<HealthRow>("SELECT TOP 100 * FROM RouterHealth ORDER BY ReceivedAt DESC");
-  const history = historyResult.recordset;
-
   const interfacesResult = await db.query<InterfaceRow>(
     "SELECT Name, Type, Running, Disabled, Slave, MacAddress, Comment, LastLinkUpTime, LastLinkDownTime, LinkDowns FROM RouterInterfaces ORDER BY Name"
   );
   const interfaces = interfacesResult.recordset;
+
+  const interfaceBandwidth = await Promise.all(
+    interfaces.map(async (i) => ({ name: i.Name, points: await bandwidthPoints(i.Name) }))
+  );
 
   const activeUsersResult = await db.query<ActiveUserRow>(
     "SELECT Id, Name, Address, Via, LoginTime FROM RouterActiveUsers ORDER BY LoginTime DESC"
@@ -148,6 +173,26 @@ export default async function RouterHealthPage() {
             {latest.TotalDiskMB != null ? `${(latest.TotalDiskMB / 1024).toFixed(2)} GB storage` : ""} &middot; up since{" "}
             {formatUpSince(latest.UptimeSeconds, latest.ReceivedAt)}
           </p>
+
+          <div className="dash-panel">
+            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Bandwidth</h2>
+            {interfaceBandwidth.every((b) => b.points.length < 2) ? (
+              <p style={{ color: "var(--ink-muted)" }}>
+                Not enough data yet to draw bandwidth charts — check back after a few more poll cycles.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+                {interfaceBandwidth.map(({ name, points }) => (
+                  <div key={name}>
+                    <h3 style={{ fontSize: "0.85rem", marginTop: 0, marginBottom: "0.35rem", color: "var(--ink-secondary)" }}>
+                      {name}
+                    </h3>
+                    <BandwidthChart points={points} unit="Mbps" height={140} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="dash-panel">
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Interfaces</h2>
@@ -225,42 +270,6 @@ export default async function RouterHealthPage() {
                 </tbody>
               </table>
             )}
-          </div>
-
-          <div className="dash-panel">
-            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Recent History</h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                <thead>
-                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "0.4rem" }}>Time</th>
-                    <th style={{ padding: "0.4rem" }}>CPU</th>
-                    <th style={{ padding: "0.4rem" }}>Memory Used</th>
-                    <th style={{ padding: "0.4rem" }}>Disk Used</th>
-                    <th style={{ padding: "0.4rem" }}>Temp</th>
-                    <th style={{ padding: "0.4rem" }}>Voltage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((r) => {
-                    const rMem =
-                      r.FreeMemoryMB != null && r.TotalMemoryMB ? ((r.TotalMemoryMB - r.FreeMemoryMB) / r.TotalMemoryMB) * 100 : null;
-                    const rDisk =
-                      r.FreeDiskMB != null && r.TotalDiskMB ? ((r.TotalDiskMB - r.FreeDiskMB) / r.TotalDiskMB) * 100 : null;
-                    return (
-                      <tr key={r.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
-                        <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(r.ReceivedAt).toLocaleString()}</td>
-                        <td style={{ padding: "0.4rem" }}>{r.CpuLoadPct != null ? `${r.CpuLoadPct.toFixed(0)}%` : "-"}</td>
-                        <td style={{ padding: "0.4rem" }}>{rMem != null ? `${rMem.toFixed(0)}%` : "-"}</td>
-                        <td style={{ padding: "0.4rem" }}>{rDisk != null ? `${rDisk.toFixed(0)}%` : "-"}</td>
-                        <td style={{ padding: "0.4rem" }}>{r.Temperature != null ? `${r.Temperature.toFixed(0)}°C` : "n/a"}</td>
-                        <td style={{ padding: "0.4rem" }}>{r.Voltage != null ? `${r.Voltage.toFixed(1)}V` : "n/a"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
           </div>
         </>
       )}

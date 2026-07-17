@@ -13,10 +13,6 @@ export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
   const db = await getDb();
   const result = await db.query<AlertRow>(`
     SELECT TOP ${Number(limit) || 10} EventTime, Severity, Detail FROM (
-      SELECT ReceivedAt AS EventTime, Severity, Message AS Detail
-      FROM RouterLogs
-      WHERE Severity IN ('warning', 'error', 'critical', 'alert', 'emergency')
-      UNION ALL
       SELECT UpdatedAt AS EventTime, 'warning' AS Severity,
         'IP conflict on ' + IpAddress + ' (' + ISNULL(MacAddress, 'unknown MAC') + ')' AS Detail
       FROM RouterClients
