@@ -9,6 +9,7 @@ export interface StaffStatus {
   source: "mikrotik" | "sophos" | null;
   currentIp: string | null;
   deviceName: string | null;
+  computerNameOverride: string | null;
   os: string | null;
   deviceType: string;
   isOnline: boolean;
@@ -20,6 +21,7 @@ interface StaffRow {
   Id: number;
   Name: string;
   MacAddress: string | null;
+  ComputerNameOverride: string | null;
   RouterIp: string | null;
   Hostname: string | null;
   Status: string | null;
@@ -53,7 +55,7 @@ export async function getStaffWithStatus(): Promise<StaffStatus[]> {
   const db = await getDb();
 
   const staffResult = await db.query<StaffRow>(`
-    SELECT s.Id, s.Name, s.MacAddress,
+    SELECT s.Id, s.Name, s.MacAddress, s.ComputerNameOverride,
       best.IpAddress AS RouterIp, best.Hostname, best.Status, best.LastSeenRaw, best.UpdatedAt AS RouterUpdatedAt, best.Os,
       best.FirstSeen AS RouterFirstSeen,
       sophosBest.IpAddress AS SophosIp, sophosBest.SophosUpdatedAt, sophosBest.SophosHostname, sophosBest.SophosOs,
@@ -89,9 +91,13 @@ export async function getStaffWithStatus(): Promise<StaffStatus[]> {
     const source: "mikrotik" | "sophos" | null =
       routerTime === -Infinity && sophosTime === -Infinity ? null : routerTime >= sophosTime ? "mikrotik" : "sophos";
     const currentIp = source === "mikrotik" ? s.RouterIp : source === "sophos" ? s.SophosIp : null;
-    const deviceName = source === "mikrotik" ? s.Hostname : source === "sophos" ? s.SophosHostname : null;
+    // Classification stays driven by the network-reported hostname (naming conventions like
+    // "DESKTOP-", "-iPhone" carry real signal) even when an admin has overridden the
+    // displayed name to something arbitrary like "Bob's Desk".
+    const autoDeviceName = source === "mikrotik" ? s.Hostname : source === "sophos" ? s.SophosHostname : null;
+    const deviceName = s.ComputerNameOverride ?? autoDeviceName;
     const os = source === "mikrotik" ? s.Os : source === "sophos" ? s.SophosOs : null;
-    const deviceType = classifyDevice(deviceName, s.VendorName);
+    const deviceType = classifyDevice(autoDeviceName, s.VendorName);
     const isOnline =
       source === "mikrotik"
         ? !!s.MacAddress && s.Status === "bound" && isPollFresh(s.RouterUpdatedAt)
@@ -110,7 +116,10 @@ export async function getStaffWithStatus(): Promise<StaffStatus[]> {
           ? new Date(s.SophosUpdatedAt)
           : null;
 
-    return { Id: s.Id, Name: s.Name, MacAddress: s.MacAddress, source, currentIp, deviceName, os, deviceType, isOnline, firstSeen, lastSeen };
+    return {
+      Id: s.Id, Name: s.Name, MacAddress: s.MacAddress, source, currentIp, deviceName,
+      computerNameOverride: s.ComputerNameOverride, os, deviceType, isOnline, firstSeen, lastSeen,
+    };
   });
 }
 

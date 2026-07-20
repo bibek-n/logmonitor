@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { generateApiKey, generateDeviceId, hashApiKey } from "@/lib/agentAuth";
+import { generateApiKey, generateChatToken, generateDeviceId, hashApiKey } from "@/lib/agentAuth";
 
 const VALID_OS = new Set(["windows", "linux"]);
 
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = generateApiKey();
   const apiKeyHash = hashApiKey(apiKey);
+  const chatToken = generateChatToken();
   const macValue = typeof macAddress === "string" && macAddress ? macAddress : null;
 
   // Server enrollment tokens are minted against a device row the admin already created
@@ -66,11 +67,12 @@ export async function POST(req: NextRequest) {
       .input("agentVersion", sql.NVarChar, agentVersion ?? null)
       .input("macAddress", sql.VarChar, macValue)
       .input("staffId", sql.Int, tokenRow.StaffId ?? null)
+      .input("chatToken", sql.NVarChar, chatToken)
       .query(`
         UPDATE Devices SET
           Hostname = @hostname, OS = @os, OsVersion = @osVersion, ApiKeyHash = @apiKeyHash,
           AgentVersion = @agentVersion, MacAddress = COALESCE(@macAddress, MacAddress),
-          StaffId = COALESCE(@staffId, StaffId),
+          StaffId = COALESCE(@staffId, StaffId), ChatToken = @chatToken,
           ConsentAcceptedAt = SYSUTCDATETIME(), EnrolledAt = SYSUTCDATETIME(),
           LifecycleStatus = CASE WHEN LifecycleStatus = 'Pending' THEN 'Active' ELSE LifecycleStatus END
         WHERE DeviceId = @deviceId
@@ -87,9 +89,10 @@ export async function POST(req: NextRequest) {
       .input("agentVersion", sql.NVarChar, agentVersion ?? null)
       .input("macAddress", sql.VarChar, macValue)
       .input("staffId", sql.Int, tokenRow.StaffId ?? null)
+      .input("chatToken", sql.NVarChar, chatToken)
       .query(`
-        INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, StaffId, ConsentAcceptedAt)
-        VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, @staffId, SYSUTCDATETIME())
+        INSERT INTO Devices (DeviceId, Hostname, OS, OsVersion, ApiKeyHash, AgentVersion, MacAddress, StaffId, ChatToken, ConsentAcceptedAt)
+        VALUES (@deviceId, @hostname, @os, @osVersion, @apiKeyHash, @agentVersion, @macAddress, @staffId, @chatToken, SYSUTCDATETIME())
       `);
   }
 
@@ -99,5 +102,5 @@ export async function POST(req: NextRequest) {
     .input("deviceId", sql.VarChar, deviceId)
     .query("UPDATE EnrollmentTokens SET UsedAt = SYSUTCDATETIME(), UsedByDeviceId = @deviceId WHERE Id = @tokenId");
 
-  return NextResponse.json({ ok: true, deviceId, apiKey });
+  return NextResponse.json({ ok: true, deviceId, apiKey, chatToken });
 }

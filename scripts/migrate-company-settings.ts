@@ -48,7 +48,7 @@ async function main() {
   if (existing.recordset[0].Cnt === 0) {
     await db.query`
       INSERT INTO CompanySettings (Id, CompanyName, DefaultTimezone, DefaultLanguage, DateFormat, TimeFormat, PrimaryColor, SecondaryColor)
-      VALUES (1, 'Log Monitor', 'UTC', 'en', 'YYYY-MM-DD', '24h', '#3B82F6', '#2563EB')
+      VALUES (1, 'Tulips Unified Admin Center', 'UTC', 'en', 'YYYY-MM-DD', '24h', '#00C2FF', '#00B8A9')
     `;
     console.log("Seeded default CompanySettings row.");
   }

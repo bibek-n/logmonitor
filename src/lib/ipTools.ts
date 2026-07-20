@@ -77,15 +77,26 @@ export interface MyIpSummary {
   country: string | null;
 }
 
+// This server's own public IP/ISP/location changes rarely (if ever) between page loads —
+// cached in-memory so the dashboard (which re-runs this on every request, force-dynamic)
+// doesn't re-hit ipify + ip-api on every single page view. Same pattern as
+// trafficByCountry.ts's cache. The on-demand "What Is My IP" tool page below intentionally
+// does NOT use this cache — a user explicitly running that tool expects a live lookup.
+const MY_IP_CACHE_TTL_MS = 5 * 60 * 1000;
+let myIpCache: { result: MyIpSummary; fetchedAt: number } | null = null;
+
 // Structured variant of the same lookup below, for widgets that need individual fields
 // (e.g. the dashboard's right-rail card) rather than the pre-formatted text block the
 // What Is My IP tool page displays.
 export async function getMyIpSummary(): Promise<MyIpSummary> {
+  if (myIpCache && Date.now() - myIpCache.fetchedAt < MY_IP_CACHE_TTL_MS) return myIpCache.result;
   const ipRes = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(8000) });
   if (!ipRes.ok) throw new Error(`Could not determine public IP (HTTP ${ipRes.status}).`);
   const { ip } = (await ipRes.json()) as { ip: string };
   const data = await ipApiLookup(ip);
-  return { ip, isp: data.isp ?? null, city: data.city ?? null, country: data.country ?? null };
+  const result = { ip, isp: data.isp ?? null, city: data.city ?? null, country: data.country ?? null };
+  myIpCache = { result, fetchedAt: Date.now() };
+  return result;
 }
 
 // --- What Is My IP ---

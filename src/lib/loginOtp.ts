@@ -16,8 +16,8 @@ const POLICY_TEXT = `A reminder of our dashboard usage policy:
 // admin deletes the template. Real editing happens via Company Settings > Notifications.
 const FALLBACK_TEMPLATES: Record<string, { subject: string; body: string }> = {
   login_otp_code: {
-    subject: "Your Log Monitor login code",
-    body: `Your Log Monitor login code is: {{code}}
+    subject: "Your Tulips Unified Admin Center login code",
+    body: `Your Tulips Unified Admin Center login code is: {{code}}
 
 This code expires in {{expiryMinutes}} minutes. If you didn't try to sign in, you can ignore this email.
 
@@ -26,10 +26,10 @@ Dashboard: {{dashboardUrl}}
 ${POLICY_TEXT}`,
   },
   login_success: {
-    subject: "Login Successful — Log Monitor",
+    subject: "Login Successful — Tulips Unified Admin Center",
     body: `Hi {{name}},
 
-You successfully signed in to Log Monitor on {{date}} from IP {{ip}}.
+You successfully signed in to Tulips Unified Admin Center on {{date}} from IP {{ip}}.
 
 Dashboard: {{dashboardUrl}}
 

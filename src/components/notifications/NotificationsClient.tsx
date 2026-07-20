@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Users, Bell, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Send, Users, Bell, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { NOTIFICATION_TEMPLATES } from "@/lib/notificationTemplates";
 
 export interface StaffOption {
   Id: number;
@@ -46,6 +47,28 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
   const [history, setHistory] = useState(initialHistory);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [justSentId, setJustSentId] = useState<number | null>(null);
+  const [templatePick, setTemplatePick] = useState("");
+
+  const templatesByCategory = useMemo(() => {
+    const groups = new Map<string, typeof NOTIFICATION_TEMPLATES>();
+    for (const tpl of NOTIFICATION_TEMPLATES) {
+      const list = groups.get(tpl.category);
+      if (list) list.push(tpl);
+      else groups.set(tpl.category, [tpl]);
+    }
+    return Array.from(groups.entries());
+  }, []);
+
+  function applyTemplate(templateId: string) {
+    const tpl = NOTIFICATION_TEMPLATES.find((t) => t.id === templateId);
+    if (tpl) {
+      setMessage(tpl.message.slice(0, MAX_MESSAGE_LENGTH));
+      setError(null);
+    }
+    // Snaps back to the placeholder option so the same (or another) template can be
+    // picked again — this is an "insert" action, not a persistent selection.
+    setTemplatePick("");
+  }
 
   async function handleSend() {
     setError(null);
@@ -131,6 +154,43 @@ export function NotificationsClient({ staffOptions, initialHistory }: { staffOpt
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="field" style={{ marginBottom: "0.75rem" }}>
+          <label htmlFor="notif-template">
+            <span className="flex items-center gap-2">
+              <FileText size={13} />
+              Insert template
+            </span>
+          </label>
+          <select
+            id="notif-template"
+            value={templatePick}
+            onChange={(e) => applyTemplate(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.5rem 0.65rem",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--surface-2)",
+              color: "var(--ink)",
+              fontSize: "0.85rem",
+            }}
+          >
+            <option value="">Choose a template to prefill the message...</option>
+            {templatesByCategory.map(([category, templates]) => (
+              <optgroup key={category} label={category}>
+                {templates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.25rem" }}>
+            Picking a template replaces the message below — you can still edit it before sending.
+          </div>
         </div>
 
         <div className="field" style={{ marginBottom: "0.75rem" }}>

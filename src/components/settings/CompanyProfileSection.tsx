@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent, DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ImageIcon, UploadCloud, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import type { CompanyProfileData } from "@/app/api/admin/settings/company-profile/route";
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 
 // Values are stored/matched verbatim in the DB regardless of UI language — only the
 // displayed option label is translated, via INDUSTRY_KEYS/SIZE_KEYS below.
@@ -70,11 +74,47 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
   });
   const [logoPath, setLogoPath] = useState(initialData?.LogoPath ?? null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Object URLs let the just-picked file preview instantly, before the upload round-trip —
+  // must be revoked on change/unmount or each new selection leaks the previous blob URL.
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function pickLogoFile(file: File | null | undefined) {
+    if (!file) return;
+    if (!ACCEPTED_LOGO_TYPES.includes(file.type)) {
+      setLogoError(t("logoInvalidTypeError"));
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError(t("logoTooLargeError"));
+      return;
+    }
+    setLogoError(null);
+    setLogoFile(file);
+  }
+
+  function handleLogoDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    pickLogoFile(e.dataTransfer.files?.[0]);
   }
 
   function validate(): boolean {
@@ -113,6 +153,11 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
       if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailedError"));
 
       toast.show({ type: "success", message: t("profileSavedToast") });
+      // Without this, the parent Server Component's initialData prop is never re-fetched —
+      // switching Settings tabs away and back re-mounts this component with the same stale
+      // pre-save data, which looks exactly like the just-saved Industry/Company Size (or any
+      // other field) silently reverting.
+      router.refresh();
     } catch (err) {
       toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericErrorToast") });
     } finally {
@@ -137,6 +182,7 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
     });
     setLogoFile(null);
     setLogoPath(initialData?.LogoPath ?? null);
+    setLogoError(null);
     setErrors({});
   }
 
@@ -152,9 +198,83 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
 
         <div id="field-company-logo">
           <label style={labelStyle}>{t("companyLogoLabel")}</label>
-          <div className="flex items-center gap-3">
-            {logoPath && <img src={logoPath} alt={t("companyLogoAlt")} style={{ height: 44, width: 44, objectFit: "contain", borderRadius: 8, background: "var(--surface-2)" }} />}
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} style={{ fontSize: "0.82rem" }} />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleLogoDrop}
+            className="flex items-center gap-4"
+            style={{
+              border: `2px dashed ${dragActive ? "var(--primary)" : "var(--border)"}`,
+              borderRadius: 12,
+              padding: "1rem 1.25rem",
+              cursor: "pointer",
+              background: dragActive ? "color-mix(in srgb, var(--primary) 8%, transparent)" : "var(--surface-2)",
+              transition: "background 0.15s, border-color 0.15s",
+            }}
+          >
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 10,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              {logoPreviewUrl || logoPath ? (
+                <img src={logoPreviewUrl ?? logoPath ?? undefined} alt={t("companyLogoAlt")} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              ) : (
+                <ImageIcon size={26} style={{ color: "var(--ink-muted)" }} />
+              )}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="flex items-center gap-2" style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--ink)" }}>
+                <UploadCloud size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {logoFile ? logoFile.name : dragActive ? t("logoUploadDropHint") : t("logoUploadPromptTitle")}
+                </span>
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)", marginTop: "0.2rem" }}>{t("logoUploadPromptHint")}</div>
+              {logoError && <div style={{ fontSize: "0.75rem", color: "var(--danger)", marginTop: "0.2rem" }}>{logoError}</div>}
+            </div>
+            {logoFile && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLogoFile(null);
+                  setLogoError(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                title={t("logoRemoveSelected")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--ink-muted)",
+                  cursor: "pointer",
+                  padding: "0.3rem",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_LOGO_TYPES.join(",")}
+              onChange={(e) => pickLogoFile(e.target.files?.[0])}
+              style={{ display: "none" }}
+            />
           </div>
         </div>
 

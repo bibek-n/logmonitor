@@ -32,6 +32,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
     return employees.filter(
       (s) =>
         s.Name.toLowerCase().includes(q) ||
+        (s.Email ?? "").toLowerCase().includes(q) ||
         (s.deviceName ?? "").toLowerCase().includes(q) ||
         (s.currentIp ?? "").toLowerCase().includes(q) ||
         (s.MacAddress ?? "").toLowerCase().includes(q)
@@ -72,7 +73,8 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
       {/* Device Type/OS/First Seen/Source stay on each employee's own detail page — with a
           photo column and HR fields added, keeping every column here made the list overflow
           and feel cluttered next to the rest of the app's tables (all of which stay this
-          narrow), so this list now only shows what's useful at a glance. */}
+          narrow), so this list only shows what's useful at a glance (Email included, since
+          it's needed for quick lookup/contact directly from the list). */}
       {filteredEmployees.length === 0 ? (
         <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>{t("noMatchesText")}</p>
       ) : (
@@ -83,6 +85,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
               <th style={{ padding: "0.5rem" }}></th>
               <th style={{ padding: "0.5rem" }}>{t("nameColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("statusColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("emailColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("departmentColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("positionColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("computerNameColumn")}</th>
@@ -107,6 +110,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                     </Link>
                   </td>
                   <td style={{ padding: "0.5rem" }}>{!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : t("offlineStatus")}</td>
+                  <td style={{ padding: "0.5rem" }}>{s.Email ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Department ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Position ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.deviceName ?? "-"}</td>

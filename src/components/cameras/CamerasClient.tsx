@@ -42,10 +42,17 @@ function statusTone(status: string): Tone {
     case "Online":
       return "success";
     case "Error":
+    case "Offline":
       return "danger";
     default:
       return "neutral";
   }
+}
+
+function cameraStatusLabel(status: string): string {
+  if (status === "Online") return "Live";
+  if (status === "Offline") return "Offline";
+  return "Unknown";
 }
 
 export function CamerasClient({ initialDevices, initialCameras }: { initialDevices: NvrDeviceSummary[]; initialCameras: CameraSummary[] }) {
@@ -55,10 +62,20 @@ export function CamerasClient({ initialDevices, initialCameras }: { initialDevic
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [thumbnailTick, setThumbnailTick] = useState(0);
 
+  // Status only changes server-side as a side effect of a thumbnail grab (see thumbnail.ts) -
+  // router.refresh() re-runs this page's server query so a camera that actually went offline
+  // stops showing "Live" instead of being stuck on whatever it was at initial page load.
   useEffect(() => {
-    const interval = setInterval(() => setThumbnailTick((t) => t + 1), 30 * 1000);
+    const interval = setInterval(() => {
+      setThumbnailTick((t) => t + 1);
+      router.refresh();
+    }, 30 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    setCameras(initialCameras);
+  }, [initialCameras]);
   const [showAddForm, setShowAddForm] = useState(initialDevices.length === 0);
   const [scanning, setScanning] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredDevice[] | null>(null);
@@ -390,6 +407,9 @@ export function CamerasClient({ initialDevices, initialCameras }: { initialDevic
                     }}
                   >
                     <Play size={32} style={{ color: "#fff" }} />
+                  </div>
+                  <div style={{ position: "absolute", top: 6, left: 6 }}>
+                    <Badge tone={statusTone(cam.Status)}>{cameraStatusLabel(cam.Status)}</Badge>
                   </div>
                   <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: "0.35rem" }}>
                     <button

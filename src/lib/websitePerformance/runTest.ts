@@ -2,7 +2,7 @@ import { getDb, sql } from "../db";
 import { sendNotificationEmail } from "../notifyEmail";
 import { measureConnectionTiming, ConnectionTimingError } from "./connectionTiming";
 import { runPageSpeedTest } from "./pagespeed";
-import { computeSubScores } from "./scoring";
+import { computeSubScores, deriveOverallScoreFallback } from "./scoring";
 import { performanceStatusFor, type WebsitePerformanceConfigRow } from "./shared";
 
 // Same default recipient list already used by websiteSecurityAudit/emailReport.ts - one
@@ -166,6 +166,10 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
       speedIndexMs: psi.speedIndexMs,
       timeToInteractiveMs: psi.timeToInteractiveMs,
     });
+    // PSI's own composite score is preferred when present; only fall back to the sub-score
+    // average on the (real, observed) case where Lighthouse completes the run but leaves its
+    // own categories.performance.score null - see deriveOverallScoreFallback's comment.
+    const overallScore = psi.performanceScore ?? deriveOverallScoreFallback(subScores);
 
     let screenshotPath: string | null = null;
     if ((cfg?.ScreenshotCapture ?? true) && psi.screenshotDataUrl) {
@@ -197,7 +201,7 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
       .input("dcl", sql.Int, psi.domContentLoadedMs)
       .input("fullyLoaded", sql.Int, psi.fullyLoadedMs)
       .input("firstPaint", sql.Int, psi.firstPaintMs)
-      .input("overallScore", sql.Int, psi.performanceScore)
+      .input("overallScore", sql.Int, overallScore)
       .input("cwvScore", sql.Int, subScores.coreWebVitalsScore)
       .input("serverScore", sql.Int, subScores.serverResponseScore)
       .input("resourceScore", sql.Int, subScores.resourceOptimizationScore)
@@ -282,7 +286,7 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
     }
 
     const alertLines = await evaluateAlerts(websiteId, scanId, device, cfg, {
-      overallScore: psi.performanceScore,
+      overallScore,
       largestContentfulPaintMs: psi.largestContentfulPaintMs,
       cumulativeLayoutShift: psi.cumulativeLayoutShift,
       totalBlockingTimeMs: psi.totalBlockingTimeMs,
@@ -301,7 +305,7 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
       });
     }
 
-    return { device, scanId, status: "Completed", overallScore: psi.performanceScore };
+    return { device, scanId, status: "Completed", overallScore };
   } catch (err) {
     const message = err instanceof ConnectionTimingError ? err.message : err instanceof Error ? err.message : "Unknown error";
     await db.request().input("id", sql.Int, scanId).input("error", sql.NVarChar, message.slice(0, 990)).query(

@@ -14,7 +14,7 @@ const POLICY_TEXT = `A reminder of our dashboard usage policy:
 - Report any suspicious account activity to your administrator immediately.
 - Data accessed through this dashboard is confidential — do not export or share it outside authorized use.`;
 
-const LOGIN_OTP_CODE_BODY = `Your Log Monitor login code is: {{code}}
+const LOGIN_OTP_CODE_BODY = `Your Tulips Unified Admin Center login code is: {{code}}
 
 This code expires in {{expiryMinutes}} minutes. If you didn't try to sign in, you can ignore this email.
 
@@ -24,7 +24,7 @@ ${POLICY_TEXT}`;
 
 const LOGIN_SUCCESS_BODY = `Hi {{name}},
 
-You successfully signed in to Log Monitor on {{date}} from IP {{ip}}.
+You successfully signed in to Tulips Unified Admin Center on {{date}} from IP {{ip}}.
 
 Dashboard: {{dashboardUrl}}
 
@@ -45,7 +45,7 @@ async function main() {
   if (!existingKeys.has("login_otp_code")) {
     await db
       .request()
-      .input("subject", "Your Log Monitor login code")
+      .input("subject", "Your Tulips Unified Admin Center login code")
       .input("body", LOGIN_OTP_CODE_BODY)
       .query("INSERT INTO NotificationTemplates ([Key], Subject, Body, IsSystem) VALUES ('login_otp_code', @subject, @body, 1)");
     console.log("Seeded NotificationTemplates row: login_otp_code");
@@ -54,7 +54,7 @@ async function main() {
   if (!existingKeys.has("login_success")) {
     await db
       .request()
-      .input("subject", "Login Successful — Log Monitor")
+      .input("subject", "Login Successful — Tulips Unified Admin Center")
       .input("body", LOGIN_SUCCESS_BODY)
       .query("INSERT INTO NotificationTemplates ([Key], Subject, Body, IsSystem) VALUES ('login_success', @subject, @body, 1)");
     console.log("Seeded NotificationTemplates row: login_success");

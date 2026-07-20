@@ -1,6 +1,7 @@
 import { getAdminSession } from "@/lib/requireAdmin";
 import { getDb } from "@/lib/db";
 import { getStaffWithStatus } from "@/lib/staffStatus";
+import { getLatestAgentRelease, findReleaseAsset } from "@/lib/agentRelease";
 import { EnrollClient } from "@/components/endpointAgents/EnrollClient";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,13 @@ export default async function EnrollPage() {
     macAddress: s.MacAddress,
   }));
 
+  const release = await getLatestAgentRelease();
+  const downloadLinks = {
+    windows: findReleaseAsset(release, "agent.exe")?.browser_download_url ?? null,
+    linuxAmd64: findReleaseAsset(release, "logmonitor-agent-linux-amd64")?.browser_download_url ?? null,
+    linuxArm64: findReleaseAsset(release, "logmonitor-agent-linux-arm64")?.browser_download_url ?? null,
+  };
+
   return (
     <div>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>Enroll Device</h1>
@@ -70,7 +78,7 @@ export default async function EnrollPage() {
         default per device and must be explicitly enabled from that device&apos;s settings page.
       </div>
 
-      <EnrollClient existingTokens={result.recordset} staffOptions={staffOptions} />
+      <EnrollClient existingTokens={result.recordset} staffOptions={staffOptions} downloadLinks={downloadLinks} />
     </div>
   );
 }

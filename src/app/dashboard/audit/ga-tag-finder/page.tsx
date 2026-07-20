@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function GaTagFinderPage() {
   const db = await getDb();
   const result = await db.query<{ Id: number; Name: string; Url: string }>(
-    `SELECT Id, Name, Url FROM Websites ORDER BY Name`
+    `SELECT Id, Name, Url FROM Websites WHERE Enabled = 1 ORDER BY Name`
   );
 
   return (

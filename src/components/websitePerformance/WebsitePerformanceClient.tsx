@@ -175,6 +175,18 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [runningIds, setRunningIds] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Start timestamps for the elapsed-seconds readout next to each running row's spinner -
+  // PSI scans are synchronous with no mid-flight backend status, so this is a "still alive"
+  // timer, not a report of real backend progress (see the equivalent comment on the detail
+  // page's ScanProgressBanner).
+  const [runStartedAt, setRunStartedAt] = useState<Map<number, number>>(new Map());
+  const [, forceElapsedTick] = useState(0);
+
+  useEffect(() => {
+    if (runningIds.size === 0) return;
+    const intervalId = setInterval(() => forceElapsedTick((t) => t + 1), 1000);
+    return () => clearInterval(intervalId);
+  }, [runningIds.size]);
 
   const filtered = useMemo(() => {
     return websites.filter((w) => {
@@ -200,11 +212,26 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
 
   async function runTest(id: number) {
     setRunningIds((prev) => new Set(prev).add(id));
+    setRunStartedAt((prev) => new Map(prev).set(id, Date.now()));
     try {
       const res = await fetch(`/api/admin/website-performance/${id}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const data = await res.json();
       if (data.ok) {
-        toast.show({ type: "success", message: "Performance test started/completed." });
+        // The route returns ok:true even when every device's PSI call failed - the real
+        // per-device outcome is in data.data, so that (not the HTTP-level ok flag) decides
+        // whether this was actually a success.
+        const results: { device: string; status: "Completed" | "Failed"; errorMessage?: string }[] = data.data ?? [];
+        const failed = results.filter((r) => r.status === "Failed");
+        if (results.length > 0 && failed.length === results.length) {
+          toast.show({ type: "error", message: failed[0].errorMessage ?? "Performance test failed." });
+        } else if (failed.length > 0) {
+          toast.show({
+            type: "error",
+            message: `${failed.length} of ${results.length} device test(s) failed: ${failed[0].errorMessage ?? "unknown error"}`,
+          });
+        } else {
+          toast.show({ type: "success", message: "Performance test complete." });
+        }
         router.refresh();
       } else {
         toast.show({ type: "error", message: data.error ?? "Failed to run test." });
@@ -214,6 +241,11 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
     } finally {
       setRunningIds((prev) => {
         const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setRunStartedAt((prev) => {
+        const next = new Map(prev);
         next.delete(id);
         return next;
       });
@@ -351,6 +383,14 @@ function WebsitePerformanceClientInner({ websites }: { websites: WebsitePerforma
                       <button onClick={() => runTest(w.Id)} disabled={running} title="Run Test" style={iconBtnStyle}>
                         {running ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
                       </button>
+                      {running && runStartedAt.has(w.Id) && (
+                        <span
+                          title="Elapsed time - PSI scans can take up to 90 seconds"
+                          style={{ fontSize: "0.72rem", color: "var(--ink-muted)", fontVariantNumeric: "tabular-nums", marginRight: 4 }}
+                        >
+                          {Math.floor((Date.now() - (runStartedAt.get(w.Id) ?? Date.now())) / 1000)}s
+                        </span>
+                      )}
                       <Link href={`/dashboard/audit/website-performance/${w.Id}`} title="View Result" style={iconBtnStyle}>
                         <Gauge size={14} />
                       </Link>

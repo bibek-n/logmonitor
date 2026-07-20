@@ -41,6 +41,15 @@ export interface DiskSpace {
   totalGB: number | null;
 }
 
+export interface VolumeRow {
+  mountPoint: string;
+  device: string | null;
+  fsType: string | null;
+  totalGB: number | null;
+  freeGB: number | null;
+  usedPercent: number | null;
+}
+
 export interface SecurityStatus {
   antivirusStatus: string | null;
   defenderStatus: string | null;
@@ -501,6 +510,7 @@ export function DeviceDetail({
   hardware,
   disks,
   diskSpace,
+  volumes,
   security,
   network,
   processes,
@@ -517,6 +527,7 @@ export function DeviceDetail({
   hardware: HardwareInfo | null;
   disks: DiskRow[];
   diskSpace: DiskSpace | null;
+  volumes: VolumeRow[];
   security: SecurityStatus | null;
   network: NetworkInfo | null;
   processes: ProcessRow[];
@@ -573,6 +584,7 @@ export function DeviceDetail({
           hardware={hardware}
           disks={disks}
           diskSpace={diskSpace}
+          volumes={volumes}
           security={security}
           network={network}
           processes={processes}

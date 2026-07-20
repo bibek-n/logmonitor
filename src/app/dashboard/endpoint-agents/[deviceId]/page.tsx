@@ -11,6 +11,7 @@ import {
   type HardwareInfo,
   type DiskRow,
   type DiskSpace,
+  type VolumeRow,
   type SecurityStatus,
   type NetworkInfo,
   type ProcessRow,
@@ -130,8 +131,19 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
 
   const macMatch = await matchDeviceByMac(device.MacAddress);
 
-  const [hardwareResult, disksResult, diskSpaceResult, securityResult, networkResult, processResult, serviceResult, softwareResult, alertsResult, usbResult] =
-    await Promise.all([
+  const [
+    hardwareResult,
+    disksResult,
+    diskSpaceResult,
+    volumesResult,
+    securityResult,
+    networkResult,
+    processResult,
+    serviceResult,
+    softwareResult,
+    alertsResult,
+    usbResult,
+  ] = await Promise.all([
       db.request().input("deviceId", sql.VarChar, deviceId).query<HardwareInfo>(`
         SELECT CpuModel AS cpuModel, CpuManufacturer AS cpuManufacturer, CpuCores AS cpuCores, CpuThreads AS cpuThreads,
           CpuClockMhz AS cpuClockMhz, MemoryTotalMB AS memoryTotalMB, DiskModel AS diskModel, DiskType AS diskType,
@@ -147,6 +159,10 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       db.request().input("deviceId", sql.VarChar, deviceId).query<DiskSpace>(`
         SELECT TOP 1 DiskFreeGB AS freeGB, DiskTotalGB AS totalGB
         FROM DeviceMetrics WHERE DeviceId = @deviceId ORDER BY ReceivedAt DESC
+      `),
+      db.request().input("deviceId", sql.VarChar, deviceId).query<VolumeRow>(`
+        SELECT MountPoint AS mountPoint, Device AS device, FsType AS fsType, TotalGB AS totalGB, FreeGB AS freeGB, UsedPercent AS usedPercent
+        FROM DeviceVolumes WHERE DeviceId = @deviceId ORDER BY MountPoint ASC
       `),
       db.request().input("deviceId", sql.VarChar, deviceId).query<SecurityStatus>(`
         SELECT AntivirusStatus AS antivirusStatus, DefenderStatus AS defenderStatus, FirewallEnabled AS firewallEnabled,
@@ -204,6 +220,7 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       hardware={hardwareResult.recordset[0] ?? null}
       disks={disksResult.recordset}
       diskSpace={diskSpaceResult.recordset[0] ?? null}
+      volumes={volumesResult.recordset}
       security={securityResult.recordset[0] ?? null}
       network={network}
       processes={parseJsonArray<ProcessRow>(processResult.recordset[0]?.ProcessesJson)}

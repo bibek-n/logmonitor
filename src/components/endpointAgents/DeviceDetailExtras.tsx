@@ -10,6 +10,7 @@ import type {
   HardwareInfo,
   DiskRow,
   DiskSpace,
+  VolumeRow,
   SecurityStatus,
   NetworkInfo,
   ProcessRow,
@@ -70,6 +71,37 @@ function diskHealthTone(status: string | null): "success" | "warning" | "danger"
   if (status === "Healthy") return "success";
   if (status === "Warning") return "warning";
   return "danger";
+}
+
+function volumeUsageTone(pct: number | null): "success" | "warning" | "danger" | "neutral" {
+  if (pct === null) return "neutral";
+  if (pct >= 90) return "danger";
+  if (pct >= 75) return "warning";
+  return "success";
+}
+
+function VolumesCard({ volumes }: { volumes: VolumeRow[] }) {
+  return (
+    <Card>
+      <h2 style={{ fontSize: "0.95rem", marginTop: 0, marginBottom: "0.5rem" }}>Disk Volumes</h2>
+      {volumes.length === 0 ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem", margin: 0 }}>No volume data reported yet.</p>
+      ) : (
+        volumes.map((v, idx) => (
+          <div key={idx} style={{ padding: "0.25rem 0", borderBottom: idx < volumes.length - 1 ? "1px solid var(--border)" : "none" }}>
+            <div className="flex items-center justify-between gap-2" style={{ fontSize: "0.78rem" }}>
+              <span style={{ fontFamily: "monospace", color: "var(--ink)" }}>{v.mountPoint}</span>
+              {v.usedPercent != null && <Badge tone={volumeUsageTone(v.usedPercent)}>{v.usedPercent.toFixed(0)}%</Badge>}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)" }}>
+              {v.fsType ?? "unknown"} · {v.freeGB != null ? `${v.freeGB.toFixed(1)} GB free` : "—"} of{" "}
+              {v.totalGB != null ? `${v.totalGB.toFixed(0)} GB` : "—"}
+            </div>
+          </div>
+        ))
+      )}
+    </Card>
+  );
 }
 
 function HardwareInfoCard({ hardware, disks, diskSpace }: { hardware: HardwareInfo | null; disks: DiskRow[]; diskSpace: DiskSpace | null }) {
@@ -316,6 +348,7 @@ export function DeviceDetailExtras({
   hardware,
   disks,
   diskSpace,
+  volumes,
   security,
   network,
   processes,
@@ -327,6 +360,7 @@ export function DeviceDetailExtras({
   hardware: HardwareInfo | null;
   disks: DiskRow[];
   diskSpace: DiskSpace | null;
+  volumes: VolumeRow[];
   security: SecurityStatus | null;
   network: NetworkInfo | null;
   processes: ProcessRow[];
@@ -350,6 +384,7 @@ export function DeviceDetailExtras({
 
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         <HardwareInfoCard hardware={hardware} disks={disks} diskSpace={diskSpace} />
+        <VolumesCard volumes={volumes} />
         <SecurityStatusCard security={security} />
         <NetworkInfoCard network={network} />
       </div>

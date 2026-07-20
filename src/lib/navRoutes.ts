@@ -43,6 +43,7 @@ import {
   Inbox,
   Layers,
   Settings,
+  GitBranch,
   PlusCircle,
   Workflow,
   MessageCircle,
@@ -62,8 +63,17 @@ import {
   Flag,
   Cloud,
   Package,
+  Biohazard,
   Shield,
   Terminal,
+  Siren,
+  Code2,
+  FolderKanban,
+  ScanLine,
+  SearchCheck,
+  AlertCircle,
+  SlidersHorizontal,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -90,9 +100,13 @@ export const TOP_ITEMS: NavItem[] = [
   { href: "/dashboard/chat", key: "employeeChat", label: "Employee Chat", icon: MessageCircle },
   { href: "/dashboard/cameras", key: "cameras", label: "Cameras", icon: Camera },
   { href: "/dashboard/notifications", key: "sendNotification", label: "Send Notification", icon: Bell },
-  { href: "/dashboard/network-diagram", key: "networkDiagram", label: "Network Diagram", icon: Workflow },
   { href: "/dashboard/audit/website-performance", key: "websitePerformance", label: "Website Speed & Performance", icon: Gauge },
+  { href: "/dashboard/threat-scanner", key: "threatScanner", label: "Threat Scanner", icon: Biohazard },
+  { href: "/dashboard/malware-detection", key: "malwareDetection", label: "Malware Detection", icon: Bug },
+  { href: "/dashboard/seo-scanner", key: "seoScanner", label: "SEO Scanner", icon: SearchCheck },
+  { href: "/dashboard/security", key: "intrusionDetection", label: "Intrusion Detection", icon: Siren },
   { href: "/dashboard/settings", key: "companySettings", label: "Company Settings", icon: Settings },
+  { href: "/dashboard/settings/integrations/git", key: "gitConnections", label: "Integration", icon: GitBranch },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -104,6 +118,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/router-clients", key: "routerClients", label: "Router Clients", icon: Laptop2 },
       { href: "/dashboard/router-health", key: "routerHealth", label: "Router Health", icon: HeartPulse },
       { href: "/dashboard/router-web", key: "routerWeb", label: "Router Web Connections", icon: Globe },
+    ],
+  },
+  {
+    key: "networkDiagram",
+    label: "Network Diagram",
+    icon: Workflow,
+    items: [
+      { href: "/dashboard/network-diagram/designs", key: "existingDiagrams", label: "Existing Diagrams", icon: Waypoints },
+      { href: "/dashboard/network-diagram/designs/new", key: "designNewDiagram", label: "Design New Diagram", icon: PlusCircle },
     ],
   },
   {
@@ -207,6 +230,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "sqlServerMonitoring",
+    label: "SQL Server Monitoring",
+    icon: Database,
+    items: [{ href: "/dashboard/sql-monitoring", key: "sqlServerMonitoringList", label: "Instances", icon: Database }],
+  },
+  {
     key: "website",
     label: "Website",
     icon: Layers,
@@ -237,6 +266,37 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/qa/environments", key: "environments", label: "Environments", icon: Cloud },
       { href: "/dashboard/qa/builds", key: "builds", label: "Builds", icon: Package },
       { href: "/dashboard/qa/reports", key: "reports", label: "QA Reports", icon: BarChart2 },
+    ],
+  },
+  // Visibility of this group alone is gated by cq_view - see getCqAccess() in
+  // requireCodeQualityPermission.ts and the codeQualityAccess prop threaded through
+  // DashboardLayout -> SidebarShell -> Sidebar (same pattern qaAccess already established).
+  {
+    key: "codeQuality",
+    label: "Code Quality",
+    icon: Code2,
+    items: [
+      { href: "/dashboard/code-quality", key: "codeQualityDashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard/code-quality/projects", key: "codeQualityProjects", label: "Projects", icon: FolderKanban },
+      { href: "/dashboard/code-quality/scans", key: "codeQualityScans", label: "Scans", icon: ScanLine },
+      { href: "/dashboard/code-quality/issues", key: "codeQualityIssues", label: "Issues", icon: AlertCircle },
+      { href: "/dashboard/code-quality/settings", key: "codeQualityRulesSettings", label: "Rules and Settings", icon: SlidersHorizontal },
+    ],
+  },
+  // Standalone module (own sidebar section, not a Code Quality category - see the user's
+  // explicit choice on this). Visibility gated by ls_view - see getLsAccess() in
+  // requireLaravelSecurityPermission.ts and the laravelSecurityAccess prop threaded through
+  // DashboardLayout -> SidebarShell -> Sidebar (same pattern codeQualityAccess established).
+  {
+    key: "laravelSecurity",
+    label: "Laravel Security",
+    icon: ShieldAlert,
+    items: [
+      { href: "/dashboard/laravel-security", key: "laravelSecurityDashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard/laravel-security/projects", key: "laravelSecurityProjects", label: "Projects", icon: FolderKanban },
+      { href: "/dashboard/laravel-security/scans", key: "laravelSecurityScans", label: "Scans", icon: ScanLine },
+      { href: "/dashboard/laravel-security/issues", key: "laravelSecurityIssues", label: "Issues", icon: AlertCircle },
+      { href: "/dashboard/laravel-security/settings", key: "laravelSecurityRulesSettings", label: "Rules and Settings", icon: SlidersHorizontal },
     ],
   },
 ];

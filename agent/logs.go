@@ -18,11 +18,15 @@ type LogEntry struct {
 	Message   string `json:"message"`
 	Raw       string `json:"raw"`
 	Severity  string `json:"severity,omitempty"`
+	// Which nginx virtual host this line came from (see collectNginxVhostLogs) - empty for
+	// the default nginx log and for every non-nginx source.
+	Site string `json:"siteName,omitempty"`
 }
 
 type logFileState struct {
-	Offsets      map[string]int64 `json:"offsets"`
-	JournalSince string           `json:"journalSince"`
+	Offsets       map[string]int64 `json:"offsets"`
+	JournalSince  string           `json:"journalSince"`
+	EventLogSince string           `json:"eventLogSince"`
 }
 
 const maxLogLinesPerFile = 500
@@ -59,6 +63,8 @@ func candidateLogPaths() map[string][]string {
 		return map[string][]string{
 			"apache_access": {`C:\xampp\apache\logs\access.log`, `C:\Apache24\logs\access.log`},
 			"apache_error":  {`C:\xampp\apache\logs\error.log`, `C:\Apache24\logs\error.log`},
+			"nginx_access":  {`C:\nginx\logs\access.log`},
+			"nginx_error":   {`C:\nginx\logs\error.log`},
 			"mysql":         {`C:\xampp\mysql\data\mysql_error.log`},
 			"php":           {`C:\xampp\php\logs\php_error_log`},
 		}
@@ -66,9 +72,70 @@ func candidateLogPaths() map[string][]string {
 	return map[string][]string{
 		"apache_access": {"/var/log/apache2/access.log", "/var/log/httpd/access_log"},
 		"apache_error":  {"/var/log/apache2/error.log", "/var/log/httpd/error_log"},
+		"nginx_access":  {"/var/log/nginx/access.log"},
+		"nginx_error":   {"/var/log/nginx/error.log"},
 		"mysql":         {"/var/log/mysql/error.log", "/var/log/mysqld.log"},
 		"php":           {"/var/log/php_errors.log", "/var/log/php-fpm/error.log", "/var/log/php8.1-fpm.log"},
 	}
+}
+
+// nginxVhostLogGlobs returns, per log source, the glob pattern nginx installs commonly use
+// for a per-virtual-host log file - confirmed live against a real multi-site install
+// (/var/log/nginx/<vhost>.access.log, one pair per site-enabled config, set via that vhost's
+// own access_log/error_log directives). The plain access.log/error.log matched by
+// candidateLogPaths() above is deliberately excluded here (via nginxDefaultLogNames) so the
+// default log is never shipped twice under two different source/site combinations.
+func nginxVhostLogGlobs() map[string]string {
+	if runtime.GOOS == "windows" {
+		return nil // no evidence of a per-vhost convention on Windows nginx installs - skip rather than guess
+	}
+	return map[string]string{
+		"nginx_access": "/var/log/nginx/*.access.log",
+		"nginx_error":  "/var/log/nginx/*.error.log",
+	}
+}
+
+var nginxDefaultLogNames = map[string]bool{"access.log": true, "error.log": true}
+
+// collectNginxVhostLogs discovers every per-vhost nginx log file matching nginxVhostLogGlobs
+// and tails each one independently (same byte-offset tracking as candidateLogPaths sources,
+// keyed by the file's absolute path in state.Offsets - already generic, no changes needed
+// there). The vhost name is derived from the filename with its .access.log/.error.log suffix
+// stripped, e.g. "adminbondeniskolan.access.log" -> site "adminbondeniskolan". A vhost that
+// stops existing (site removed) just stops appearing in future glob results - its stale
+// offset entry is harmless dead weight in logstate.json, not worth actively pruning.
+func collectNginxVhostLogs(state *logFileState) []LogEntry {
+	var entries []LogEntry
+	for source, pattern := range nginxVhostLogGlobs() {
+		suffix := ".access.log"
+		if source == "nginx_error" {
+			suffix = ".error.log"
+		}
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			continue
+		}
+		for _, path := range matches {
+			base := filepath.Base(path)
+			if nginxDefaultLogNames[base] {
+				continue
+			}
+			site := strings.TrimSuffix(base, suffix)
+
+			lines, newOffset, ok := readNewLines(path, state.Offsets[path])
+			if !ok {
+				continue
+			}
+			state.Offsets[path] = newOffset
+			for _, line := range lines {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				entries = append(entries, LogEntry{Source: source, Site: site, Raw: line, Message: truncate(line, 2000)})
+			}
+		}
+	}
+	return entries
 }
 
 // CollectNewLogLines reads any lines appended to known log files since the last call
@@ -96,6 +163,7 @@ func CollectNewLogLines() []LogEntry {
 		}
 	}
 
+	entries = append(entries, collectNginxVhostLogs(&state)...)
 	entries = append(entries, collectSystemLog(&state)...)
 
 	saveLogState(state)
@@ -147,12 +215,11 @@ func readNewLines(path string, from int64) (lines []string, newOffset int64, ok 
 
 // collectSystemLog ships recent system-level events: systemd journal on Linux hosts that
 // have it (deduped via a timestamp watermark, since journalctl has no byte-offset
-// concept), falling back to tailing /var/log/syslog like any other file otherwise.
-// Windows Event Log support (Get-WinEvent) is intentionally deferred — best-effort scope
-// for this phase covers the Linux server case, which is this feature's primary target.
+// concept), falling back to tailing /var/log/syslog like any other file otherwise; Windows
+// Event Log (Critical/Error entries) via collectWindowsEventLog, same watermark approach.
 func collectSystemLog(state *logFileState) []LogEntry {
 	if runtime.GOOS == "windows" {
-		return nil
+		return collectWindowsEventLog(state)
 	}
 
 	if _, err := os.Stat("/run/systemd/system"); err == nil {

@@ -9,8 +9,8 @@ import { routing } from "@/i18n/routing";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Log Monitor",
-  description: "Server log monitoring dashboard",
+  title: "Tulips Unified Admin Center",
+  description: "Monitor, secure, manage, and automate your IT infrastructure from one command center.",
 };
 
 export default async function RootLayout({

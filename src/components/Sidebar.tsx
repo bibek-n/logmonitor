@@ -13,15 +13,19 @@ interface SidebarProps {
   collapsed: boolean;
   onExpandRail: () => void;
   qaAccess?: boolean;
+  codeQualityAccess?: boolean;
+  laravelSecurityAccess?: boolean;
 }
 
-export default function Sidebar({ collapsed, onExpandRail, qaAccess = false }: SidebarProps) {
+export default function Sidebar({ collapsed, onExpandRail, qaAccess = false, codeQualityAccess = false, laravelSecurityAccess = false }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  // Every group is visible to every authenticated user except "qaTesting", which is gated
-  // by the qa_view permission (resolved server-side in DashboardLayout and threaded down
-  // through SidebarShell) — the only permission-gated nav group in this app.
-  const visibleNavGroups = NAV_GROUPS.filter((g) => g.key !== "qaTesting" || qaAccess);
+  // Every group is visible to every authenticated user except "qaTesting" (gated by qa_view),
+  // "codeQuality" (gated by cq_view), and "laravelSecurity" (gated by ls_view) - all resolved
+  // server-side in DashboardLayout and threaded down through SidebarShell.
+  const visibleNavGroups = NAV_GROUPS.filter(
+    (g) => (g.key !== "qaTesting" || qaAccess) && (g.key !== "codeQuality" || codeQualityAccess) && (g.key !== "laravelSecurity" || laravelSecurityAccess)
+  );
   // Collapsed by default — except the group containing the current page, so navigating
   // straight to a page inside a group shows its submenu open without a click.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() =>

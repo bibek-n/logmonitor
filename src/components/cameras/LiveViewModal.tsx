@@ -186,6 +186,12 @@ export function LiveViewModal({ cameraId, channelName, onClose }: LiveViewModalP
     return () => {
       cancelled = true;
       pc?.close();
+      // Tells the server to release this camera's transcode relay (if it's an HEVC channel
+      // that needed one) rather than only relying on its idle-timeout fallback - real,
+      // continuous CPU cost while running, so it should stop as soon as we know no one's
+      // watching, not up to 30s later. A no-op for non-HEVC channels. keepalive lets this
+      // land even if the tab is closing right as the modal unmounts.
+      fetch(`/api/admin/nvr/cameras/${cameraId}/webrtc`, { method: "DELETE", keepalive: true }).catch(() => {});
     };
   }, [cameraId]);
 

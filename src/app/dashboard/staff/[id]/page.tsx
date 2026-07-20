@@ -12,6 +12,7 @@ import type {
   HardwareInfo,
   DiskRow,
   DiskSpace,
+  VolumeRow,
   SecurityStatus,
   NetworkInfo,
   ProcessRow,
@@ -27,6 +28,7 @@ interface StaffRow {
   Id: number;
   Name: string;
   MacAddress: string | null;
+  ComputerNameOverride: string | null;
   Email: string | null;
   Phone: string | null;
   Department: string | null;
@@ -104,7 +106,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     .request()
     .input("id", sql.Int, staffId)
     .query<StaffRow>(`
-      SELECT s.Id, s.Name, s.MacAddress, s.Email, s.Phone, s.Department, s.Position, s.Address, s.PhotoPath,
+      SELECT s.Id, s.Name, s.MacAddress, s.ComputerNameOverride, s.Email, s.Phone, s.Department, s.Position, s.Address, s.PhotoPath,
         best.IpAddress AS RouterIp, best.Hostname, best.Status, best.LastSeenRaw, best.UpdatedAt AS RouterUpdatedAt, best.Os,
         best.FirstSeen AS RouterFirstSeen,
         sophosBest.IpAddress AS SophosIp, sophosBest.UpdatedAt AS SophosUpdatedAt, sophosBest.Hostname AS SophosHostname,
@@ -133,11 +135,14 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const source: "mikrotik" | "sophos" | null =
     routerTime === -Infinity && sophosTime === -Infinity ? null : routerTime >= sophosTime ? "mikrotik" : "sophos";
   const currentIp = source === "mikrotik" ? staffMember.RouterIp : source === "sophos" ? staffMember.SophosIp : null;
-  const deviceName = source === "mikrotik" ? staffMember.Hostname : source === "sophos" ? staffMember.SophosHostname : null;
+  // Classification stays driven by the network-reported hostname even when an admin has
+  // overridden the displayed name — see the matching comment in getStaffWithStatus.
+  const autoDeviceName = source === "mikrotik" ? staffMember.Hostname : source === "sophos" ? staffMember.SophosHostname : null;
+  const deviceName = staffMember.ComputerNameOverride ?? autoDeviceName;
   const os = source === "mikrotik" ? staffMember.Os : source === "sophos" ? staffMember.SophosOs : null;
   const firstSeenRaw = source === "mikrotik" ? staffMember.RouterFirstSeen : source === "sophos" ? staffMember.SophosFirstSeen : null;
   const firstSeen = firstSeenRaw ? new Date(firstSeenRaw) : null;
-  const deviceType = classifyDevice(deviceName, staffMember.VendorName);
+  const deviceType = classifyDevice(autoDeviceName, staffMember.VendorName);
 
   let isOnline = false;
   if (source === "mikrotik") {
@@ -170,6 +175,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   let deviceHardware: HardwareInfo | null = null;
   let deviceDisks: DiskRow[] = [];
   let deviceDiskSpace: DiskSpace | null = null;
+  let deviceVolumes: VolumeRow[] = [];
   let deviceSecurity: SecurityStatus | null = null;
   let deviceNetwork: NetworkInfo | null = null;
   let deviceProcesses: ProcessRow[] = [];
@@ -180,7 +186,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
   if (linkedDevice) {
     const did = linkedDevice.DeviceId;
-    const [metricsRes, hwRes, disksRes, diskSpaceRes, secRes, netRes, procRes, svcRes, swRes, alertsRes, usbRes] = await Promise.all([
+    const [metricsRes, hwRes, disksRes, diskSpaceRes, volumesRes, secRes, netRes, procRes, svcRes, swRes, alertsRes, usbRes] = await Promise.all([
       db.request().input("id", sql.VarChar, did).query<{ CpuPct: number | null; MemPct: number | null; DiskPct: number | null }>(
         "SELECT TOP 1 CpuPct, MemPct, DiskPct FROM DeviceMetrics WHERE DeviceId = @id ORDER BY ReceivedAt DESC"
       ),
@@ -199,6 +205,10 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       db.request().input("id", sql.VarChar, did).query<DiskSpace>(
         "SELECT TOP 1 DiskFreeGB AS freeGB, DiskTotalGB AS totalGB FROM DeviceMetrics WHERE DeviceId = @id ORDER BY ReceivedAt DESC"
       ),
+      db.request().input("id", sql.VarChar, did).query<VolumeRow>(`
+        SELECT MountPoint AS mountPoint, Device AS device, FsType AS fsType, TotalGB AS totalGB, FreeGB AS freeGB, UsedPercent AS usedPercent
+        FROM DeviceVolumes WHERE DeviceId = @id ORDER BY MountPoint ASC
+      `),
       db.request().input("id", sql.VarChar, did).query<SecurityStatus>(`
         SELECT AntivirusStatus AS antivirusStatus, DefenderStatus AS defenderStatus, FirewallEnabled AS firewallEnabled,
           FirewallRulesCount AS firewallRulesCount, BitLockerStatus AS bitLockerStatus, LuksStatus AS luksStatus,
@@ -243,6 +253,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     deviceHardware = hwRes.recordset[0] ?? null;
     deviceDisks = disksRes.recordset;
     deviceDiskSpace = diskSpaceRes.recordset[0] ?? null;
+    deviceVolumes = volumesRes.recordset;
     deviceSecurity = secRes.recordset[0] ?? null;
     const netRow = netRes.recordset[0];
     deviceNetwork = netRow
@@ -359,6 +370,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
               hardware={deviceHardware}
               disks={deviceDisks}
               diskSpace={deviceDiskSpace}
+              volumes={deviceVolumes}
               security={deviceSecurity}
               network={deviceNetwork}
               processes={deviceProcesses}

@@ -31,6 +31,12 @@ export interface StaffOption {
   macAddress: string | null;
 }
 
+export interface AgentDownloadLinks {
+  windows: string | null;
+  linuxAmd64: string | null;
+  linuxArm64: string | null;
+}
+
 function CodeBlock({ children }: { children: string }) {
   return (
     <pre
@@ -49,7 +55,15 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
-function EnrollClientInner({ existingTokens, staffOptions }: { existingTokens: TokenRow[]; staffOptions: StaffOption[] }) {
+function EnrollClientInner({
+  existingTokens,
+  staffOptions,
+  downloadLinks,
+}: {
+  existingTokens: TokenRow[];
+  staffOptions: StaffOption[];
+  downloadLinks: AgentDownloadLinks;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [staffId, setStaffId] = useState("");
@@ -150,11 +164,44 @@ function EnrollClientInner({ existingTokens, staffOptions }: { existingTokens: T
               <CopyButton value={newToken.token} />
             </div>
 
-            <div style={{ fontSize: "0.82rem", fontWeight: 600, marginTop: "0.5rem" }}>Windows install</div>
-            <CodeBlock>{`Download the latest agent.exe from https://github.com/bibek-n/logmonitor/releases\nand run as administrator:\n\nagent.exe install --token=${newToken.token} --server=${serverUrl}`}</CodeBlock>
+            <div className="flex items-center gap-2" style={{ marginTop: "0.5rem" }}>
+              <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>Windows install</div>
+              {downloadLinks.windows && (
+                <a href={downloadLinks.windows} style={{ fontSize: "0.75rem", color: "var(--primary)" }}>
+                  ⬇ Download agent.exe
+                </a>
+              )}
+            </div>
+            <CodeBlock>{`Run as administrator, from the folder where you downloaded agent.exe:\n\nagent.exe install --token=${newToken.token} --server=${serverUrl}`}</CodeBlock>
 
-            <div style={{ fontSize: "0.82rem", fontWeight: 600, marginTop: "0.5rem" }}>Linux install</div>
+            <div className="flex items-center gap-2" style={{ marginTop: "0.5rem" }}>
+              <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>Linux install</div>
+              {(downloadLinks.linuxAmd64 || downloadLinks.linuxArm64) && (
+                <span style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>
+                  (
+                  {downloadLinks.linuxAmd64 && (
+                    <a href={downloadLinks.linuxAmd64} style={{ color: "var(--primary)" }}>
+                      ⬇ amd64
+                    </a>
+                  )}
+                  {downloadLinks.linuxAmd64 && downloadLinks.linuxArm64 && " · "}
+                  {downloadLinks.linuxArm64 && (
+                    <a href={downloadLinks.linuxArm64} style={{ color: "var(--primary)" }}>
+                      ⬇ arm64
+                    </a>
+                  )}
+                  {" — not needed for the one-line install below, it fetches the right one automatically"}
+                  )
+                </span>
+              )}
+            </div>
             <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=${newToken.token} SERVER_URL=${serverUrl} bash`}</CodeBlock>
+
+            <p style={{ fontSize: "0.75rem", color: "var(--ink-muted)", margin: 0 }}>
+              Both commands also install the chat companion automatically (a small tray icon that lets the employee
+              message IT support) — no separate step, and it&apos;s skipped automatically on a headless server with
+              no desktop session.
+            </p>
           </div>
         )}
       </Card>
@@ -223,7 +270,7 @@ function EnrollClientInner({ existingTokens, staffOptions }: { existingTokens: T
   );
 }
 
-export function EnrollClient(props: { existingTokens: TokenRow[]; staffOptions: StaffOption[] }) {
+export function EnrollClient(props: { existingTokens: TokenRow[]; staffOptions: StaffOption[]; downloadLinks: AgentDownloadLinks }) {
   return (
     <ToastProvider>
       <EnrollClientInner {...props} />

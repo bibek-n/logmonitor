@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   addEdge,
   useNodesState,
   useEdgesState,
@@ -17,7 +20,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./networkDiagram.css";
-import { Pencil, Plus, Save, X } from "lucide-react";
+import { Pencil, Plus, Save, X, Box, Square, Download, FileText, Maximize, Minimize } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
@@ -61,6 +64,7 @@ function diagramToFlowEdges(diagram: DiagramDoc): Edge[] {
     sourceHandle: e.sourceHandle ? `${e.sourceHandle}-source` : undefined,
     targetHandle: e.targetHandle ? `${e.targetHandle}-target` : undefined,
     style: { stroke: "var(--primary)", strokeWidth: 2, strokeDasharray: e.dashed ? "6 5" : undefined },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "var(--primary)" },
     data: { dashed: e.dashed },
   }));
 }
@@ -122,6 +126,113 @@ function EditorInner({ initialDiagram }: { initialDiagram: DiagramDoc }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [viewStyle, setViewStyle] = useState<"2d" | "3d">("2d");
+  const [rotateX, setRotateX] = useState(38);
+  const [rotateY, setRotateY] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const dragState = useRef<{ startX: number; startY: number; startRotateX: number; startRotateY: number } | null>(null);
+  // A second, always-flat copy of the diagram rendered off-screen purely for export - the
+  // visible one may have a 3D CSS transform applied (rotateX/rotateY), and capturing that
+  // directly is unreliable: html-to-image measures the element's post-transform (foreshortened)
+  // bounding box, then renders the full-size content into that undersized canvas, which is
+  // exactly what was cropping exports to "half" the diagram. Exporting from an untransformed
+  // clone sidesteps the problem entirely and always produces the complete diagram.
+  const exportCaptureRef = useRef<HTMLDivElement>(null);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fitScale, setFitScale] = useState(1);
+
+  // Fullscreen can also be exited via the browser's own Escape-key handling (not just our
+  // button), so state has to be driven off the actual fullscreenchange event rather than
+  // just toggled locally, or the button would get out of sync with reality.
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === fullscreenRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else if (fullscreenRef.current) {
+      await fullscreenRef.current.requestFullscreen();
+    }
+  }
+
+  // Recomputes the scale factor that makes the diagram's full bounding box fit inside the
+  // fullscreen viewport - only relevant in fullscreen; the normal (non-fullscreen) panel keeps
+  // its existing 100%-scale, scrollable behavior unchanged.
+  useEffect(() => {
+    function recomputeFit() {
+      if (!isFullscreen) {
+        setFitScale(1);
+        return;
+      }
+      const scaleX = (window.innerWidth - 48) / savedDiagram.canvas.width;
+      const scaleY = (window.innerHeight - 140) / savedDiagram.canvas.height;
+      setFitScale(Math.min(1, scaleX, scaleY));
+    }
+    recomputeFit();
+    window.addEventListener("resize", recomputeFit);
+    return () => window.removeEventListener("resize", recomputeFit);
+  }, [isFullscreen, savedDiagram.canvas.width, savedDiagram.canvas.height]);
+
+  function onDragStart(e: ReactMouseEvent) {
+    if (viewStyle !== "3d") return;
+    dragState.current = { startX: e.clientX, startY: e.clientY, startRotateX: rotateX, startRotateY: rotateY };
+  }
+  function onDragMove(e: ReactMouseEvent) {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    setRotateY(dragState.current.startRotateY + dx * 0.4);
+    setRotateX(Math.max(0, Math.min(80, dragState.current.startRotateX - dy * 0.4)));
+  }
+  function onDragEnd() {
+    dragState.current = null;
+  }
+
+  async function captureDiagramPng(): Promise<string> {
+    if (!exportCaptureRef.current) throw new Error("Nothing to export yet.");
+    return toPng(exportCaptureRef.current, { backgroundColor: "#ffffff", pixelRatio: 2 });
+  }
+
+  async function handleDownloadImage() {
+    setExporting(true);
+    try {
+      const dataUrl = await captureDiagramPng();
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${savedDiagram.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "network-diagram"}.png`;
+      a.click();
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : "Failed to export image" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDownloadPdf() {
+    setExporting(true);
+    try {
+      const dataUrl = await captureDiagramPng();
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to prepare image for PDF."));
+        img.src = dataUrl;
+      });
+      const pdf = new jsPDF({ orientation: img.width >= img.height ? "landscape" : "portrait", unit: "pt", format: [img.width, img.height] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      pdf.save(`${savedDiagram.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "network-diagram"}.pdf`);
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : "Failed to export PDF" });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState<Edge>([]);
@@ -150,7 +261,13 @@ function EditorInner({ initialDiagram }: { initialDiagram: DiagramDoc }) {
     (connection: Connection) => {
       setEdges((eds) =>
         addEdge(
-          { ...connection, id: crypto.randomUUID(), style: { stroke: "var(--primary)", strokeWidth: 2 }, data: { dashed: false } },
+          {
+            ...connection,
+            id: crypto.randomUUID(),
+            style: { stroke: "var(--primary)", strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "var(--primary)" },
+            data: { dashed: false },
+          },
           eds
         )
       );
@@ -306,20 +423,100 @@ function EditorInner({ initialDiagram }: { initialDiagram: DiagramDoc }) {
 
   if (mode === "view") {
     return (
-      <div>
-        <div className="flex items-center justify-between" style={{ marginBottom: "1rem" }}>
+      <div
+        ref={fullscreenRef}
+        style={isFullscreen ? { background: "var(--surface)", padding: "1.5rem", height: "100vh", boxSizing: "border-box" } : undefined}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-3" style={{ marginBottom: "1rem" }}>
           <div>
             <h1 style={{ fontSize: "1.4rem", margin: 0 }}>{savedDiagram.title}</h1>
             <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", margin: 0 }}>
-              Solid lines are physical connections; dashed lines are logical connections.
+              Solid lines are physical connections (arrows show direction); dashed lines are logical connections.
             </p>
           </div>
-          <Button size="sm" onClick={enterEdit}>
-            <Pencil size={14} /> Edit
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex" style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+              <button
+                onClick={() => setViewStyle("2d")}
+                className="flex items-center gap-1"
+                style={{
+                  padding: "0.4rem 0.7rem", fontSize: "0.78rem", border: "none", cursor: "pointer",
+                  background: viewStyle === "2d" ? "var(--primary)" : "var(--surface-2)",
+                  color: viewStyle === "2d" ? "#fff" : "var(--ink-muted)",
+                }}
+              >
+                <Square size={13} /> 2D
+              </button>
+              <button
+                onClick={() => setViewStyle("3d")}
+                className="flex items-center gap-1"
+                style={{
+                  padding: "0.4rem 0.7rem", fontSize: "0.78rem", border: "none", cursor: "pointer",
+                  background: viewStyle === "3d" ? "var(--primary)" : "var(--surface-2)",
+                  color: viewStyle === "3d" ? "#fff" : "var(--ink-muted)",
+                }}
+              >
+                <Box size={13} /> 3D
+              </button>
+            </div>
+            <Button size="sm" variant="secondary" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />} {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleDownloadImage} disabled={exporting}>
+              <Download size={14} /> Image
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleDownloadPdf} disabled={exporting}>
+              <FileText size={14} /> PDF
+            </Button>
+            <Button size="sm" onClick={enterEdit}>
+              <Pencil size={14} /> Edit
+            </Button>
+          </div>
         </div>
-        <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", padding: "1rem" }}>
-          <DiagramView diagram={savedDiagram} />
+        {viewStyle === "3d" && (
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0, marginBottom: "0.5rem" }}>
+            Click and drag the diagram to rotate it.
+          </p>
+        )}
+        <div
+          style={{
+            overflow: isFullscreen ? "hidden" : "auto",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            background: "var(--surface)",
+            padding: "1rem",
+            perspective: viewStyle === "3d" ? "1600px" : undefined,
+            display: isFullscreen ? "flex" : undefined,
+            alignItems: isFullscreen ? "center" : undefined,
+            justifyContent: isFullscreen ? "center" : undefined,
+            height: isFullscreen ? "calc(100vh - 160px)" : undefined,
+          }}
+        >
+          <div style={{ transform: `scale(${fitScale})`, transformOrigin: "top center" }}>
+            <div
+              onMouseDown={onDragStart}
+              onMouseMove={onDragMove}
+              onMouseUp={onDragEnd}
+              onMouseLeave={onDragEnd}
+              style={{
+                transform: viewStyle === "3d" ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg)` : "none",
+                transformOrigin: "top center",
+                transition: dragState.current ? "none" : "transform 0.15s ease",
+                background: "var(--surface)",
+                cursor: viewStyle === "3d" ? "grab" : "default",
+                userSelect: "none",
+              }}
+            >
+              <DiagramView diagram={savedDiagram} />
+            </div>
+          </div>
+        </div>
+
+        {/* Always-flat, off-screen copy used only as the export source - see captureDiagramPng. */}
+        <div style={{ position: "fixed", top: 0, left: -100000, pointerEvents: "none" }} aria-hidden="true">
+          <div ref={exportCaptureRef} style={{ background: "#ffffff" }}>
+            <DiagramView diagram={savedDiagram} />
+          </div>
         </div>
       </div>
     );

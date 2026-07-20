@@ -21,6 +21,13 @@ export function generateDeviceId(): string {
   return crypto.randomUUID();
 }
 
+// Not a secret in the same sense as the API key — it only ever authorizes read/write access
+// to one device's own chat thread, never telemetry — but still high-entropy so it can't be
+// guessed, since the employee chat page has no login of its own.
+export function generateChatToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
 // API keys are high-entropy random secrets (not human passwords), so a fast constant-time
 // hash compare is appropriate here — unlike user login passwords (bcrypt) which need slow
 // hashing to resist brute-forcing low-entropy input.

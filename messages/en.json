@@ -16,7 +16,7 @@
     "quickLinksTitle": "Quick Links",
     "legalTitle": "Legal",
     "contactTitle": "Contact",
-    "copyright": "Log Monitor. All rights reserved."
+    "copyright": "Tulips Unified Admin Center. All rights reserved."
   },
   "languageSwitcher": {
     "label": "Language",
@@ -28,7 +28,7 @@
     "hi": "हिन्दी"
   },
   "home": {
-    "metaTitle": "Log Monitor — Security, Network & Staff Monitoring Solution",
+    "metaTitle": "Tulips Unified Admin Center — Security, Network & Staff Monitoring Solution",
     "metaDescription": "A complete IT management platform combining security monitoring, network management, hardware asset tracking, staff monitoring, and support ticketing in one dashboard.",
     "heroTitle": "Complete Security, Network & Staff Monitoring Solution",
     "heroSubtitle": "A single platform to monitor your security posture, network health, hardware assets, and staff activity — with real-time alerts, role-based access, and a support ticket system built in.",
@@ -45,10 +45,10 @@
     "ctaContact": "Contact Us"
   },
   "aboutSoftware": {
-    "metaTitle": "About the Software — Log Monitor",
+    "metaTitle": "About the Software — Tulips Unified Admin Center",
     "metaDescription": "A complete IT management platform: security monitoring, network management, hardware asset tracking, staff monitoring, alerts, reporting, and ticketing.",
     "title": "About the Software",
-    "intro": "Log Monitor brings together everything an IT team needs to keep infrastructure secure, visible, and well-managed — real-time monitoring, hardware inventory, staff activity oversight, and a built-in support ticket system, all from one dashboard."
+    "intro": "Tulips Unified Admin Center brings together everything an IT team needs to keep infrastructure secure, visible, and well-managed — real-time monitoring, hardware inventory, staff activity oversight, and a built-in support ticket system, all from one dashboard."
   },
   "aboutSoftwareFeatures": {
     "security": {
@@ -93,8 +93,8 @@
     }
   },
   "aboutUs": {
-    "metaTitle": "About Us — Log Monitor",
-    "metaDescription": "Our company, vision, and mission behind the Log Monitor IT management platform.",
+    "metaTitle": "About Us — Tulips Unified Admin Center",
+    "metaDescription": "Our company, vision, and mission behind the Tulips Unified Admin Center IT management platform.",
     "title": "About Our Company",
     "intro": "We provide comprehensive IT management solutions designed to help organizations efficiently manage their technology infrastructure.",
     "combined": "Our platform combines Security Monitoring, Network Management, Hardware Asset Tracking, Staff Monitoring, and Support Ticket Management into one centralized system.",
@@ -111,7 +111,7 @@
     }
   },
   "services": {
-    "metaTitle": "Our Services — Log Monitor",
+    "metaTitle": "Our Services — Tulips Unified Admin Center",
     "metaDescription": "Security management, network monitoring, hardware management, staff monitoring, and support services.",
     "title": "Our Services",
     "intro": "Everything you need to keep your organization's technology secure, connected, and running smoothly.",
@@ -155,8 +155,8 @@
     "monitoring247": "24/7 Monitoring"
   },
   "contact": {
-    "metaTitle": "Contact Us — Log Monitor",
-    "metaDescription": "Get in touch with the Log Monitor team.",
+    "metaTitle": "Contact Us — Tulips Unified Admin Center",
+    "metaDescription": "Get in touch with the Tulips Unified Admin Center team.",
     "title": "Contact Us",
     "intro": "Have a question or need help? Reach out and our team will respond as soon as possible.",
     "addressLabel": "Address",
@@ -177,8 +177,8 @@
     }
   },
   "support": {
-    "metaTitle": "Support — Log Monitor",
-    "metaDescription": "Knowledge base, FAQs, guides, and support ticket access for Log Monitor.",
+    "metaTitle": "Support — Tulips Unified Admin Center",
+    "metaDescription": "Knowledge base, FAQs, guides, and support ticket access for Tulips Unified Admin Center.",
     "title": "Support",
     "intro": "Find answers below, or submit a support ticket and our team will help you directly.",
     "knowledgeBaseTitle": "Knowledge Base",
@@ -221,7 +221,7 @@
     "stillNeedHelp": "Still need help? Email us at"
   },
   "newTicket": {
-    "metaTitle": "Submit a Support Ticket — Log Monitor",
+    "metaTitle": "Submit a Support Ticket — Tulips Unified Admin Center",
     "metaDescription": "Submit a support ticket and our team will get back to you.",
     "title": "Submit a Support Ticket",
     "intro": "Tell us what's going on and we'll follow up as soon as possible.",
@@ -252,7 +252,7 @@
     }
   },
   "ticketStatus": {
-    "metaTitle": "Check Ticket Status — Log Monitor",
+    "metaTitle": "Check Ticket Status — Tulips Unified Admin Center",
     "metaDescription": "Check the status of a support ticket you submitted.",
     "title": "Check Ticket Status",
     "intro": "Enter your ticket number and the email you used to submit it.",
@@ -272,19 +272,19 @@
     }
   },
   "privacyPolicy": {
-    "metaTitle": "Privacy Policy — Log Monitor",
+    "metaTitle": "Privacy Policy — Tulips Unified Admin Center",
     "title": "Privacy Policy",
     "body": "This placeholder privacy policy will be replaced with the finalized, legally-reviewed version. It should describe what data is collected (including any endpoint or staff monitoring data), how it is used, how long it is retained, and how individuals can exercise any applicable data rights."
   },
   "terms": {
-    "metaTitle": "Terms & Conditions — Log Monitor",
+    "metaTitle": "Terms & Conditions — Tulips Unified Admin Center",
     "title": "Terms & Conditions",
     "body": "This placeholder will be replaced with finalized, legally-reviewed terms of service governing use of this platform."
   },
   "login": {
-    "heading": "Log Monitor",
-    "brandTagline": "Complete Security, Network & Staff Monitoring Solution for modern IT teams.",
-    "brandDescription": "Log Monitor brings security monitoring, network health, hardware asset tracking, and staff activity together into one real-time dashboard — so your IT team always knows what's happening across the entire organization.",
+    "heading": "Tulips Unified Admin Center",
+    "brandTagline": "Monitor • Secure • Manage • Automate — the command center for modern IT teams.",
+    "brandDescription": "Tulips Unified Admin Center brings security monitoring, network health, hardware asset tracking, and staff activity together into one real-time dashboard — so your IT team always knows what's happening across the entire organization.",
     "brandFeature1": "Live network & bandwidth monitoring",
     "brandFeature2": "Endpoint hardware & software inventory",
     "brandFeature3": "Website & infrastructure security audits",
@@ -318,7 +318,7 @@
     }
   },
   "maintenance": {
-    "metaTitle": "Under Maintenance — Log Monitor",
+    "metaTitle": "Under Maintenance — Tulips Unified Admin Center",
     "title": "Under Maintenance",
     "defaultMessage": "We're currently performing scheduled maintenance. Please check back shortly."
   },
@@ -335,9 +335,13 @@
       "employeeChat": "Employee Chat",
       "cameras": "Cameras",
       "sendNotification": "Send Notification",
-      "networkDiagram": "Network Diagram",
       "websitePerformance": "Website Speed & Performance",
-      "companySettings": "Company Settings"
+      "threatScanner": "Threat Scanner",
+      "malwareDetection": "Malware Detection",
+      "seoScanner": "SEO Scanner",
+      "intrusionDetection": "Intrusion Detection",
+      "companySettings": "Company Settings",
+      "gitConnections": "Integration"
     },
     "groups": {
       "mikrotikRouter": {
@@ -346,6 +350,13 @@
           "routerClients": "Router Clients",
           "routerHealth": "Router Health",
           "routerWeb": "Router Web Connections"
+        }
+      },
+      "networkDiagram": {
+        "label": "Network Diagram",
+        "items": {
+          "existingDiagrams": "Existing Diagrams",
+          "designNewDiagram": "Design New Diagram"
         }
       },
       "sophosFirewall": {
@@ -432,6 +443,12 @@
           "downloadAgent": "Download Agent"
         }
       },
+      "sqlServerMonitoring": {
+        "label": "SQL Server Monitoring",
+        "items": {
+          "sqlServerMonitoringList": "Instances"
+        }
+      },
       "website": {
         "label": "Website",
         "items": {
@@ -456,6 +473,26 @@
           "releases": "Releases",
           "environments": "Environments",
           "builds": "Builds"
+        }
+      },
+      "codeQuality": {
+        "label": "Code Quality",
+        "items": {
+          "codeQualityDashboard": "Dashboard",
+          "codeQualityProjects": "Projects",
+          "codeQualityScans": "Scans",
+          "codeQualityIssues": "Issues",
+          "codeQualityRulesSettings": "Rules and Settings"
+        }
+      },
+      "laravelSecurity": {
+        "label": "Laravel Security",
+        "items": {
+          "laravelSecurityDashboard": "Dashboard",
+          "laravelSecurityProjects": "Projects",
+          "laravelSecurityScans": "Scans",
+          "laravelSecurityIssues": "Issues",
+          "laravelSecurityRulesSettings": "Rules and Settings"
         }
       }
     }
@@ -569,6 +606,7 @@
       "noMatchesText": "No employees match your search.",
       "nameColumn": "Name",
       "statusColumn": "Status",
+      "emailColumn": "Email",
       "departmentColumn": "Department",
       "positionColumn": "Position",
       "computerNameColumn": "Computer Name",
@@ -597,6 +635,10 @@
       "positionLabel": "Job Designation",
       "noneOption": "— None —",
       "addressLabel": "Address",
+      "computerNameLabel": "Computer Name",
+      "computerNamePlaceholder": "e.g. DESKTOP-A1B2C3",
+      "computerNameHintDetected": "Auto-detected from the network as \"{name}\". Leave blank to keep using that, or enter a name to override it.",
+      "computerNameHintNone": "No device name has been detected from the network yet. Enter one to set it manually.",
       "nameRequiredError": "Name is required.",
       "saveFailedError": "Failed to save",
       "photoUploadFailedError": "Photo upload failed",
@@ -949,7 +991,7 @@
       "passwordUnchangedPlaceholder": "(unchanged — enter to replace)",
       "enterPasswordPlaceholder": "Enter password",
       "senderNameLabel": "Sender Name",
-      "senderNamePlaceholder": "Log Monitor",
+      "senderNamePlaceholder": "Tulips Unified Admin Center",
       "senderEmailLabel": "Sender Email Address",
       "senderEmailPlaceholder": "noreply@example.com",
       "replyToLabel": "Reply-To Email Address",

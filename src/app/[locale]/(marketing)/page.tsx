@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { getDb } from "@/lib/db";
 import { Hero } from "@/components/marketing/Hero";
+import { DevAiNewsWidget } from "@/components/marketing/DevAiNewsWidget";
+import { KnowledgeHub } from "@/components/marketing/KnowledgeHub";
+import { AiVideoPicksWidget } from "@/components/marketing/AiVideoPicksWidget";
+import { DemoVideoSection } from "@/components/marketing/DemoVideoSection";
+import { getFeaturedItOpsVideos } from "@/lib/itOpsVideoFeed";
+import { NepaliTechNewsWidget } from "@/components/marketing/NepaliTechNewsWidget";
 import { ServiceCard } from "@/components/marketing/ServiceCard";
 import { WhyChooseUsCard } from "@/components/marketing/WhyChooseUsCard";
 import { SERVICE_KEYS, SERVICE_ICONS, WHY_CHOOSE_US_KEYS, WHY_CHOOSE_US_ICONS, ABOUT_SOFTWARE_FEATURE_KEYS } from "@/lib/websiteContent";
@@ -37,6 +42,7 @@ export default async function HomePage() {
       AND (PublishEndAt IS NULL OR PublishEndAt >= SYSUTCDATETIME())
     ORDER BY SortOrder ASC
   `);
+  const [itOpsVideo] = await getFeaturedItOpsVideos(1);
   const slides: SlideData[] = result.recordset.map((r) => ({
     id: r.Id,
     title: r.Title,
@@ -53,31 +59,47 @@ export default async function HomePage() {
 
   return (
     <div>
+      <KnowledgeHub />
       <Hero slides={slides} />
 
       <section style={{ padding: "3.5rem 1.25rem", maxWidth: 1200, margin: "0 auto" }}>
-        <div className="text-center" style={{ maxWidth: 700, margin: "0 auto 2rem" }}>
-          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>{t("aboutTitle")}</h2>
-          <p style={{ color: MKT.inkMuted, fontSize: "0.98rem", lineHeight: 1.6 }}>{t("aboutIntro")}</p>
-        </div>
-        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {ABOUT_SOFTWARE_FEATURE_KEYS.slice(0, 6).map((key) => (
-            <div key={key} style={{ padding: "1rem 0" }}>
-              <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: MKT.ink, marginBottom: "0.35rem" }}>
-                {tFeatures(`${key}.title`)}
-              </h3>
-              <p style={{ fontSize: "0.85rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>
-                {tFeatures(`${key}.description`)}
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8">
+          <div style={{ minWidth: 0 }}>
+            <div style={{ maxWidth: 700, marginBottom: "2rem" }}>
+              <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: MKT.ink, marginBottom: "0.75rem" }}>{t("aboutTitle")}</h2>
+              <p style={{ color: MKT.inkMuted, fontSize: "0.98rem", lineHeight: 1.6 }}>{t("aboutIntro")}</p>
             </div>
-          ))}
-        </div>
-        <div className="text-center" style={{ marginTop: "1.5rem" }}>
-          <Link href="/about-software" style={{ color: MKT.primary, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-            {t("aboutCta")} <ArrowRight size={15} />
-          </Link>
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              {ABOUT_SOFTWARE_FEATURE_KEYS.map((key) => (
+                <div key={key} style={{ padding: "1rem 0" }}>
+                  <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: MKT.ink, marginBottom: "0.35rem" }}>
+                    {tFeatures(`${key}.title`)}
+                  </h3>
+                  <p style={{ fontSize: "0.85rem", color: MKT.inkMuted, margin: 0, lineHeight: 1.55 }}>
+                    {tFeatures(`${key}.description`)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {itOpsVideo && (
+              <DemoVideoSection
+                video={{ type: "youtube", videoId: itOpsVideo.videoId, title: itOpsVideo.title }}
+                title="Daily IT Ops & Security Pick"
+                description={`A fresh video each day from top networking and cybersecurity educators, picked to help IT teams stay sharp. Today: "${itOpsVideo.title}" from ${itOpsVideo.sourceName}.`}
+                watchDemoLabel="Play Video"
+                documentationLabel="Documentation"
+                contactSalesLabel="Contact Sales"
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-6">
+            <DevAiNewsWidget />
+            <AiVideoPicksWidget />
+          </div>
         </div>
       </section>
+
+      <NepaliTechNewsWidget />
 
       <section style={{ background: MKT.surface, padding: "3.5rem 1.25rem" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>

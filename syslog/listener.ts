@@ -116,6 +116,48 @@ async function handleSophosEvent(raw: string, fields: Record<string, string>) {
     `);
 }
 
+// Catch-all for every Sophos log_type this listener doesn't have a dedicated handler for
+// (Firewall, IPS, Anti-Virus, ATP, Wireless, etc.) - previously silently dropped entirely.
+// Field names aren't fully known ahead of time for every category, so this stores the raw
+// key=value pairs as-is (same flexible-JSON pattern as SystemHealthLogs/SophosEventLogs)
+// plus a handful of commonly-useful fields extracted opportunistically under their most
+// common Sophos field names.
+async function handleThreat(raw: string, fields: Record<string, string>) {
+  let logDate: string | null = fields.date ?? null;
+  let logTime: string | null = fields.time ?? null;
+  if (!logDate && fields.timestamp) {
+    const [d, t] = fields.timestamp.split("T");
+    logDate = d ?? null;
+    logTime = t ? t.replace(/[+-]\d{4}$/, "") : null;
+  }
+
+  const db = await getDb();
+  await db
+    .request()
+    .input("logDate", sql.VarChar, logDate)
+    .input("logTime", sql.VarChar, logTime)
+    .input("deviceName", sql.NVarChar, fields.device_name ?? null)
+    .input("logType", sql.NVarChar, fields.log_type ?? null)
+    .input("logComponent", sql.NVarChar, fields.log_component ?? null)
+    .input("logSubtype", sql.NVarChar, fields.log_subtype ?? null)
+    .input("srcIp", sql.VarChar, fields.src_ip ?? null)
+    .input("dstIp", sql.VarChar, fields.dst_ip ?? null)
+    .input("severity", sql.NVarChar, fields.severity ?? fields.priority ?? null)
+    // Sophos often signals the outcome via log_subtype (e.g. "Denied"/"Allowed" on
+    // Content Filtering/Application events) rather than a literal status/action field -
+    // confirmed against real captured rows, where status/action were absent but
+    // log_subtype carried the actual block decision.
+    .input("status", sql.NVarChar, fields.status ?? fields.action ?? fields.log_subtype ?? null)
+    .input("fieldsJson", sql.NVarChar, JSON.stringify(fields))
+    .input("rawMessage", sql.NVarChar, raw)
+    .query(`
+      INSERT INTO SophosThreatLogs
+        (LogDate, LogTime, DeviceName, LogType, LogComponent, LogSubtype, SrcIp, DstIp, Severity, Status, Fields, RawMessage)
+      VALUES
+        (@logDate, @logTime, @deviceName, @logType, @logComponent, @logSubtype, @srcIp, @dstIp, @severity, @status, @fieldsJson, @rawMessage)
+    `);
+}
+
 async function handleRouterWebConn(raw: string, deviceTimestamp: Date | null, message: string) {
   const conn = parseWebConn(message);
   const reverseDns = conn.dstIp ? await reverseDnsLookup(conn.dstIp) : null;
@@ -155,8 +197,10 @@ server.on("message", async (msg, rinfo) => {
       await handleSystemHealth(raw, fields);
     } else if (logType === "Events") {
       await handleSophosEvent(raw, fields);
+    } else if (logType) {
+      // Firewall, IPS, Anti-Virus, ATP, Wireless, etc. - see handleThreat's comment.
+      await handleThreat(raw, fields);
     }
-    // Other log types (Firewall, IPS, etc.) are still ignored for now.
   } catch (err) {
     console.error(`Failed to process syslog message from ${rinfo.address}:`, err);
     console.error("Raw message:", raw);

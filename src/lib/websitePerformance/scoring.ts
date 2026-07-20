@@ -78,6 +78,21 @@ export interface SubScores {
   userExperienceScore: number | null;
 }
 
+// Lighthouse's own `categories.performance.score` (stored as OverallScore, see pagespeed.ts)
+// can legitimately come back null on an otherwise-successful, 200-OK PSI run - Google's cloud
+// Lighthouse occasionally can't compute one of the weighted metric audits (no runtimeError, no
+// runWarnings, just a null category score), even though every metric the four sub-scores below
+// depend on is present. Without a fallback, a scan that genuinely completed ends up with no
+// usable score at all and reads as "Not Tested" everywhere in the UI. Only used when PSI's own
+// score is unavailable - it's a secondary composite, not a replacement for the real one.
+export function deriveOverallScoreFallback(subScores: SubScores): number | null {
+  const parts = [subScores.coreWebVitalsScore, subScores.serverResponseScore, subScores.resourceOptimizationScore, subScores.userExperienceScore].filter(
+    (s): s is number => s !== null
+  );
+  if (parts.length === 0) return null;
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+}
+
 export function computeSubScores(input: ScoringInput): SubScores {
   const cwvParts: number[] = [];
   if (input.largestContentfulPaintMs !== null) cwvParts.push(scoreLowerIsBetter(input.largestContentfulPaintMs, THRESHOLDS.lcpGoodMs, THRESHOLDS.lcpPoorMs));

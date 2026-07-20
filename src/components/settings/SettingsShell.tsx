@@ -13,6 +13,7 @@ import { OrganizationSection } from "./OrganizationSection";
 import { UsersAccessSection } from "./UsersAccessSection";
 import { SecuritySection } from "./SecuritySection";
 import { PasskeysSection } from "./PasskeysSection";
+import { TotpSection } from "./TotpSection";
 import { AccountSecurityChecklist } from "./AccountSecurityChecklist";
 import { SmtpEmailSection } from "./SmtpEmailSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -55,6 +56,7 @@ function SettingsContent({ active, data }: { active: string; data: SettingsIniti
         <div className="flex flex-col gap-6">
           <AccountSecurityChecklist />
           <SecuritySection initialData={data.security} />
+          <TotpSection />
           <div id="passkeys-section">
             <PasskeysSection />
           </div>

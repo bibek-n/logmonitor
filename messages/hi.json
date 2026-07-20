@@ -16,7 +16,7 @@
     "quickLinksTitle": "त्वरित लिंक",
     "legalTitle": "कानूनी",
     "contactTitle": "संपर्क",
-    "copyright": "लॉग मॉनिटर। सर्वाधिकार सुरक्षित।"
+    "copyright": "Tulips Unified Admin Center। सर्वाधिकार सुरक्षित।"
   },
   "languageSwitcher": {
     "label": "भाषा",
@@ -28,7 +28,7 @@
     "hi": "हिन्दी"
   },
   "home": {
-    "metaTitle": "लॉग मॉनिटर — सुरक्षा, नेटवर्क और स्टाफ निगरानी समाधान",
+    "metaTitle": "Tulips Unified Admin Center — सुरक्षा, नेटवर्क और स्टाफ निगरानी समाधान",
     "metaDescription": "एक संपूर्ण आईटी प्रबंधन प्लेटफ़ॉर्म जो सुरक्षा निगरानी, नेटवर्क प्रबंधन, हार्डवेयर एसेट ट्रैकिंग, स्टाफ निगरानी और सहायता टिकटिंग को एक ही डैशबोर्ड में जोड़ता है।",
     "heroTitle": "संपूर्ण सुरक्षा, नेटवर्क और स्टाफ निगरानी समाधान",
     "heroSubtitle": "आपकी सुरक्षा स्थिति, नेटवर्क स्वास्थ्य, हार्डवेयर एसेट्स और स्टाफ गतिविधि की निगरानी के लिए एक ही प्लेटफ़ॉर्म — रीयल-टाइम अलर्ट, भूमिका-आधारित पहुँच और अंतर्निहित सहायता टिकट प्रणाली के साथ।",
@@ -45,10 +45,10 @@
     "ctaContact": "संपर्क करें"
   },
   "aboutSoftware": {
-    "metaTitle": "सॉफ़्टवेयर के बारे में — लॉग मॉनिटर",
+    "metaTitle": "सॉफ़्टवेयर के बारे में — Tulips Unified Admin Center",
     "metaDescription": "एक संपूर्ण आईटी प्रबंधन प्लेटफ़ॉर्म: सुरक्षा निगरानी, नेटवर्क प्रबंधन, हार्डवेयर एसेट ट्रैकिंग, स्टाफ निगरानी, अलर्ट, रिपोर्टिंग और टिकटिंग।",
     "title": "सॉफ़्टवेयर के बारे में",
-    "intro": "लॉग मॉनिटर एक आईटी टीम को अपनी इन्फ्रास्ट्रक्चर को सुरक्षित, दृश्यमान और सुव्यवस्थित रखने के लिए आवश्यक हर चीज़ को एक साथ लाता है — रीयल-टाइम निगरानी, हार्डवेयर इन्वेंट्री, स्टाफ गतिविधि निरीक्षण, और एक अंतर्निहित सहायता टिकट प्रणाली, सब एक ही डैशबोर्ड से।"
+    "intro": "Tulips Unified Admin Center एक आईटी टीम को अपनी इन्फ्रास्ट्रक्चर को सुरक्षित, दृश्यमान और सुव्यवस्थित रखने के लिए आवश्यक हर चीज़ को एक साथ लाता है — रीयल-टाइम निगरानी, हार्डवेयर इन्वेंट्री, स्टाफ गतिविधि निरीक्षण, और एक अंतर्निहित सहायता टिकट प्रणाली, सब एक ही डैशबोर्ड से।"
   },
   "aboutSoftwareFeatures": {
     "security": {
@@ -93,8 +93,8 @@
     }
   },
   "aboutUs": {
-    "metaTitle": "हमारे बारे में — लॉग मॉनिटर",
-    "metaDescription": "लॉग मॉनिटर आईटी प्रबंधन प्लेटफ़ॉर्म के पीछे हमारी कंपनी, दृष्टि और मिशन।",
+    "metaTitle": "हमारे बारे में — Tulips Unified Admin Center",
+    "metaDescription": "Tulips Unified Admin Center आईटी प्रबंधन प्लेटफ़ॉर्म के पीछे हमारी कंपनी, दृष्टि और मिशन।",
     "title": "हमारी कंपनी के बारे में",
     "intro": "हम संगठनों को उनकी तकनीकी इन्फ्रास्ट्रक्चर को कुशलतापूर्वक प्रबंधित करने में मदद करने के लिए डिज़ाइन किए गए व्यापक आईटी प्रबंधन समाधान प्रदान करते हैं।",
     "combined": "हमारा प्लेटफ़ॉर्म सुरक्षा निगरानी, नेटवर्क प्रबंधन, हार्डवेयर एसेट ट्रैकिंग, स्टाफ निगरानी, और सहायता टिकट प्रबंधन को एक ही केंद्रीकृत प्रणाली में जोड़ता है।",
@@ -111,7 +111,7 @@
     }
   },
   "services": {
-    "metaTitle": "हमारी सेवाएँ — लॉग मॉनिटर",
+    "metaTitle": "हमारी सेवाएँ — Tulips Unified Admin Center",
     "metaDescription": "सुरक्षा प्रबंधन, नेटवर्क निगरानी, हार्डवेयर प्रबंधन, स्टाफ निगरानी, और सहायता सेवाएँ।",
     "title": "हमारी सेवाएँ",
     "intro": "आपके संगठन की तकनीक को सुरक्षित, कनेक्टेड, और सुचारू रूप से चलाने के लिए आवश्यक हर चीज़।",
@@ -155,8 +155,8 @@
     "monitoring247": "24/7 निगरानी"
   },
   "contact": {
-    "metaTitle": "संपर्क करें — लॉग मॉनिटर",
-    "metaDescription": "लॉग मॉनिटर टीम से संपर्क करें।",
+    "metaTitle": "संपर्क करें — Tulips Unified Admin Center",
+    "metaDescription": "Tulips Unified Admin Center टीम से संपर्क करें।",
     "title": "संपर्क करें",
     "intro": "कोई प्रश्न है या सहायता चाहिए? संपर्क करें और हमारी टीम जल्द से जल्द जवाब देगी।",
     "addressLabel": "पता",
@@ -177,8 +177,8 @@
     }
   },
   "support": {
-    "metaTitle": "सहायता — लॉग मॉनिटर",
-    "metaDescription": "लॉग मॉनिटर के लिए नॉलेज बेस, सामान्य प्रश्न, गाइड, और सहायता टिकट एक्सेस।",
+    "metaTitle": "सहायता — Tulips Unified Admin Center",
+    "metaDescription": "Tulips Unified Admin Center के लिए नॉलेज बेस, सामान्य प्रश्न, गाइड, और सहायता टिकट एक्सेस।",
     "title": "सहायता",
     "intro": "नीचे उत्तर खोजें, या एक सहायता टिकट सबमिट करें और हमारी टीम सीधे आपकी मदद करेगी।",
     "knowledgeBaseTitle": "नॉलेज बेस",
@@ -221,7 +221,7 @@
     "stillNeedHelp": "अभी भी मदद चाहिए? हमें यहाँ लिखें"
   },
   "newTicket": {
-    "metaTitle": "सहायता टिकट सबमिट करें — लॉग मॉनिटर",
+    "metaTitle": "सहायता टिकट सबमिट करें — Tulips Unified Admin Center",
     "metaDescription": "एक सहायता टिकट सबमिट करें और हमारी टीम आपसे संपर्क करेगी।",
     "title": "सहायता टिकट सबमिट करें",
     "intro": "हमें बताएं कि क्या हो रहा है और हम जल्द से जल्द फॉलो अप करेंगे।",
@@ -252,7 +252,7 @@
     }
   },
   "ticketStatus": {
-    "metaTitle": "टिकट स्थिति जांचें — लॉग मॉनिटर",
+    "metaTitle": "टिकट स्थिति जांचें — Tulips Unified Admin Center",
     "metaDescription": "आपके द्वारा सबमिट किए गए सहायता टिकट की स्थिति जांचें।",
     "title": "टिकट स्थिति जांचें",
     "intro": "अपना टिकट नंबर और सबमिट करते समय उपयोग किया गया ईमेल दर्ज करें।",
@@ -272,19 +272,19 @@
     }
   },
   "privacyPolicy": {
-    "metaTitle": "गोपनीयता नीति — लॉग मॉनिटर",
+    "metaTitle": "गोपनीयता नीति — Tulips Unified Admin Center",
     "title": "गोपनीयता नीति",
     "body": "यह अस्थायी गोपनीयता नीति अंतिम, कानूनी रूप से समीक्षित संस्करण द्वारा प्रतिस्थापित की जाएगी। इसमें यह वर्णन होना चाहिए कि कौन सा डेटा एकत्र किया जाता है (किसी भी एंडपॉइंट या स्टाफ निगरानी डेटा सहित), इसका उपयोग कैसे किया जाता है, इसे कितने समय तक रखा जाता है, और व्यक्ति लागू डेटा अधिकारों का प्रयोग कैसे कर सकते हैं।"
   },
   "terms": {
-    "metaTitle": "नियम और शर्तें — लॉग मॉनिटर",
+    "metaTitle": "नियम और शर्तें — Tulips Unified Admin Center",
     "title": "नियम और शर्तें",
     "body": "यह प्लेसहोल्डर इस प्लेटफ़ॉर्म के उपयोग को नियंत्रित करने वाली अंतिम, कानूनी रूप से समीक्षित सेवा शर्तों द्वारा प्रतिस्थापित किया जाएगा।"
   },
   "login": {
-    "heading": "लॉग मॉनिटर",
+    "heading": "Tulips Unified Admin Center",
     "brandTagline": "आधुनिक आईटी टीमों के लिए संपूर्ण सुरक्षा, नेटवर्क और स्टाफ निगरानी समाधान।",
-    "brandDescription": "लॉग मॉनिटर सुरक्षा निगरानी, नेटवर्क स्वास्थ्य, हार्डवेयर एसेट ट्रैकिंग और स्टाफ गतिविधि को एक रीयल-टाइम डैशबोर्ड में एक साथ लाता है — ताकि आपकी आईटी टीम को हमेशा पता रहे कि पूरे संगठन में क्या हो रहा है।",
+    "brandDescription": "Tulips Unified Admin Center सुरक्षा निगरानी, नेटवर्क स्वास्थ्य, हार्डवेयर एसेट ट्रैकिंग और स्टाफ गतिविधि को एक रीयल-टाइम डैशबोर्ड में एक साथ लाता है — ताकि आपकी आईटी टीम को हमेशा पता रहे कि पूरे संगठन में क्या हो रहा है।",
     "brandFeature1": "लाइव नेटवर्क और बैंडविड्थ निगरानी",
     "brandFeature2": "एंडपॉइंट हार्डवेयर और सॉफ़्टवेयर इन्वेंटरी",
     "brandFeature3": "वेबसाइट और इंफ्रास्ट्रक्चर सुरक्षा ऑडिट",
@@ -318,7 +318,7 @@
     }
   },
   "maintenance": {
-    "metaTitle": "रखरखाव के अंतर्गत — लॉग मॉनिटर",
+    "metaTitle": "रखरखाव के अंतर्गत — Tulips Unified Admin Center",
     "title": "रखरखाव के अंतर्गत",
     "defaultMessage": "हम वर्तमान में निर्धारित रखरखाव कर रहे हैं। कृपया कुछ ही समय में फिर से जांचें।"
   },
@@ -335,9 +335,13 @@
       "employeeChat": "कर्मचारी चैट",
       "cameras": "कैमरे",
       "sendNotification": "सूचना भेजें",
-      "networkDiagram": "नेटवर्क डायग्राम",
       "websitePerformance": "वेबसाइट गति और प्रदर्शन",
-      "companySettings": "कंपनी सेटिंग्स"
+      "threatScanner": "थ्रेट स्कैनर",
+      "malwareDetection": "मैलवेयर डिटेक्शन",
+      "seoScanner": "SEO स्कैनर",
+      "intrusionDetection": "घुसपैठ का पता लगाना",
+      "companySettings": "कंपनी सेटिंग्स",
+      "gitConnections": "इंटीग्रेशन"
     },
     "groups": {
       "mikrotikRouter": {
@@ -346,6 +350,13 @@
           "routerClients": "राउटर क्लाइंट",
           "routerHealth": "राउटर स्वास्थ्य",
           "routerWeb": "राउटर वेब कनेक्शन"
+        }
+      },
+      "networkDiagram": {
+        "label": "नेटवर्क डायग्राम",
+        "items": {
+          "existingDiagrams": "मौजूदा डायग्राम",
+          "designNewDiagram": "नया डायग्राम डिज़ाइन करें"
         }
       },
       "sophosFirewall": {
@@ -432,6 +443,12 @@
           "downloadAgent": "एजेंट डाउनलोड करें"
         }
       },
+      "sqlServerMonitoring": {
+        "label": "SQL सर्वर निगरानी",
+        "items": {
+          "sqlServerMonitoringList": "इंस्टेंस"
+        }
+      },
       "website": {
         "label": "वेबसाइट",
         "items": {
@@ -456,6 +473,26 @@
           "releases": "रिलीज़",
           "environments": "वातावरण",
           "builds": "बिल्ड"
+        }
+      },
+      "codeQuality": {
+        "label": "कोड गुणवत्ता",
+        "items": {
+          "codeQualityDashboard": "डैशबोर्ड",
+          "codeQualityProjects": "प्रोजेक्ट्स",
+          "codeQualityScans": "स्कैन",
+          "codeQualityIssues": "समस्याएं",
+          "codeQualityRulesSettings": "नियम और सेटिंग्स"
+        }
+      },
+      "laravelSecurity": {
+        "label": "Laravel सुरक्षा",
+        "items": {
+          "laravelSecurityDashboard": "डैशबोर्ड",
+          "laravelSecurityProjects": "प्रोजेक्ट्स",
+          "laravelSecurityScans": "स्कैन",
+          "laravelSecurityIssues": "समस्याएं",
+          "laravelSecurityRulesSettings": "नियम और सेटिंग्स"
         }
       }
     }
@@ -569,6 +606,7 @@
       "noMatchesText": "आपकी खोज से कोई कर्मचारी मेल नहीं खाता।",
       "nameColumn": "नाम",
       "statusColumn": "स्थिति",
+      "emailColumn": "ईमेल",
       "departmentColumn": "विभाग",
       "positionColumn": "पद",
       "computerNameColumn": "कंप्यूटर नाम",
@@ -597,6 +635,10 @@
       "positionLabel": "पद नाम",
       "noneOption": "— कोई नहीं —",
       "addressLabel": "पता",
+      "computerNameLabel": "कंप्यूटर नाम",
+      "computerNamePlaceholder": "उदा. DESKTOP-A1B2C3",
+      "computerNameHintDetected": "नेटवर्क से स्वतः पहचाना गया \"{name}\"। इसे उपयोग में रखने के लिए खाली छोड़ें, या इसे बदलने के लिए एक नाम दर्ज करें।",
+      "computerNameHintNone": "नेटवर्क से अभी तक कोई डिवाइस नाम नहीं मिला है। इसे मैन्युअल रूप से सेट करने के लिए एक नाम दर्ज करें।",
       "nameRequiredError": "नाम आवश्यक है।",
       "saveFailedError": "सहेजने में विफल",
       "photoUploadFailedError": "फ़ोटो अपलोड विफल",
@@ -949,7 +991,7 @@
       "passwordUnchangedPlaceholder": "(अपरिवर्तित — बदलने के लिए दर्ज करें)",
       "enterPasswordPlaceholder": "पासवर्ड दर्ज करें",
       "senderNameLabel": "प्रेषक का नाम",
-      "senderNamePlaceholder": "Log Monitor",
+      "senderNamePlaceholder": "Tulips Unified Admin Center",
       "senderEmailLabel": "प्रेषक ईमेल पता",
       "senderEmailPlaceholder": "noreply@example.com",
       "replyToLabel": "रिप्लाई-टू ईमेल पता",

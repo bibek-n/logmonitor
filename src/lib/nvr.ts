@@ -1,5 +1,6 @@
 import { getDb, sql } from "./db";
 import { getMediaServiceUrl, getProfiles, getStreamUri, type OnvifProfile } from "./onvif";
+import { probeVideoCodec } from "./videoCodecProbe";
 
 export interface NvrDeviceRow {
   Id: number;
@@ -107,17 +108,69 @@ export async function syncNvrCameras(nvrId: number): Promise<{ ok: boolean; erro
 
     const profiles = preferMainStreamProfiles(allProfiles);
 
-    for (const profile of profiles) {
-      let streamUri: string | null = null;
-      try {
-        streamUri = await getStreamUri(mediaUrl, nvr.Username, nvr.Password, profile.token);
-      } catch {
-        // Best-effort - some channels/firmwares don't expose a stream URI via ONVIF; the
-        // camera still shows up (live-view is built from ChannelNumber directly, see
-        // rtspUrlFor - this stored value isn't actually used by that path today).
-      }
+    // Fetch each channel's ONVIF stream URI first (sequential — lightweight SOAP calls), then
+    // probe reachability for all channels in parallel (each probe is capped at 3s, so running
+    // them together keeps total sync time close to one probe's latency instead of the sum of
+    // all of them for a large multi-channel NVR).
+    const onvifChannelInfo = await Promise.all(
+      profiles.map(async (profile) => {
+        let streamUri: string | null = null;
+        try {
+          streamUri = await getStreamUri(mediaUrl, nvr.Username, nvr.Password, profile.token);
+        } catch {
+          // Best-effort - some channels/firmwares don't expose a stream URI via ONVIF; the
+          // camera still shows up (live-view is built from ChannelNumber directly, see
+          // rtspUrlFor - this stored value isn't actually used by that path today).
+        }
+        const channelNumber = parseChannelNumber(profile.name);
+        return { profile, streamUri, channelNumber };
+      })
+    );
 
-      const channelNumber = parseChannelNumber(profile.name);
+    // Some NVRs simply omit a channel from GetProfiles entirely rather than listing it with no
+    // signal - confirmed live on a 16-channel unit that reports channels 1-5 and 7-16 but never
+    // channel 6 at all, even though the RTSP endpoint for channel 6 itself works fine. Gap-fill
+    // any channel number missing between 1 and the highest one ONVIF DID report, probing it
+    // directly via the same predictable per-channel RTSP URL (rtspUrlFor only needs a channel
+    // number, not an ONVIF profile) so a channel the recorder just doesn't advertise still shows
+    // up in the grid with a real status instead of silently not existing.
+    const reportedChannelNumbers = new Set(onvifChannelInfo.map((c) => c.channelNumber).filter((n): n is number => n !== null));
+    const maxReportedChannel = reportedChannelNumbers.size > 0 ? Math.max(...reportedChannelNumbers) : 0;
+    const gapChannelNumbers: number[] = [];
+    for (let n = 1; n <= maxReportedChannel; n++) {
+      if (!reportedChannelNumbers.has(n)) gapChannelNumbers.push(n);
+    }
+    const gapChannelInfo = gapChannelNumbers.map((channelNumber) => ({
+      profile: { token: `gap-channel-${channelNumber}`, name: `Channel ${channelNumber}` },
+      streamUri: null as string | null,
+      channelNumber,
+    }));
+
+    const channelInfo = [...onvifChannelInfo, ...gapChannelInfo];
+
+    // Browsers' WebRTC stacks can't decode H.265/HEVC - confirmed live that some channels on
+    // a mixed-codec NVR are HEVC while others are H.264, which is exactly why live view/
+    // playback silently fails for only some cameras. Detected via ffprobe (ONVIF doesn't
+    // reliably expose this) so webrtc/route.ts and playback/route.ts know upfront which
+    // channels need to go through the transcode relay instead of straight to MediaMTX.
+    const videoCodecs = await Promise.all(
+      channelInfo.map(({ channelNumber }) => (channelNumber === null ? Promise.resolve(null) : probeVideoCodec(rtspUrlFor(nvr, channelNumber))))
+    );
+
+    // Status is derived from whether ffprobe actually found decodable video, not just from a
+    // bare RTSP DESCRIBE handshake succeeding - confirmed live that a channel with no physical
+    // camera attached can still answer DESCRIBE (the NVR's RTSP service is up) while never
+    // producing real video/audio, which made probeRtspStream alone report a misleading
+    // "Online" for a channel with nothing actually connected to it.
+    const statuses = channelInfo.map(({ channelNumber }, i) => {
+      if (channelNumber === null) return "Unknown";
+      return videoCodecs[i] === "h264" || videoCodecs[i] === "hevc" ? "Online" : "Offline";
+    });
+
+    for (let i = 0; i < channelInfo.length; i++) {
+      const { profile, streamUri, channelNumber } = channelInfo[i];
+      const status = statuses[i];
+      const videoCodec = videoCodecs[i];
 
       await db
         .request()
@@ -126,19 +179,22 @@ export async function syncNvrCameras(nvrId: number): Promise<{ ok: boolean; erro
         .input("name", sql.NVarChar, profile.name)
         .input("streamUri", sql.NVarChar, streamUri)
         .input("channelNumber", sql.Int, channelNumber)
+        .input("status", sql.NVarChar, status)
+        .input("videoCodec", sql.NVarChar, videoCodec)
         .query(`
           MERGE NvrCameras AS target
           USING (SELECT @nvrId AS NvrId, @token AS ProfileToken) AS src
           ON target.NvrId = src.NvrId AND target.ProfileToken = src.ProfileToken
-          WHEN MATCHED THEN UPDATE SET ChannelName = @name, StreamUri = @streamUri, ChannelNumber = @channelNumber, Status = 'Online', LastSeenAt = SYSUTCDATETIME()
-          WHEN NOT MATCHED THEN INSERT (NvrId, ProfileToken, ChannelName, StreamUri, ChannelNumber, Status, LastSeenAt)
-            VALUES (@nvrId, @token, @name, @streamUri, @channelNumber, 'Online', SYSUTCDATETIME());
+          WHEN MATCHED THEN UPDATE SET ChannelName = @name, StreamUri = @streamUri, ChannelNumber = @channelNumber, Status = @status, VideoCodec = @videoCodec, LastSeenAt = SYSUTCDATETIME()
+          WHEN NOT MATCHED THEN INSERT (NvrId, ProfileToken, ChannelName, StreamUri, ChannelNumber, Status, VideoCodec, LastSeenAt)
+            VALUES (@nvrId, @token, @name, @streamUri, @channelNumber, @status, @videoCodec, SYSUTCDATETIME());
         `);
     }
 
     // Channels that disappeared from the NVR's own profile list (removed/renamed camera)
-    // are dropped rather than left showing stale "Online" forever.
-    const currentTokens = profiles.map((p) => p.token);
+    // are dropped rather than left showing stale "Online" forever - gap-filled channel tokens
+    // are included here too, or they'd be deleted as "stale" on the very next sync.
+    const currentTokens = channelInfo.map(({ profile }) => profile.token);
     if (currentTokens.length > 0) {
       const tokenList = currentTokens.map((t) => `'${t.replace(/'/g, "''")}'`).join(",");
       await db.request().input("nvrId", sql.Int, nvrId).query(`DELETE FROM NvrCameras WHERE NvrId = @nvrId AND ProfileToken NOT IN (${tokenList})`);
@@ -149,7 +205,7 @@ export async function syncNvrCameras(nvrId: number): Promise<{ ok: boolean; erro
       .input("id", sql.Int, nvrId)
       .query("UPDATE NvrDevices SET Status = 'Online', LastSyncedAt = SYSUTCDATETIME(), LastError = NULL WHERE Id = @id");
 
-    return { ok: true, cameraCount: profiles.length };
+    return { ok: true, cameraCount: channelInfo.length };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await db

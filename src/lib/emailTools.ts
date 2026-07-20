@@ -296,10 +296,10 @@ export async function emailDeliveryTest(opts: DeliveryTestOptions): Promise<stri
     const message = [
       `From: ${from}`,
       `To: ${to}`,
-      "Subject: Test Email Delivery — Log Monitor",
+      "Subject: Test Email Delivery — Tulips Unified Admin Center",
       `Date: ${new Date().toUTCString()}`,
       "",
-      `This is a test email sent from the Log Monitor's Email Delivery Test tool at ${new Date().toISOString()}.`,
+      `This is a test email sent from the Tulips Unified Admin Center's Email Delivery Test tool at ${new Date().toISOString()}.`,
     ].join("\r\n");
 
     const finalResp = await sendCmd(socket, dotStuff(message) + "\r\n.\r\n");

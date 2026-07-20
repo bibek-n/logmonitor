@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Activity, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { PUBLIC_NAV } from "@/lib/websiteContent";
 import { MKT } from "@/lib/marketingTheme";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { TulipsLogo } from "@/components/branding/TulipsLogo";
 
 export function PublicNav() {
   const [open, setOpen] = useState(false);
@@ -27,9 +28,8 @@ export function PublicNav() {
         className="flex items-center justify-between"
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0.85rem 1.25rem" }}
       >
-        <Link href="/" className="flex items-center gap-2" style={{ color: MKT.ink, textDecoration: "none", fontWeight: 700 }}>
-          <Activity size={22} style={{ color: MKT.primary }} />
-          <span>Log Monitor</span>
+        <Link href="/" className="flex items-center" style={{ textDecoration: "none" }}>
+          <TulipsLogo height={34} />
         </Link>
 
         <nav className="hidden md:flex items-center gap-6" style={{ fontSize: "0.9rem" }}>

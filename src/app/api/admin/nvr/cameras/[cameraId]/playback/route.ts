@@ -4,6 +4,7 @@ import { getDb, sql } from "@/lib/db";
 import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
 import { playbackRtspUrlFor, type NvrDeviceRow } from "@/lib/nvr";
 import { playbackPathName, addPlaybackPath, removePlaybackPath } from "@/lib/mediamtx";
+import { startPlaybackTranscode, stopPlaybackTranscode } from "@/lib/transcodeRelay";
 
 const MAX_PLAYBACK_WINDOW_MS = 6 * 60 * 60 * 1000; // 6 hours - a sane upper bound on one session
 
@@ -12,7 +13,9 @@ async function loadCameraAndNvr(cameraId: number) {
   const camResult = await db
     .request()
     .input("id", sql.Int, cameraId)
-    .query<{ NvrId: number; ChannelNumber: number | null }>("SELECT NvrId, ChannelNumber FROM NvrCameras WHERE Id = @id");
+    .query<{ NvrId: number; ChannelNumber: number | null; VideoCodec: string | null }>(
+      "SELECT NvrId, ChannelNumber, VideoCodec FROM NvrCameras WHERE Id = @id"
+    );
   const cam = camResult.recordset[0];
   if (!cam || cam.ChannelNumber == null) return null;
 
@@ -20,7 +23,15 @@ async function loadCameraAndNvr(cameraId: number) {
   const nvr = nvrResult.recordset[0];
   if (!nvr) return null;
 
-  return { nvr, channelNumber: cam.ChannelNumber };
+  return { nvr, channelNumber: cam.ChannelNumber, videoCodec: cam.VideoCodec };
+}
+
+// Playback path names get a "_h264" suffix when they're a transcode-relay target rather than
+// a direct MediaMTX pull from the NVR - lets DELETE tell the two apart without a second DB
+// lookup keyed off VideoCodec (a stale/changed VideoCodec between POST and DELETE could
+// otherwise cause the wrong teardown path to run for a session already in flight).
+function isTranscodedPathName(pathName: string): boolean {
+  return pathName.endsWith("_h264");
 }
 
 // Registers an on-demand MediaMTX path sourced from the NVR's recorded-playback RTSP
@@ -54,15 +65,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cam
 
   const rtspUrl = playbackRtspUrlFor(context.nvr, context.channelNumber, startTime, endTime);
   const sessionId = crypto.randomBytes(6).toString("hex");
-  const pathName = playbackPathName(cameraId, sessionId);
+  const basePathName = playbackPathName(cameraId, sessionId);
+
+  // Recordings are typically encoded the same way as the channel's live main stream - an
+  // HEVC live channel means HEVC recordings too, so playback needs the same transcode relay
+  // live view uses (see the module comment on transcodeRelay.ts for why).
+  if (context.videoCodec === "hevc") {
+    const pathName = `${basePathName}_h264`;
+    try {
+      await startPlaybackTranscode(pathName, rtspUrl);
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Failed to start playback" }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, pathName });
+  }
 
   try {
-    await addPlaybackPath(pathName, rtspUrl);
+    await addPlaybackPath(basePathName, rtspUrl);
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Failed to start playback" }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, pathName });
+  return NextResponse.json({ ok: true, pathName: basePathName });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ cameraId: string }> }) {
@@ -80,6 +104,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
     return NextResponse.json({ ok: false, error: "Invalid path name" }, { status: 400 });
   }
 
-  await removePlaybackPath(pathName);
+  if (isTranscodedPathName(pathName)) {
+    await stopPlaybackTranscode(pathName);
+  } else {
+    await removePlaybackPath(pathName);
+  }
   return NextResponse.json({ ok: true });
 }

@@ -1,15 +1,46 @@
 "use client";
 
 import { useEffect, useState, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { ChevronsLeft, ChevronsRight, Activity } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, X } from "lucide-react";
 import Sidebar from "./Sidebar";
+import { useMobileSidebar } from "./MobileSidebarContext";
+import { labelStyle } from "./sidebarLabelStyle";
+import { TulipsMark } from "./branding/TulipsMark";
+import { TulipsLogo } from "./branding/TulipsLogo";
 
 const SIDEBAR_COLLAPSE_KEY = "logmonitor-sidebar-collapsed";
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
 
-export default function SidebarShell({ children }: { children: ReactNode }) {
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT);
+    setIsMobile(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
+}
+
+export default function SidebarShell({
+  children,
+  qaAccess = false,
+  codeQualityAccess = false,
+  laravelSecurityAccess = false,
+}: {
+  children: ReactNode;
+  qaAccess?: boolean;
+  codeQualityAccess?: boolean;
+  laravelSecurityAccess?: boolean;
+}) {
   const t = useTranslations("sidebar");
+  const pathname = usePathname();
+  const mobileSidebar = useMobileSidebar();
+  const isMobile = useIsMobile();
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -18,10 +49,19 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // Close the mobile off-canvas drawer whenever navigation completes, regardless of how
+  // the user triggered it (nav link, breadcrumb, browser back/forward).
+  useEffect(() => {
+    mobileSidebar.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   // Avoid a mismatch between the SSR-rendered (always expanded) markup and the localStorage
   // preference read on mount — render expanded until hydration settles, then apply the stored
   // width. Trades a one-frame "always starts expanded" flash for zero hydration warnings.
-  const collapsed = hydrated && railCollapsed;
+  // On mobile, the drawer always opens as the full expanded overlay regardless of the
+  // desktop icon-rail preference — a narrow icon-only overlay isn't a usable menu there.
+  const collapsed = hydrated && railCollapsed && !(isMobile && mobileSidebar.open);
 
   function toggleRail() {
     setRailCollapsed((prev) => {
@@ -39,7 +79,7 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
   return (
     <motion.aside
       animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.2, ease: "easeInOut" }}
+      transition={{ duration: 0.22, ease: "easeInOut" }}
       className="dash-sidebar"
       style={{ overflow: "hidden" }}
     >
@@ -47,16 +87,30 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
         className="brand"
         style={{ display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: collapsed ? "center" : "flex-start" }}
       >
-        <Activity size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
-        {!collapsed && <span style={{ whiteSpace: "nowrap" }}>Log Monitor</span>}
+        {collapsed ? (
+          <TulipsMark size={20} className="flex-shrink-0" />
+        ) : (
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <TulipsLogo height={28} padded />
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={mobileSidebar.close}
+          className="dash-mobile-close"
+          aria-label={t("collapseSidebar")}
+          style={{ background: "none", border: "none", color: "var(--ink-muted)", cursor: "pointer", display: "none" }}
+        >
+          <X size={18} />
+        </button>
       </div>
-
-      <Sidebar collapsed={collapsed} onExpandRail={expandRail} />
 
       <button
         type="button"
         onClick={toggleRail}
         title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
+        aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
+        aria-expanded={!collapsed}
         style={{
           display: "flex",
           alignItems: "center",
@@ -64,7 +118,7 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
           gap: "0.4rem",
           width: "100%",
           padding: "0.45rem 0.5rem",
-          margin: "0.5rem 0",
+          margin: "0.6rem 0 0.75rem",
           borderRadius: 8,
           border: "1px solid var(--border)",
           background: "transparent",
@@ -73,13 +127,11 @@ export default function SidebarShell({ children }: { children: ReactNode }) {
           fontSize: "0.78rem",
         }}
       >
-        {collapsed ? <ChevronsRight size={15} /> : (
-          <>
-            <ChevronsLeft size={15} />
-            <span>{t("collapse")}</span>
-          </>
-        )}
+        {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+        <span style={labelStyle(collapsed)}>{t("collapse")}</span>
       </button>
+
+      <Sidebar collapsed={collapsed} onExpandRail={expandRail} qaAccess={qaAccess} codeQualityAccess={codeQualityAccess} laravelSecurityAccess={laravelSecurityAccess} />
 
       <div style={{ display: collapsed ? "none" : "block" }}>{children}</div>
     </motion.aside>

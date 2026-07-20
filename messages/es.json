@@ -16,7 +16,7 @@
     "quickLinksTitle": "Enlaces Rápidos",
     "legalTitle": "Legal",
     "contactTitle": "Contacto",
-    "copyright": "Log Monitor. Todos los derechos reservados."
+    "copyright": "Tulips Unified Admin Center. Todos los derechos reservados."
   },
   "languageSwitcher": {
     "label": "Idioma",
@@ -28,7 +28,7 @@
     "hi": "हिन्दी"
   },
   "home": {
-    "metaTitle": "Log Monitor — Solución de Seguridad, Red y Monitoreo de Personal",
+    "metaTitle": "Tulips Unified Admin Center — Solución de Seguridad, Red y Monitoreo de Personal",
     "metaDescription": "Una plataforma completa de gestión de TI que combina monitoreo de seguridad, gestión de red, seguimiento de activos de hardware, monitoreo de personal y tickets de soporte en un solo panel.",
     "heroTitle": "Solución Completa de Seguridad, Red y Monitoreo de Personal",
     "heroSubtitle": "Una única plataforma para monitorear su postura de seguridad, la salud de la red, los activos de hardware y la actividad del personal, con alertas en tiempo real, acceso basado en roles y un sistema de tickets de soporte integrado.",
@@ -45,10 +45,10 @@
     "ctaContact": "Contáctanos"
   },
   "aboutSoftware": {
-    "metaTitle": "Sobre el Software — Log Monitor",
+    "metaTitle": "Sobre el Software — Tulips Unified Admin Center",
     "metaDescription": "Una plataforma completa de gestión de TI: monitoreo de seguridad, gestión de red, seguimiento de activos de hardware, monitoreo de personal, alertas, informes y tickets.",
     "title": "Sobre el Software",
-    "intro": "Log Monitor reúne todo lo que un equipo de TI necesita para mantener la infraestructura segura, visible y bien gestionada — monitoreo en tiempo real, inventario de hardware, supervisión de la actividad del personal y un sistema de tickets de soporte integrado, todo desde un solo panel."
+    "intro": "Tulips Unified Admin Center reúne todo lo que un equipo de TI necesita para mantener la infraestructura segura, visible y bien gestionada — monitoreo en tiempo real, inventario de hardware, supervisión de la actividad del personal y un sistema de tickets de soporte integrado, todo desde un solo panel."
   },
   "aboutSoftwareFeatures": {
     "security": {
@@ -93,8 +93,8 @@
     }
   },
   "aboutUs": {
-    "metaTitle": "Sobre Nosotros — Log Monitor",
-    "metaDescription": "Nuestra empresa, visión y misión detrás de la plataforma de gestión de TI Log Monitor.",
+    "metaTitle": "Sobre Nosotros — Tulips Unified Admin Center",
+    "metaDescription": "Nuestra empresa, visión y misión detrás de la plataforma de gestión de TI Tulips Unified Admin Center.",
     "title": "Sobre Nuestra Empresa",
     "intro": "Ofrecemos soluciones integrales de gestión de TI diseñadas para ayudar a las organizaciones a administrar eficientemente su infraestructura tecnológica.",
     "combined": "Nuestra plataforma combina Monitoreo de Seguridad, Gestión de Red, Seguimiento de Activos de Hardware, Monitoreo de Personal y Gestión de Tickets de Soporte en un solo sistema centralizado.",
@@ -111,7 +111,7 @@
     }
   },
   "services": {
-    "metaTitle": "Nuestros Servicios — Log Monitor",
+    "metaTitle": "Nuestros Servicios — Tulips Unified Admin Center",
     "metaDescription": "Gestión de seguridad, monitoreo de red, gestión de hardware, monitoreo de personal y servicios de soporte.",
     "title": "Nuestros Servicios",
     "intro": "Todo lo que necesita para mantener la tecnología de su organización segura, conectada y funcionando sin problemas.",
@@ -155,8 +155,8 @@
     "monitoring247": "Monitoreo 24/7"
   },
   "contact": {
-    "metaTitle": "Contáctanos — Log Monitor",
-    "metaDescription": "Póngase en contacto con el equipo de Log Monitor.",
+    "metaTitle": "Contáctanos — Tulips Unified Admin Center",
+    "metaDescription": "Póngase en contacto con el equipo de Tulips Unified Admin Center.",
     "title": "Contáctanos",
     "intro": "¿Tiene alguna pregunta o necesita ayuda? Comuníquese con nosotros y nuestro equipo responderá lo antes posible.",
     "addressLabel": "Dirección",
@@ -177,8 +177,8 @@
     }
   },
   "support": {
-    "metaTitle": "Soporte — Log Monitor",
-    "metaDescription": "Base de conocimientos, preguntas frecuentes, guías y acceso a tickets de soporte para Log Monitor.",
+    "metaTitle": "Soporte — Tulips Unified Admin Center",
+    "metaDescription": "Base de conocimientos, preguntas frecuentes, guías y acceso a tickets de soporte para Tulips Unified Admin Center.",
     "title": "Soporte",
     "intro": "Encuentre respuestas a continuación, o envíe un ticket de soporte y nuestro equipo le ayudará directamente.",
     "knowledgeBaseTitle": "Base de Conocimientos",
@@ -221,7 +221,7 @@
     "stillNeedHelp": "¿Aún necesita ayuda? Escríbanos a"
   },
   "newTicket": {
-    "metaTitle": "Enviar un Ticket de Soporte — Log Monitor",
+    "metaTitle": "Enviar un Ticket de Soporte — Tulips Unified Admin Center",
     "metaDescription": "Envíe un ticket de soporte y nuestro equipo se pondrá en contacto con usted.",
     "title": "Enviar un Ticket de Soporte",
     "intro": "Cuéntenos qué sucede y le responderemos lo antes posible.",
@@ -252,7 +252,7 @@
     }
   },
   "ticketStatus": {
-    "metaTitle": "Consultar Estado del Ticket — Log Monitor",
+    "metaTitle": "Consultar Estado del Ticket — Tulips Unified Admin Center",
     "metaDescription": "Consulte el estado de un ticket de soporte que envió.",
     "title": "Consultar Estado del Ticket",
     "intro": "Ingrese su número de ticket y el correo electrónico que usó para enviarlo.",
@@ -272,19 +272,19 @@
     }
   },
   "privacyPolicy": {
-    "metaTitle": "Política de Privacidad — Log Monitor",
+    "metaTitle": "Política de Privacidad — Tulips Unified Admin Center",
     "title": "Política de Privacidad",
     "body": "Esta política de privacidad provisional será reemplazada por la versión final revisada legalmente. Debe describir qué datos se recopilan (incluidos los datos de monitoreo de terminales o de personal), cómo se utilizan, cuánto tiempo se conservan y cómo las personas pueden ejercer los derechos de datos correspondientes."
   },
   "terms": {
-    "metaTitle": "Términos y Condiciones — Log Monitor",
+    "metaTitle": "Términos y Condiciones — Tulips Unified Admin Center",
     "title": "Términos y Condiciones",
     "body": "Este marcador de posición será reemplazado por los términos de servicio finales y revisados legalmente que rigen el uso de esta plataforma."
   },
   "login": {
-    "heading": "Log Monitor",
+    "heading": "Tulips Unified Admin Center",
     "brandTagline": "Solución completa de seguridad, red y monitoreo de personal para equipos de TI modernos.",
-    "brandDescription": "Log Monitor reúne el monitoreo de seguridad, la salud de la red, el seguimiento de activos de hardware y la actividad del personal en un panel en tiempo real, para que tu equipo de TI siempre sepa qué está pasando en toda la organización.",
+    "brandDescription": "Tulips Unified Admin Center reúne el monitoreo de seguridad, la salud de la red, el seguimiento de activos de hardware y la actividad del personal en un panel en tiempo real, para que tu equipo de TI siempre sepa qué está pasando en toda la organización.",
     "brandFeature1": "Monitoreo de red y ancho de banda en vivo",
     "brandFeature2": "Inventario de hardware y software de endpoints",
     "brandFeature3": "Auditorías de seguridad de sitios web e infraestructura",
@@ -318,7 +318,7 @@
     }
   },
   "maintenance": {
-    "metaTitle": "En Mantenimiento — Log Monitor",
+    "metaTitle": "En Mantenimiento — Tulips Unified Admin Center",
     "title": "En Mantenimiento",
     "defaultMessage": "Actualmente estamos realizando un mantenimiento programado. Por favor, vuelva a consultar en breve."
   },
@@ -335,9 +335,13 @@
       "employeeChat": "Chat de Empleados",
       "cameras": "Cámaras",
       "sendNotification": "Enviar Notificación",
-      "networkDiagram": "Diagrama de Red",
       "websitePerformance": "Velocidad y Rendimiento del Sitio Web",
-      "companySettings": "Configuración de la Empresa"
+      "threatScanner": "Escáner de Amenazas",
+      "malwareDetection": "Detección de Malware",
+      "seoScanner": "Escáner SEO",
+      "intrusionDetection": "Detección de Intrusiones",
+      "companySettings": "Configuración de la Empresa",
+      "gitConnections": "Integración"
     },
     "groups": {
       "mikrotikRouter": {
@@ -346,6 +350,13 @@
           "routerClients": "Clientes del Router",
           "routerHealth": "Estado del Router",
           "routerWeb": "Conexiones Web del Router"
+        }
+      },
+      "networkDiagram": {
+        "label": "Diagrama de Red",
+        "items": {
+          "existingDiagrams": "Diagramas Existentes",
+          "designNewDiagram": "Diseñar Nuevo Diagrama"
         }
       },
       "sophosFirewall": {
@@ -432,6 +443,12 @@
           "downloadAgent": "Descargar Agente"
         }
       },
+      "sqlServerMonitoring": {
+        "label": "Monitoreo de SQL Server",
+        "items": {
+          "sqlServerMonitoringList": "Instancias"
+        }
+      },
       "website": {
         "label": "Sitio Web",
         "items": {
@@ -456,6 +473,26 @@
           "releases": "Lanzamientos",
           "environments": "Entornos",
           "builds": "Compilaciones"
+        }
+      },
+      "codeQuality": {
+        "label": "Calidad del Código",
+        "items": {
+          "codeQualityDashboard": "Panel",
+          "codeQualityProjects": "Proyectos",
+          "codeQualityScans": "Análisis",
+          "codeQualityIssues": "Incidencias",
+          "codeQualityRulesSettings": "Reglas y Configuración"
+        }
+      },
+      "laravelSecurity": {
+        "label": "Seguridad de Laravel",
+        "items": {
+          "laravelSecurityDashboard": "Panel",
+          "laravelSecurityProjects": "Proyectos",
+          "laravelSecurityScans": "Análisis",
+          "laravelSecurityIssues": "Incidencias",
+          "laravelSecurityRulesSettings": "Reglas y Configuración"
         }
       }
     }
@@ -569,6 +606,7 @@
       "noMatchesText": "Ningún empleado coincide con su búsqueda.",
       "nameColumn": "Nombre",
       "statusColumn": "Estado",
+      "emailColumn": "Correo Electrónico",
       "departmentColumn": "Departamento",
       "positionColumn": "Puesto",
       "computerNameColumn": "Nombre del Equipo",
@@ -597,6 +635,10 @@
       "positionLabel": "Cargo",
       "noneOption": "— Ninguno —",
       "addressLabel": "Dirección",
+      "computerNameLabel": "Nombre del Equipo",
+      "computerNamePlaceholder": "p. ej. DESKTOP-A1B2C3",
+      "computerNameHintDetected": "Detectado automáticamente en la red como \"{name}\". Déjelo en blanco para seguir usándolo, o introduzca un nombre para anularlo.",
+      "computerNameHintNone": "Aún no se ha detectado ningún nombre de dispositivo en la red. Introduzca uno para establecerlo manualmente.",
       "nameRequiredError": "El nombre es obligatorio.",
       "saveFailedError": "Error al guardar",
       "photoUploadFailedError": "Error al subir la foto",
@@ -949,7 +991,7 @@
       "passwordUnchangedPlaceholder": "(sin cambios — ingrese para reemplazar)",
       "enterPasswordPlaceholder": "Ingrese la contraseña",
       "senderNameLabel": "Nombre del Remitente",
-      "senderNamePlaceholder": "Log Monitor",
+      "senderNamePlaceholder": "Tulips Unified Admin Center",
       "senderEmailLabel": "Dirección de Correo del Remitente",
       "senderEmailPlaceholder": "noreply@example.com",
       "replyToLabel": "Dirección de Correo de Respuesta",

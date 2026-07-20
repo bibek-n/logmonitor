@@ -95,6 +95,7 @@ export default async function StaffPage({
     const profile = profileById.get(s.Id);
     return {
       ...s,
+      ComputerNameOverride: s.computerNameOverride,
       Email: profile?.Email ?? null,
       Phone: profile?.Phone ?? null,
       Department: profile?.Department ?? null,

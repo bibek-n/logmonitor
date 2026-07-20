@@ -44,10 +44,18 @@ export async function POST(req: NextRequest) {
       "SELECT COUNT(*) AS Cnt FROM PendingScreenshotRequests WHERE DeviceId = @deviceId AND FulfilledAt IS NULL"
     );
 
+  const pendingMalwareScanResult = await db
+    .request()
+    .input("deviceId", sql.VarChar, device.deviceId)
+    .query<{ Cnt: number }>(
+      "SELECT COUNT(*) AS Cnt FROM PendingMalwareScanRequests WHERE DeviceId = @deviceId AND FulfilledAt IS NULL"
+    );
+
   return NextResponse.json({
     ok: true,
     screenshotIntervalMinutes: device.screenshotIntervalMinutes,
     privacyMode: device.privacyMode,
     pendingScreenshotRequest: (pendingResult.recordset[0]?.Cnt ?? 0) > 0,
+    pendingMalwareScanRequest: (pendingMalwareScanResult.recordset[0]?.Cnt ?? 0) > 0,
   });
 }

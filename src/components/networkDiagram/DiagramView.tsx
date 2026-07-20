@@ -28,6 +28,11 @@ function Connectors({ diagram }: { diagram: DiagramDoc }) {
       style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       aria-hidden="true"
     >
+      <defs>
+        <marker id="diagram-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--primary)" />
+        </marker>
+      </defs>
       {diagram.edges.map((e) => {
         const source = byId.get(e.source);
         const target = byId.get(e.target);
@@ -44,6 +49,7 @@ function Connectors({ diagram }: { diagram: DiagramDoc }) {
             stroke="var(--primary)"
             strokeWidth={2}
             strokeDasharray={e.dashed ? "6 5" : undefined}
+            markerEnd="url(#diagram-arrow)"
           />
         );
       })}

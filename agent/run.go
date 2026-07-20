@@ -2,19 +2,21 @@ package main
 
 import (
 	"log"
+	"runtime"
 	"time"
 )
 
 const (
-	processesInterval = 90 * time.Second
-	servicesInterval  = 8 * time.Minute
-	softwareInterval  = 24 * time.Hour
-	securityInterval  = 3 * time.Minute
-	networkInterval   = 3 * time.Minute
-	hardwareInterval  = 24 * time.Hour
-	usbPollInterval   = 8 * time.Second
-	updateInterval    = 1 * time.Hour
-	logsInterval      = 60 * time.Second
+	processesInterval     = 90 * time.Second
+	servicesInterval      = 8 * time.Minute
+	softwareInterval      = 24 * time.Hour
+	securityInterval      = 3 * time.Minute
+	networkInterval       = 3 * time.Minute
+	hardwareInterval      = 24 * time.Hour
+	usbPollInterval       = 8 * time.Second
+	updateInterval        = 1 * time.Hour
+	logsInterval          = 60 * time.Second
+	windowsUpdateInterval = 6 * time.Hour
 )
 
 // Run is the agent's main loop: heartbeat + basic metrics every heartbeatIntervalSeconds,
@@ -30,13 +32,16 @@ func Run(cfg *Config, stop <-chan struct{}) {
 
 	var screenshotMonitoringActive bool
 	var lastIntervalCapture time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUpdateCheck, lastLogs time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
 
 	// USB detection runs on its own fast ticker rather than piggybacking on the main
 	// heartbeat loop below - the heartbeat interval is 30s, which made a plug/unplug take
 	// up to 30s just to be *detected*, on top of however long the dashboard's own poll
 	// took to notice it. Decoupling it here means it's bounded by usbPollInterval alone.
 	go runUsbPolling(client, stop)
+	go runIisPolling(client, stop)
+	go runLinuxSecurityPolling(client, stop)
+	go runMalwarePolling(client, stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -65,6 +70,13 @@ func Run(cfg *Config, stop <-chan struct{}) {
 				if err := client.PostMetrics(metrics); err != nil {
 					log.Printf("metrics upload failed: %v", err)
 				}
+			}
+
+			// Runs in its own goroutine (see triggerMalwareScanNow) - a scan can take minutes,
+			// and unlike the screenshot capture below this must never block subsequent
+			// heartbeats from going out on schedule.
+			if hb.PendingMalwareScanRequest {
+				triggerMalwareScanNow(client)
 			}
 
 			shouldCaptureManual := hb.PendingScreenshotRequest && !hb.PrivacyMode
@@ -127,6 +139,12 @@ func Run(cfg *Config, stop <-chan struct{}) {
 					}
 				}
 				lastLogs = now
+			}
+			if runtime.GOOS == "windows" && now.Sub(lastWindowsUpdate) >= windowsUpdateInterval {
+				if err := client.PostWindowsUpdateStatus(CollectWindowsUpdateStatus()); err != nil {
+					log.Printf("windows update status upload failed: %v", err)
+				}
+				lastWindowsUpdate = now
 			}
 		}
 	}

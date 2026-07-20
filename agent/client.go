@@ -74,6 +74,7 @@ type HeartbeatResponse struct {
 	ScreenshotIntervalMinutes *int `json:"screenshotIntervalMinutes"`
 	PrivacyMode               bool `json:"privacyMode"`
 	PendingScreenshotRequest  bool `json:"pendingScreenshotRequest"`
+	PendingMalwareScanRequest bool `json:"pendingMalwareScanRequest"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {
@@ -112,30 +113,55 @@ func (c *Client) Heartbeat() (*HeartbeatResponse, error) {
 }
 
 type MetricsPayload struct {
-	CpuPct                float64 `json:"cpuPct"`
-	MemPct                float64 `json:"memPct"`
-	DiskPct               float64 `json:"diskPct"`
-	NetRxMbps             float64 `json:"netRxMbps"`
-	NetTxMbps             float64 `json:"netTxMbps"`
-	UptimeSeconds         int64   `json:"uptimeSeconds"`
-	SwapPct               float64 `json:"swapPct"`
-	DiskReadMBps          float64 `json:"diskReadMBps"`
-	DiskWriteMBps         float64 `json:"diskWriteMBps"`
-	DiskIops              float64 `json:"diskIops"`
-	ProcessCount          int     `json:"processCount"`
-	ThreadCount           int     `json:"threadCount"`
-	HandleCount           int     `json:"handleCount"`
-	LoadAvg1              float64 `json:"loadAvg1"`
-	LoadAvg5              float64 `json:"loadAvg5"`
-	LoadAvg15             float64 `json:"loadAvg15"`
-	GpuUsagePct           float64 `json:"gpuUsagePct"`
-	BatteryPct            float64 `json:"batteryPct"`
-	BatteryHealth         string  `json:"batteryHealth"`
-	BatteryCycleCount     int     `json:"batteryCycleCount"`
-	PowerAdapterConnected *bool   `json:"powerAdapterConnected"`
-	CpuTempC              float64 `json:"cpuTempC"`
-	DiskFreeGB            float64 `json:"diskFreeGB"`
-	DiskTotalGB           float64 `json:"diskTotalGB"`
+	CpuPct                float64      `json:"cpuPct"`
+	MemPct                float64      `json:"memPct"`
+	DiskPct               float64      `json:"diskPct"`
+	NetRxMbps             float64      `json:"netRxMbps"`
+	NetTxMbps             float64      `json:"netTxMbps"`
+	UptimeSeconds         int64        `json:"uptimeSeconds"`
+	SwapPct               float64      `json:"swapPct"`
+	DiskReadMBps          float64      `json:"diskReadMBps"`
+	DiskWriteMBps         float64      `json:"diskWriteMBps"`
+	DiskIops              float64      `json:"diskIops"`
+	ProcessCount          int          `json:"processCount"`
+	ThreadCount           int          `json:"threadCount"`
+	HandleCount           int          `json:"handleCount"`
+	LoadAvg1              float64      `json:"loadAvg1"`
+	LoadAvg5              float64      `json:"loadAvg5"`
+	LoadAvg15             float64      `json:"loadAvg15"`
+	GpuUsagePct           float64      `json:"gpuUsagePct"`
+	BatteryPct            float64      `json:"batteryPct"`
+	BatteryHealth         string       `json:"batteryHealth"`
+	BatteryCycleCount     int          `json:"batteryCycleCount"`
+	PowerAdapterConnected *bool        `json:"powerAdapterConnected"`
+	CpuTempC              float64      `json:"cpuTempC"`
+	DiskFreeGB            float64      `json:"diskFreeGB"`
+	DiskTotalGB           float64      `json:"diskTotalGB"`
+	DiskLatencyMs         float64      `json:"diskLatencyMs"`
+	Volumes               []VolumeInfo `json:"volumes"`
+}
+
+// VolumeInfo is one currently-mounted volume - every Windows drive letter, every Linux
+// mount point - as opposed to MetricsPayload's DiskPct/DiskFreeGB/DiskTotalGB, which only
+// ever tracks whichever single partition happens to be fullest right now with no record of
+// which one that was. Pseudo-filesystems (tmpfs, overlay, proc, etc.) are filtered out
+// before this ever reaches here - see the filter list in metrics.go's CollectMetrics.
+type VolumeInfo struct {
+	MountPoint  string  `json:"mountPoint"`
+	Device      string  `json:"device"`
+	FsType      string  `json:"fsType"`
+	TotalGB     float64 `json:"totalGB"`
+	FreeGB      float64 `json:"freeGB"`
+	UsedPercent float64 `json:"usedPercent"`
+}
+
+// WindowsUpdateStatus is Windows-only - CollectWindowsUpdateStatus returns the zero value
+// on other platforms, and the server treats absent/zero fields as "unknown", not "no
+// updates ever installed", so posting the zero value from a Linux host is harmless.
+type WindowsUpdateStatus struct {
+	LastInstalledAt   string `json:"lastInstalledAt,omitempty"`
+	RecentHotfixCount int    `json:"recentHotfixCount"`
+	RebootPending     bool   `json:"rebootPending"`
 }
 
 // postJSON is the shared helper for every new best-effort snapshot upload — each just
@@ -162,6 +188,16 @@ func (c *Client) postJSON(path string, payload interface{}) error {
 
 func (c *Client) PostMetrics(m MetricsPayload) error { return c.postJSON("/api/agent/metrics", m) }
 
+func (c *Client) PostWindowsUpdateStatus(w WindowsUpdateStatus) error {
+	return c.postJSON("/api/agent/windows-update-status", w)
+}
+
+func (c *Client) PostIisStatus(s IisStatus) error { return c.postJSON("/api/agent/iis-status", s) }
+
+func (c *Client) PostLinuxSecurityStatus(s LinuxSecurityStatus) error {
+	return c.postJSON("/api/agent/linux-security-status", s)
+}
+
 func (c *Client) PostHardware(h HardwareInfo) error { return c.postJSON("/api/agent/hardware", h) }
 
 func (c *Client) PostSecurityStatus(s SecurityStatus) error {
@@ -186,6 +222,10 @@ func (c *Client) PostSoftware(s []SoftwareInfo) error {
 
 func (c *Client) PostLogs(entries []LogEntry) error {
 	return c.postJSON("/api/agent/logs", map[string]interface{}{"entries": entries})
+}
+
+func (c *Client) PostMalwareScan(s MalwareScanResult) error {
+	return c.postJSON("/api/agent/malware-scan", s)
 }
 
 func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {

@@ -1,9 +1,9 @@
 import { getTranslations } from "next-intl/server";
-import { Activity } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { FOOTER_LINKS, CONTACT_INFO } from "@/lib/websiteContent";
 import { MKT } from "@/lib/marketingTheme";
 import { getDb } from "@/lib/db";
+import { TulipsLogo } from "@/components/branding/TulipsLogo";
 
 async function getFooterText(): Promise<string | null> {
   try {
@@ -33,9 +33,8 @@ export async function PublicFooter() {
         }}
       >
         <div>
-          <div className="flex items-center gap-2" style={{ color: "#fff", fontWeight: 700, marginBottom: "0.75rem" }}>
-            <Activity size={20} style={{ color: MKT.primary }} />
-            <span>Log Monitor</span>
+          <div style={{ marginBottom: "0.9rem" }}>
+            <TulipsLogo height={26} padded />
           </div>
           <p style={{ fontSize: "0.85rem", lineHeight: 1.6, color: "#94A3B8" }}>{tf("tagline")}</p>
         </div>

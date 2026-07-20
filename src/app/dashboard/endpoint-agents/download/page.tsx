@@ -3,34 +3,9 @@ import { getAdminSession } from "@/lib/requireAdmin";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { AGENT_REPO as REPO, getLatestAgentRelease, findReleaseAsset, type ReleaseAsset } from "@/lib/agentRelease";
 
 export const dynamic = "force-dynamic";
-
-const REPO = "bibek-n/logmonitor";
-
-interface ReleaseAsset {
-  name: string;
-  browser_download_url: string;
-  size: number;
-}
-
-interface ReleaseInfo {
-  tag_name: string;
-  assets: ReleaseAsset[];
-}
-
-async function getLatestRelease(): Promise<ReleaseInfo | null> {
-  try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-      headers: { Accept: "application/vnd.github+json" },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as ReleaseInfo;
-  } catch {
-    return null;
-  }
-}
 
 function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -92,8 +67,8 @@ export default async function DownloadAgentPage() {
     );
   }
 
-  const release = await getLatestRelease();
-  const findAsset = (name: string) => release?.assets.find((a) => a.name === name);
+  const release = await getLatestAgentRelease();
+  const findAsset = (name: string) => findReleaseAsset(release, name);
 
   return (
     <div>

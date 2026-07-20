@@ -52,19 +52,34 @@ export default async function ContactPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              background: MKT.surface,
-              border: `1px dashed ${MKT.border}`,
-              borderRadius: 10,
-              padding: "1.25rem",
-              color: MKT.inkMuted,
-              fontSize: "0.85rem",
-              textAlign: "center",
-            }}
-          >
-            {t("mapPlaceholder")}
-          </div>
+          {CONTACT_INFO.mapEmbedUrl ? (
+            <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${MKT.border}` }}>
+              <iframe
+                src={CONTACT_INFO.mapEmbedUrl}
+                width="100%"
+                height="240"
+                style={{ border: 0, display: "block" }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                title="Office location map"
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                background: MKT.surface,
+                border: `1px dashed ${MKT.border}`,
+                borderRadius: 10,
+                padding: "1.25rem",
+                color: MKT.inkMuted,
+                fontSize: "0.85rem",
+                textAlign: "center",
+              }}
+            >
+              {t("mapPlaceholder")}
+            </div>
+          )}
         </div>
 
         <div style={{ background: "#fff", border: `1px solid ${MKT.border}`, borderRadius: 12, padding: "1.5rem" }}>

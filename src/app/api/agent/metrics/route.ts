@@ -13,6 +13,15 @@ function bit(v: unknown): boolean | null {
   return typeof v === "boolean" ? v : null;
 }
 
+interface VolumePayload {
+  mountPoint?: string;
+  device?: string;
+  fsType?: string;
+  totalGB?: number;
+  freeGB?: number;
+  usedPercent?: number;
+}
+
 const HIGH_USAGE_THRESHOLD = 90;
 
 async function checkThreshold(deviceId: string, alertType: string, value: number | null, label: string) {
@@ -37,6 +46,43 @@ async function checkLowDiskSpace(deviceId: string, diskPct: number | null, freeG
   }
 }
 
+// A reboot is inferred server-side rather than shipped as an explicit agent event: every
+// metrics upload already carries uptimeSeconds, so "now - uptime" gives the host's current
+// boot time for free. If that differs from the boot time recorded on the previous upload by
+// more than the tolerance below, the uptime counter reset - the host rebooted in between.
+// The tolerance absorbs normal clock/measurement drift between successive 30s heartbeats
+// without needing a second, separate collector.
+const REBOOT_DETECTION_TOLERANCE_MS = 2 * 60 * 1000;
+
+async function detectAndRecordReboot(deviceId: string, uptimeSeconds: number | null) {
+  if (uptimeSeconds === null) return;
+  const db = await getDb();
+  const computedBootTime = new Date(Date.now() - uptimeSeconds * 1000);
+
+  const existing = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ LastBootTime: string | null }>(
+    "SELECT CONVERT(VARCHAR(19), LastBootTime, 126) AS LastBootTime FROM Devices WHERE DeviceId = @deviceId"
+  );
+  const previousBootTime = existing.recordset[0]?.LastBootTime ? new Date(existing.recordset[0].LastBootTime + "Z") : null;
+
+  const rebooted = previousBootTime !== null && Math.abs(computedBootTime.getTime() - previousBootTime.getTime()) > REBOOT_DETECTION_TOLERANCE_MS;
+
+  if (rebooted) {
+    await db
+      .request()
+      .input("deviceId", sql.VarChar, deviceId)
+      .input("message", sql.NVarChar, `Server rebooted - new boot time ${computedBootTime.toISOString()}.`)
+      .query(
+        "INSERT INTO ServerLogEntries (DeviceId, LogSource, Severity, Message) VALUES (@deviceId, 'reboot', 'info', @message)"
+      );
+  }
+
+  if (rebooted || previousBootTime === null) {
+    await db.request().input("deviceId", sql.VarChar, deviceId).input("bootTime", sql.DateTime2, computedBootTime).query(
+      "UPDATE Devices SET LastBootTime = @bootTime WHERE DeviceId = @deviceId"
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   const device = await authenticateDevice(req);
   if (!device) {
@@ -51,6 +97,7 @@ export async function POST(req: NextRequest) {
   const cpuPct = num(body.cpuPct);
   const memPct = num(body.memPct);
   const diskPct = num(body.diskPct);
+  const uptimeSeconds = num(body.uptimeSeconds);
 
   const db = await getDb();
   await db
@@ -61,11 +108,12 @@ export async function POST(req: NextRequest) {
     .input("diskPct", sql.Float, diskPct)
     .input("netRxMbps", sql.Float, num(body.netRxMbps))
     .input("netTxMbps", sql.Float, num(body.netTxMbps))
-    .input("uptimeSeconds", sql.BigInt, num(body.uptimeSeconds))
+    .input("uptimeSeconds", sql.BigInt, uptimeSeconds)
     .input("swapPct", sql.Float, num(body.swapPct))
     .input("diskReadMBps", sql.Float, num(body.diskReadMBps))
     .input("diskWriteMBps", sql.Float, num(body.diskWriteMBps))
     .input("diskIops", sql.Float, num(body.diskIops))
+    .input("diskLatencyMs", sql.Float, num(body.diskLatencyMs))
     .input("processCount", sql.Int, int(body.processCount))
     .input("threadCount", sql.Int, int(body.threadCount))
     .input("handleCount", sql.Int, int(body.handleCount))
@@ -83,13 +131,13 @@ export async function POST(req: NextRequest) {
     .query(`
       INSERT INTO DeviceMetrics (
         DeviceId, CpuPct, MemPct, DiskPct, NetRxMbps, NetTxMbps, UptimeSeconds,
-        SwapPct, DiskReadMBps, DiskWriteMBps, DiskIops, ProcessCount, ThreadCount, HandleCount,
+        SwapPct, DiskReadMBps, DiskWriteMBps, DiskIops, DiskLatencyMs, ProcessCount, ThreadCount, HandleCount,
         LoadAvg1, LoadAvg5, LoadAvg15, GpuUsagePct, BatteryPct, BatteryHealth, BatteryCycleCount,
         PowerAdapterConnected, CpuTempC, DiskFreeGB, DiskTotalGB
       )
       VALUES (
         @deviceId, @cpuPct, @memPct, @diskPct, @netRxMbps, @netTxMbps, @uptimeSeconds,
-        @swapPct, @diskReadMBps, @diskWriteMBps, @diskIops, @processCount, @threadCount, @handleCount,
+        @swapPct, @diskReadMBps, @diskWriteMBps, @diskIops, @diskLatencyMs, @processCount, @threadCount, @handleCount,
         @loadAvg1, @loadAvg5, @loadAvg15, @gpuUsagePct, @batteryPct, @batteryHealth, @batteryCycleCount,
         @powerAdapterConnected, @cpuTempC, @diskFreeGB, @diskTotalGB
       )
@@ -98,6 +146,26 @@ export async function POST(req: NextRequest) {
   await checkThreshold(device.deviceId, "cpu_high", cpuPct, "CPU");
   await checkThreshold(device.deviceId, "mem_high", memPct, "Memory");
   await checkLowDiskSpace(device.deviceId, diskPct, num(body.diskFreeGB));
+  await detectAndRecordReboot(device.deviceId, uptimeSeconds);
+
+  const volumes: VolumePayload[] = Array.isArray(body.volumes) ? body.volumes : [];
+  await db.request().input("deviceId", sql.VarChar, device.deviceId).query("DELETE FROM DeviceVolumes WHERE DeviceId = @deviceId");
+  for (const v of volumes) {
+    if (!v.mountPoint) continue;
+    await db
+      .request()
+      .input("deviceId", sql.VarChar, device.deviceId)
+      .input("mountPoint", sql.NVarChar, v.mountPoint)
+      .input("device", sql.NVarChar, v.device ?? null)
+      .input("fsType", sql.VarChar, v.fsType ?? null)
+      .input("totalGB", sql.Float, num(v.totalGB))
+      .input("freeGB", sql.Float, num(v.freeGB))
+      .input("usedPercent", sql.Float, num(v.usedPercent))
+      .query(`
+        INSERT INTO DeviceVolumes (DeviceId, MountPoint, Device, FsType, TotalGB, FreeGB, UsedPercent)
+        VALUES (@deviceId, @mountPoint, @device, @fsType, @totalGB, @freeGB, @usedPercent)
+      `);
+  }
 
   return NextResponse.json({ ok: true });
 }

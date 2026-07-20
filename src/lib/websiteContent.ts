@@ -67,14 +67,14 @@ export const WHY_CHOOSE_US_ICONS: Record<(typeof WHY_CHOOSE_US_KEYS)[number], st
 
 export const ABOUT_US_MISSION_POINT_KEYS = ["0", "1", "2", "3", "4"] as const;
 
-// Placeholders where the real business detail isn't known yet — find/replace once
-// provided (never invent real-looking facts).
 export const CONTACT_INFO = {
-  address: "[Company Address]",
-  phone: "[Phone Number]",
-  email: "support@websearchpro.net",
-  hours: "[Business Hours]",
-  mapEmbedUrl: null as string | null, // needs a real address before a map can be embedded
+  address: "Tulips Technologies Pvt. Ltd., New Baneshwor, Kathmandu, Nepal",
+  phone: "+977 01 4795677",
+  email: "info@tulipstechnologies.com",
+  hours: "Sun - Fri: 9:00 AM - 6:00 PM (Closed Saturday)",
+  // Official Google Business listing embed for Tulips Technologies Pvt. Ltd. (Place ID-based).
+  mapEmbedUrl:
+    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2755.476653339221!2d85.3342483!3d27.6895386!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39eb1995fda20031%3A0x3b4b0ee03aafcc6!2sTulips%20Technologies%20Pvt.%20Ltd.!5e1!3m2!1sen!2snp!4v1784010125486!5m2!1sen!2snp" as string | null,
 };
 
 export const FOOTER_LINKS = {

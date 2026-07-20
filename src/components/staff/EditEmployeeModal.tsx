@@ -32,6 +32,8 @@ export interface EditableEmployee {
   TeamId: number | null;
   BranchOfficeId: number | null;
   JobDesignationId: number | null;
+  ComputerNameOverride: string | null;
+  deviceName: string | null;
 }
 
 interface OrgOption {
@@ -63,6 +65,7 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
     teamId: employee.TeamId ?? "",
     branchOfficeId: employee.BranchOfficeId ?? "",
     jobDesignationId: employee.JobDesignationId ?? "",
+    computerName: employee.ComputerNameOverride ?? "",
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(employee.PhotoPath);
@@ -112,6 +115,7 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
           teamId: form.teamId || null,
           branchOfficeId: form.branchOfficeId || null,
           jobDesignationId: form.jobDesignationId || null,
+          computerName: form.computerName.trim() || null,
         }),
       });
       const data = await res.json();
@@ -185,6 +189,19 @@ export function EditEmployeeModal({ employee, onClose }: { employee: EditableEmp
             <label style={labelStyle}>{t("cellNumberLabel")}</label>
             <input style={fieldStyle} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+977 98XXXXXXXX" />
           </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>{t("computerNameLabel")}</label>
+          <input
+            style={fieldStyle}
+            value={form.computerName}
+            onChange={(e) => setForm((f) => ({ ...f, computerName: e.target.value }))}
+            placeholder={employee.deviceName ?? t("computerNamePlaceholder")}
+          />
+          <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", margin: "0.3rem 0 0" }}>
+            {employee.deviceName ? t("computerNameHintDetected", { name: employee.deviceName }) : t("computerNameHintNone")}
+          </p>
         </div>
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>

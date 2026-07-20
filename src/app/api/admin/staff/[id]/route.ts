@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!staffId) return NextResponse.json({ ok: false, error: "Invalid staff id" }, { status: 400 });
 
   const body = await req.json().catch(() => null);
-  const { name, email, phone, address } = body ?? {};
+  const { name, email, phone, address, computerName } = body ?? {};
   const departmentId = body?.departmentId == null || body.departmentId === "" ? null : Number(body.departmentId);
   const teamId = body?.teamId == null || body.teamId === "" ? null : Number(body.teamId);
   const branchOfficeId = body?.branchOfficeId == null || body.branchOfficeId === "" ? null : Number(body.branchOfficeId);
@@ -56,12 +56,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .input("teamId", sql.Int, teamId)
       .input("branchOfficeId", sql.Int, branchOfficeId)
       .input("jobDesignationId", sql.Int, jobDesignationId)
+      .input("computerNameOverride", sql.NVarChar, typeof computerName === "string" && computerName.trim() ? computerName.trim() : null)
       .query(`
         UPDATE Staff SET
           Name = @name, Email = @email, Phone = @phone, Department = @department,
           Position = @position, Address = @address, UpdatedAt = SYSUTCDATETIME(),
           DepartmentId = @departmentId, TeamId = @teamId, BranchOfficeId = @branchOfficeId,
-          JobDesignationId = @jobDesignationId
+          JobDesignationId = @jobDesignationId, ComputerNameOverride = @computerNameOverride
         WHERE Id = @id
       `);
   } catch {

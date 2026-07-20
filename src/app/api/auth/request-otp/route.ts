@@ -23,6 +23,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { user } = validation;
+
+  // A user who has enrolled an authenticator app uses that instead of the emailed code —
+  // no email round-trip needed, and no "no email on file" block either, since the app itself
+  // is the second factor. See src/lib/authOptions.ts's authorize() for the matching branch.
+  if (user.TotpEnabled) {
+    return NextResponse.json({ ok: true, method: "totp" });
+  }
+
   if (!user.Email) {
     await logLoginAttempt(username, false, "No email on file for OTP", req);
     return NextResponse.json({ ok: false, error: "Your account has no email on file — contact your administrator to enable login." });
@@ -43,7 +51,12 @@ export async function POST(req: NextRequest) {
       WHERE Id = @id
     `);
 
-  await sendOtpCodeEmail(user.Email, code);
+  // Fire-and-forget, matching sendLoginSuccessEmail's call site in authOptions.ts —
+  // sendNotificationEmail() never throws (it's designed to be best-effort), and its result
+  // was never even checked here, so awaiting the full raw-SMTP round trip (fresh TCP+TLS
+  // handshake every time, no connection pooling) was adding several seconds of pure dead
+  // weight to every single login attempt for no functional benefit.
+  void sendOtpCodeEmail(user.Email, code);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, method: "email" });
 }
