@@ -297,6 +297,7 @@ func CollectNewLogLines() []LogEntry {
 
 	entries = append(entries, collectNginxVhostLogs(&state, &budget)...)
 	entries = append(entries, collectApacheVhostLogs(&state, &budget)...)
+	entries = append(entries, collectMssqlLogs(&state, &budget)...)
 	entries = append(entries, collectSystemLog(&state)...)
 
 	saveLogState(state)

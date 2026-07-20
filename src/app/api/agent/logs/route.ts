@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/agentAuth";
 
-const VALID_SOURCES = new Set(["apache_access", "apache_error", "nginx_access", "nginx_error", "mysql", "php", "system", "eventlog"]);
+const VALID_SOURCES = new Set(["apache_access", "apache_error", "nginx_access", "nginx_error", "mysql", "php", "system", "eventlog", "mssql", "mssql_slow"]);
 // Raised from the original 500: a busy nginx install ships one default access/error log PLUS
 // one pair per virtual host (confirmed live: 60+ vhosts on one box - see
 // agent/logs.go's collectNginxVhostLogs), each capped at 500 lines/cycle on the agent side.

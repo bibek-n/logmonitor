@@ -98,6 +98,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
     linuxPermissionFindingsResult,
     linuxSudoEntriesResult,
     volumesResult,
+    mssqlLogCountResult,
   ] = await Promise.all([
     db.request().input("deviceId", sql.VarChar, deviceId).query(`
       SELECT CpuModel, CpuManufacturer, CpuCores, CpuThreads, CpuClockMhz, MemoryTotalMB,
@@ -118,7 +119,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
     ),
     db.request().input("deviceId", sql.VarChar, deviceId).query(`
       SELECT TOP 10 Id, CONVERT(VARCHAR(19), ReceivedAt, 126) AS ReceivedAt, LogSource, Severity, Message
-      FROM ServerLogEntries WHERE DeviceId = @deviceId AND LogSource IN ('eventlog', 'reboot')
+      FROM ServerLogEntries WHERE DeviceId = @deviceId AND LogSource IN ('eventlog', 'system', 'reboot')
       ORDER BY ReceivedAt DESC
     `),
     db.request().input("deviceId", sql.VarChar, deviceId).query("SELECT Name, State FROM IisAppPools WHERE DeviceId = @deviceId ORDER BY Name ASC"),
@@ -155,6 +156,9 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
     db.request().input("deviceId", sql.VarChar, deviceId).query(
       "SELECT MountPoint, Device, FsType, TotalGB, FreeGB, UsedPercent FROM DeviceVolumes WHERE DeviceId = @deviceId ORDER BY MountPoint ASC"
     ),
+    db.request().input("deviceId", sql.VarChar, deviceId).query(
+      "SELECT COUNT(*) AS Total FROM ServerLogEntries WHERE DeviceId = @deviceId AND LogSource IN ('mssql', 'mssql_slow')"
+    ),
   ]);
   const hw = hardwareResult.recordset[0];
   const disks = disksResult.recordset;
@@ -173,6 +177,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
   const linuxSuidBinaries = linuxPermissionFindingsResult.recordset.filter((r) => r.IssueType === "suid");
   const linuxSudoEntries = linuxSudoEntriesResult.recordset;
   const volumes = volumesResult.recordset;
+  const mssqlLogCount = mssqlLogCountResult.recordset[0]?.Total ?? 0;
 
   let services: ServiceEntry[] = [];
   const serviceSnapshot = serviceSnapshotResult.recordset[0];
@@ -208,7 +213,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
         {device.Hostname || "Pending enrollment"} · {device.ServerRole ?? "No role set"}
       </p>
 
-      <ServerDetailTabs deviceId={deviceId} active="overview" logCount={logCount} />
+      <ServerDetailTabs deviceId={deviceId} active="overview" logCount={logCount} mssqlLogCount={mssqlLogCount} />
 
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
         <Card className="flex flex-col gap-2">
@@ -465,7 +470,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
 
         <Card className="flex flex-col gap-2">
           <h3 style={{ fontSize: "0.9rem", margin: 0, color: "var(--ink)" }}>
-            {isLinux ? "Recent System Log & Reboot Entries" : "Recent Event Viewer & Reboot Entries"}
+            {isLinux ? "Recent System Log & Reboot Entries" : "Recent Event Viewer, System Log & Reboot Entries"}
           </h3>
           {recentHealthLogs.length === 0 ? (
             <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No Critical/Error events or reboots recorded yet.</p>
@@ -501,8 +506,8 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
               </tbody>
             </table>
           )}
-          <Link href={`/dashboard/servers/${deviceId}/logs?source=eventlog`} style={{ color: "var(--primary)", fontSize: "0.8rem" }}>
-            {isLinux ? "View all system log / reboot entries →" : "View all Event Viewer / reboot entries →"}
+          <Link href={`/dashboard/servers/${deviceId}/logs`} style={{ color: "var(--primary)", fontSize: "0.8rem" }}>
+            {isLinux ? "View all system log / reboot entries →" : "View all Event Viewer / System log / reboot entries →"}
           </Link>
         </Card>
 

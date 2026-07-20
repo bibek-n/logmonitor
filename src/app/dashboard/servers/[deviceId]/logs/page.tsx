@@ -19,6 +19,8 @@ const SOURCE_LABELS: Record<string, string> = {
   system: "System",
   eventlog: "Event Viewer",
   reboot: "Reboot Events",
+  mssql: "MSSQL Error Log",
+  mssql_slow: "MSSQL Slow I/O",
 };
 
 const SEVERITY_TONE: Record<string, "danger" | "warning" | "neutral"> = {
@@ -97,6 +99,11 @@ export default async function ServerLogsPage({
   );
   const unfilteredTotal = unfilteredTotalResult.recordset[0].Total;
 
+  const mssqlLogCountResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ Total: number }>(
+    "SELECT COUNT(*) AS Total FROM ServerLogEntries WHERE DeviceId = @deviceId AND LogSource IN ('mssql', 'mssql_slow')"
+  );
+  const mssqlLogCount = mssqlLogCountResult.recordset[0].Total;
+
   const rowsResult = await bindFilters(
     db.request().input("deviceId", sql.VarChar, deviceId).input("offset", sql.Int, offset).input("limit", sql.Int, PAGE_SIZE)
   ).query<LogRow>(`
@@ -143,7 +150,7 @@ export default async function ServerLogsPage({
         {total} {total === unfilteredTotal ? "total" : `of ${unfilteredTotal}`} entries
       </p>
 
-      <ServerDetailTabs deviceId={deviceId} active="logs" logCount={unfilteredTotal} />
+      <ServerDetailTabs deviceId={deviceId} active="logs" logCount={unfilteredTotal} mssqlLogCount={mssqlLogCount} />
 
       <div className="flex flex-wrap gap-2 mb-4" style={{ fontSize: "0.8rem" }}>
         <Link
