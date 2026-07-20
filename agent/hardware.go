@@ -160,8 +160,14 @@ func collectDiskInfo(hw *HardwareInfo) {
 		}
 		applyWindowsDiskHealth(hw.Disks)
 	} else {
-		// Linux: enumerate every non-loop/ram block device under /sys/block.
-		entries := runOut("sh", "-c", "ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram)'")
+		// Linux: enumerate every non-loop/ram block device under /sys/block. Uses runShell
+		// (not runOut) - piping through sh means a hang in ls/grep only gets killed at the
+		// process-group level, same reasoning as runShell's own doc comment in linuxsecurity.go.
+		// This call and collectGpuInfo's lspci pipe below are the only two remaining sh -c
+		// pipelines in the agent that still used the unpatched runOut - since hardware
+		// collection runs synchronously on the heartbeat tick, a hang in either one freezes
+		// every other collector too, not just this field.
+		entries := runShell(subprocessTimeout, "ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram)'")
 		if entries == "" {
 			return
 		}
@@ -247,7 +253,7 @@ func collectGpuInfo(hw *HardwareInfo) {
 	if _, err := exec.LookPath("lspci"); err != nil {
 		return
 	}
-	out := runOut("sh", "-c", "lspci | grep -i 'vga\\|3d controller' | head -1")
+	out := runShell(subprocessTimeout, "lspci | grep -i 'vga\\|3d controller' | head -1")
 	if idx := strings.Index(out, ": "); idx >= 0 {
 		hw.GpuName = strings.TrimSpace(out[idx+2:])
 	}
