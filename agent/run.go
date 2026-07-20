@@ -42,6 +42,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	go runIisPolling(client, stop)
 	go runLinuxSecurityPolling(client, stop)
 	go runMalwarePolling(client, stop)
+	go runPhpPolling(client, stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -77,6 +78,12 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			// heartbeats from going out on schedule.
 			if hb.PendingMalwareScanRequest {
 				triggerMalwareScanNow(client)
+			}
+
+			// Same non-blocking reasoning as the malware scan above - reading a log tail is
+			// quick, but there's no need to risk it on the heartbeat's own critical path.
+			if len(hb.PendingPhpLogRequests) > 0 {
+				go handlePendingPhpLogRequests(client, hb.PendingPhpLogRequests)
 			}
 
 			shouldCaptureManual := hb.PendingScreenshotRequest && !hb.PrivacyMode

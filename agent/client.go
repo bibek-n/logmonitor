@@ -70,11 +70,12 @@ func Enroll(serverURL, token, hostname, osVersion string) (*EnrollResponse, erro
 }
 
 type HeartbeatResponse struct {
-	OK                        bool `json:"ok"`
-	ScreenshotIntervalMinutes *int `json:"screenshotIntervalMinutes"`
-	PrivacyMode               bool `json:"privacyMode"`
-	PendingScreenshotRequest  bool `json:"pendingScreenshotRequest"`
-	PendingMalwareScanRequest bool `json:"pendingMalwareScanRequest"`
+	OK                        bool            `json:"ok"`
+	ScreenshotIntervalMinutes *int            `json:"screenshotIntervalMinutes"`
+	PrivacyMode               bool            `json:"privacyMode"`
+	PendingScreenshotRequest  bool            `json:"pendingScreenshotRequest"`
+	PendingMalwareScanRequest bool            `json:"pendingMalwareScanRequest"`
+	PendingPhpLogRequests     []PhpLogRequest `json:"pendingPhpLogRequests"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {
@@ -196,6 +197,12 @@ func (c *Client) PostIisStatus(s IisStatus) error { return c.postJSON("/api/agen
 
 func (c *Client) PostLinuxSecurityStatus(s LinuxSecurityStatus) error {
 	return c.postJSON("/api/agent/linux-security-status", s)
+}
+
+func (c *Client) PostPhpStatus(s PhpStatus) error { return c.postJSON("/api/agent/php-status", s) }
+
+func (c *Client) PostPhpLogContent(p phpLogContentPayload) error {
+	return c.postJSON("/api/agent/php-log-content", p)
 }
 
 func (c *Client) PostHardware(h HardwareInfo) error { return c.postJSON("/api/agent/hardware", h) }
