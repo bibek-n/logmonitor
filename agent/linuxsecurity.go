@@ -25,10 +25,23 @@ func LinuxSecurityDetected() bool {
 	return runtime.GOOS == "linux"
 }
 
+// runShell's context timeout only ever kills the immediate "sh" process by default - for a
+// piped command like "find / ... | head -n 200", sh forks find and head as its own children,
+// and killing sh alone doesn't close the pipe they still hold open, so Output() can hang
+// indefinitely waiting for EOF that never comes. Confirmed live: a SUID scan on a large
+// git-hosting box ran 20+ minutes past this function's timeout, orphaned and still consuming
+// CPU/memory, because the default cancellation never reached find/head at all. Putting the
+// shell in its own process group and killing that whole group on cancellation (via
+// configureProcessGroup/killProcessGroup - Linux-specific, no-op on Windows where this
+// scenario doesn't arise) takes every descendant down with it.
 func runShell(timeout time.Duration, command string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	out, _ := exec.CommandContext(ctx, "sh", "-c", command).Output()
+	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	configureProcessGroup(cmd)
+	cmd.Cancel = func() error { return killProcessGroup(cmd) }
+	cmd.WaitDelay = 5 * time.Second
+	out, _ := cmd.Output()
 	return strings.TrimSpace(string(out))
 }
 

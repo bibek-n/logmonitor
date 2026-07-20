@@ -367,7 +367,10 @@ func collectSystemLog(state *logFileState) []LogEntry {
 		if since == "" {
 			since = time.Now().Add(-5 * time.Minute).UTC().Format("2006-01-02 15:04:05")
 		}
-		out := runOut("sh", "-c", "journalctl --since '"+since+"' --no-pager -o short-iso 2>/dev/null | tail -n "+strconv.Itoa(maxLogLinesPerFile))
+		// runShell (not runOut) - same "sh -c 'a | b'" pipe-hangs-past-its-timeout risk
+		// linuxsecurity.go's runShell doc comment describes, so it gets the same
+		// process-group-kill fix rather than runOut's plain single-process kill.
+		out := runShell(subprocessTimeout, "journalctl --since '"+since+"' --no-pager -o short-iso 2>/dev/null | tail -n "+strconv.Itoa(maxLogLinesPerFile))
 		state.JournalSince = time.Now().UTC().Format("2006-01-02 15:04:05")
 		if out == "" {
 			return nil
