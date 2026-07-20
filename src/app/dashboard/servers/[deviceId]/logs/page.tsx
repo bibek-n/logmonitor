@@ -109,8 +109,8 @@ export default async function ServerLogsPage({
   `);
 
   // Distinct vhost names seen for this device, for the Site filter dropdown - only ever
-  // populated by nginx_access/nginx_error entries (see agent/logs.go's per-vhost discovery),
-  // null/absent for every other source.
+  // populated by apache_access/apache_error/nginx_access/nginx_error entries (see
+  // agent/logs.go's per-vhost discovery), null/absent for every other source.
   const sitesResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ SiteName: string }>(
     "SELECT DISTINCT SiteName FROM ServerLogEntries WHERE DeviceId = @deviceId AND SiteName IS NOT NULL ORDER BY SiteName ASC"
   );
@@ -179,7 +179,7 @@ export default async function ServerLogsPage({
         <form method="GET" action={baseHref} className="flex items-center gap-2 mb-4" style={{ fontSize: "0.82rem" }}>
           {sourceFilter && <input type="hidden" name="source" value={sourceFilter} />}
           <label htmlFor="site-filter" style={{ color: "var(--ink-muted)" }}>
-            Virtual host (nginx)
+            Virtual host
           </label>
           <select
             id="site-filter"

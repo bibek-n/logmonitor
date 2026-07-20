@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -18,8 +19,8 @@ type LogEntry struct {
 	Message   string `json:"message"`
 	Raw       string `json:"raw"`
 	Severity  string `json:"severity,omitempty"`
-	// Which nginx virtual host this line came from (see collectNginxVhostLogs) - empty for
-	// the default nginx log and for every non-nginx source.
+	// Which nginx/Apache virtual host this line came from (see collectNginxVhostLogs /
+	// collectApacheVhostLogs) - empty for a default/non-vhost log and for every other source.
 	Site string `json:"siteName,omitempty"`
 }
 
@@ -30,6 +31,16 @@ type logFileState struct {
 }
 
 const maxLogLinesPerFile = 500
+
+// maxLogEntriesPerCycle caps the total entries CollectNewLogLines returns across every
+// source/file combined, matching MAX_BATCH in src/app/api/agent/logs/route.ts. A hosting box
+// can carry 150+ virtual hosts (confirmed live), each with its own access+error log - without
+// this cap, a first-run backlog across all of them could collect far more than the server
+// accepts in one POST, and since every read here advances that file's byte offset, anything
+// past the server's own truncation point would be silently gone for good rather than
+// retried. Passing the shrinking budget into readNewLines as its own per-call line cap (see
+// there) is what makes a large backlog spread safely across several 60-second cycles instead.
+const maxLogEntriesPerCycle = 4000
 
 func logStatePath() string {
 	return filepath.Join(filepath.Dir(ConfigPath()), "logstate.json")
@@ -104,7 +115,7 @@ var nginxDefaultLogNames = map[string]bool{"access.log": true, "error.log": true
 // stripped, e.g. "adminbondeniskolan.access.log" -> site "adminbondeniskolan". A vhost that
 // stops existing (site removed) just stops appearing in future glob results - its stale
 // offset entry is harmless dead weight in logstate.json, not worth actively pruning.
-func collectNginxVhostLogs(state *logFileState) []LogEntry {
+func collectNginxVhostLogs(state *logFileState, budget *int) []LogEntry {
 	var entries []LogEntry
 	for source, pattern := range nginxVhostLogGlobs() {
 		suffix := ".access.log"
@@ -121,19 +132,140 @@ func collectNginxVhostLogs(state *logFileState) []LogEntry {
 				continue
 			}
 			site := strings.TrimSuffix(base, suffix)
-
-			lines, newOffset, ok := readNewLines(path, state.Offsets[path])
-			if !ok {
-				continue
-			}
-			state.Offsets[path] = newOffset
-			for _, line := range lines {
-				if strings.TrimSpace(line) == "" {
-					continue
-				}
-				entries = append(entries, LogEntry{Source: source, Site: site, Raw: line, Message: truncate(line, 2000)})
-			}
+			entries = append(entries, tailFileWithBudget(path, state, budget, source, site)...)
 		}
+	}
+	return entries
+}
+
+var (
+	apacheServerNameRe = regexp.MustCompile(`(?im)^[ \t]*ServerName[ \t]+(\S+)`)
+	apacheCustomLogRe  = regexp.MustCompile(`(?im)^[ \t]*CustomLog[ \t]+"?([^"\s]+)"?`)
+	apacheErrorLogRe   = regexp.MustCompile(`(?im)^[ \t]*ErrorLog[ \t]+"?([^"\s]+)"?`)
+)
+
+type apacheVhostLogRef struct {
+	site   string
+	access string
+	errorP string
+}
+
+// apacheVhostConfDir returns the directory holding one enabled config file per virtual host,
+// Debian/Ubuntu's and RHEL/CentOS's conventions respectively - first one found wins.
+func apacheVhostConfDir() string {
+	for _, d := range []string{"/etc/apache2/sites-enabled", "/etc/httpd/conf.d"} {
+		if info, err := os.Stat(d); err == nil && info.IsDir() {
+			return d
+		}
+	}
+	return ""
+}
+
+func resolveApacheLogPath(raw, logDir string) string {
+	raw = strings.TrimPrefix(raw, "${APACHE_LOG_DIR}/")
+	if strings.HasPrefix(raw, "/") {
+		return raw
+	}
+	return filepath.Join(logDir, raw)
+}
+
+// discoverApacheVhostLogs parses every enabled vhost config file for its ServerName plus
+// CustomLog/ErrorLog directives, rather than guessing a log filename convention from a glob
+// pattern the way collectNginxVhostLogs does for nginx. This app's real hosting boxes
+// accumulated wildly inconsistent per-vhost log naming over the years - confirmed live
+// across ~150 vhosts on one server: some "<name>_access.log", some "<name>.access.log", some
+// a bare "<name>.log" with no "access"/"error" anywhere in the name (e.g. "bolpatra.log"
+// paired with "bolpatraerror.log", no separator at all). A filename-suffix approach would
+// misclassify or silently miss a large fraction of these; reading Apache's own config is the
+// only reliable source of truth for what each vhost actually logs to. Assumes one
+// ServerName/CustomLog/ErrorLog trio per enabled config file (true of every vhost checked on
+// this fleet, including the certbot-generated -le-ssl.conf variants) rather than parsing
+// <VirtualHost> block boundaries - a config file with multiple vhost blocks would misattribute
+// directives across them, but that layout doesn't occur anywhere in this fleet today.
+func discoverApacheVhostLogs() []apacheVhostLogRef {
+	confDir := apacheVhostConfDir()
+	if confDir == "" {
+		return nil
+	}
+	matches, err := filepath.Glob(filepath.Join(confDir, "*.conf"))
+	if err != nil {
+		return nil
+	}
+
+	logDir := "/var/log/apache2"
+	if _, err := os.Stat(logDir); err != nil {
+		logDir = "/var/log/httpd"
+	}
+
+	var refs []apacheVhostLogRef
+	for _, confPath := range matches {
+		data, err := os.ReadFile(confPath)
+		if err != nil {
+			continue
+		}
+		content := string(data)
+		nameMatch := apacheServerNameRe.FindStringSubmatch(content)
+		if nameMatch == nil {
+			continue
+		}
+		ref := apacheVhostLogRef{site: nameMatch[1]}
+		if m := apacheCustomLogRe.FindStringSubmatch(content); m != nil {
+			ref.access = resolveApacheLogPath(m[1], logDir)
+		}
+		if m := apacheErrorLogRe.FindStringSubmatch(content); m != nil {
+			ref.errorP = resolveApacheLogPath(m[1], logDir)
+		}
+		if ref.access != "" || ref.errorP != "" {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+// collectApacheVhostLogs mirrors collectNginxVhostLogs's role for Apache installs, but
+// sources its file list from discoverApacheVhostLogs (config-derived) instead of a glob.
+// A -le-ssl.conf certbot vhost and its plain-HTTP counterpart for the same site commonly
+// point at the very same log file - re-tailing an already-drained path here is harmless
+// (readNewLines just finds nothing new the second time), so no de-duplication is needed.
+func collectApacheVhostLogs(state *logFileState, budget *int) []LogEntry {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	var entries []LogEntry
+	for _, ref := range discoverApacheVhostLogs() {
+		if ref.access != "" {
+			entries = append(entries, tailFileWithBudget(ref.access, state, budget, "apache_access", ref.site)...)
+		}
+		if ref.errorP != "" {
+			entries = append(entries, tailFileWithBudget(ref.errorP, state, budget, "apache_error", ref.site)...)
+		}
+	}
+	return entries
+}
+
+// tailFileWithBudget reads new lines from path (byte-offset tracked in state.Offsets, same
+// as every log source) capped at whatever remains of *budget this cycle, and decrements it
+// by however many lines were actually kept. Skips entirely once budget is already exhausted.
+func tailFileWithBudget(path string, state *logFileState, budget *int, source, site string) []LogEntry {
+	if *budget <= 0 {
+		return nil
+	}
+	maxLines := maxLogLinesPerFile
+	if *budget < maxLines {
+		maxLines = *budget
+	}
+	lines, newOffset, ok := readNewLines(path, state.Offsets[path], maxLines)
+	if !ok {
+		return nil
+	}
+	state.Offsets[path] = newOffset
+	var entries []LogEntry
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		entries = append(entries, LogEntry{Source: source, Site: site, Raw: line, Message: truncate(line, 2000)})
+		*budget--
 	}
 	return entries
 }
@@ -145,25 +277,26 @@ func collectNginxVhostLogs(state *logFileState) []LogEntry {
 func CollectNewLogLines() []LogEntry {
 	state := loadLogState()
 	var entries []LogEntry
+	budget := maxLogEntriesPerCycle
 
 	for source, paths := range candidateLogPaths() {
+		if budget <= 0 {
+			break
+		}
 		for _, path := range paths {
-			lines, newOffset, ok := readNewLines(path, state.Offsets[path])
-			if !ok {
-				continue
-			}
-			state.Offsets[path] = newOffset
-			for _, line := range lines {
-				if strings.TrimSpace(line) == "" {
-					continue
+			got := tailFileWithBudget(path, &state, &budget, source, "")
+			if got == nil {
+				if _, err := os.Stat(path); err != nil {
+					continue // this candidate path doesn't exist on this host - try the next one
 				}
-				entries = append(entries, LogEntry{Source: source, Raw: line, Message: truncate(line, 2000)})
 			}
+			entries = append(entries, got...)
 			break // first existing candidate path for this source wins
 		}
 	}
 
-	entries = append(entries, collectNginxVhostLogs(&state)...)
+	entries = append(entries, collectNginxVhostLogs(&state, &budget)...)
+	entries = append(entries, collectApacheVhostLogs(&state, &budget)...)
 	entries = append(entries, collectSystemLog(&state)...)
 
 	saveLogState(state)
@@ -177,11 +310,15 @@ func truncate(s string, max int) string {
 	return s[:max]
 }
 
-// readNewLines reads from byte offset `from` to EOF, capped at maxLogLinesPerFile lines
-// per call (a large first-run backlog is picked up gradually over subsequent cycles
-// rather than flooding a single upload). ok=false means the file doesn't exist/can't be
-// opened — expected for any log source not installed on this host.
-func readNewLines(path string, from int64) (lines []string, newOffset int64, ok bool) {
+// readNewLines reads from byte offset `from`, capped at maxLines lines, and returns the
+// exact byte offset immediately after the last line actually kept - never the file's true
+// current end-of-file. That distinction matters once a file's pending backlog exceeds
+// maxLines: advancing to true EOF regardless (as this used to do, tracking size via a single
+// f.Stat() call before scanning) would silently and permanently drop every line past the
+// cap, cycle after cycle, rather than picking the remainder up on a later call as intended.
+// ok=false means the file doesn't exist/can't be opened — expected for any log source not
+// installed on this host.
+func readNewLines(path string, from int64, maxLines int) (lines []string, newOffset int64, ok bool) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, from, false
@@ -205,12 +342,15 @@ func readNewLines(path string, from int64) (lines []string, newOffset int64, ok 
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	pos := from
 	for scanner.Scan() {
-		if len(lines) < maxLogLinesPerFile {
-			lines = append(lines, scanner.Text())
+		if len(lines) >= maxLines {
+			break
 		}
+		lines = append(lines, scanner.Text())
+		pos += int64(len(scanner.Bytes())) + 1 // +1 for the newline the scanner split on and stripped
 	}
-	return lines, info.Size(), true
+	return lines, pos, true
 }
 
 // collectSystemLog ships recent system-level events: systemd journal on Linux hosts that
@@ -242,7 +382,8 @@ func collectSystemLog(state *logFileState) []LogEntry {
 		return entries
 	}
 
-	lines, newOffset, ok := readNewLines("/var/log/syslog", state.Offsets["/var/log/syslog"])
+	budget := maxLogLinesPerFile
+	lines, newOffset, ok := readNewLines("/var/log/syslog", state.Offsets["/var/log/syslog"], budget)
 	if !ok {
 		return nil
 	}
