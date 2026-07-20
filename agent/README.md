@@ -24,7 +24,7 @@ service (`LogMonitorAgent`) in one step — the `.exe` is the installer, no sepa
 **Linux**:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash
+curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash
 ```
 
 This downloads the release binary, prompts for consent at the terminal, enrolls the

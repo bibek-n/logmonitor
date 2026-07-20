@@ -141,7 +141,7 @@ export default async function DownloadAgentPage() {
             margin: 0,
           }}
         >
-          {`curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash`}
+          {`curl -fsSL https://raw.githubusercontent.com/${REPO}/main/agent/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash`}
         </pre>
         <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: 0 }}>
           This downloads the matching architecture automatically — no manual selection needed.

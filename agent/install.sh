@@ -2,7 +2,7 @@
 # LogMonitor Endpoint Agent installer (Linux)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash
+#   curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/install.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash
 #
 # Compliance: this agent must only be installed on a company-owned device, with the user
 # informed via written policy that monitoring is in effect. Installation will not proceed

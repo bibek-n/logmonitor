@@ -99,7 +99,7 @@ export function AddServerForm() {
         ) : (
           <>
             <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>Linux install</div>
-            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=${result.token} SERVER_URL=${serverUrl} bash`}</CodeBlock>
+            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/install.sh | sudo TOKEN=${result.token} SERVER_URL=${serverUrl} bash`}</CodeBlock>
           </>
         )}
 

@@ -195,7 +195,7 @@ function EnrollClientInner({
                 </span>
               )}
             </div>
-            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/install.sh | sudo TOKEN=${newToken.token} SERVER_URL=${serverUrl} bash`}</CodeBlock>
+            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/install.sh | sudo TOKEN=${newToken.token} SERVER_URL=${serverUrl} bash`}</CodeBlock>
 
             <p style={{ fontSize: "0.75rem", color: "var(--ink-muted)", margin: 0 }}>
               Both commands also install the chat companion automatically (a small tray icon that lets the employee
