@@ -50,6 +50,35 @@ function parseLeaseLine(line: string): Lease | null {
   };
 }
 
+interface TrafficRow {
+  srcAddress: string;
+  dstAddress: string;
+  packets: number;
+  bytes: number;
+}
+
+// /ip accounting snapshot print terse - same "key=value" format as the lease list, reuses
+// KV_REGEX. "/ip accounting snapshot take" (run right before this) both copies the live
+// per-flow counters into the snapshot AND clears the live table, so each poll's rows are a
+// delta since the previous poll, not a cumulative running total.
+function parseAccountingLine(line: string): TrafficRow | null {
+  const fields: Record<string, string> = {};
+  let match: RegExpExecArray | null;
+  KV_REGEX.lastIndex = 0;
+  while ((match = KV_REGEX.exec(line)) !== null) {
+    const key = match[1];
+    const value = match[2] !== undefined ? match[2] : match[3] ?? "";
+    fields[key] = value;
+  }
+  if (!fields["src-address"] || !fields["dst-address"]) return null;
+  return {
+    srcAddress: fields["src-address"],
+    dstAddress: fields["dst-address"],
+    packets: Number(fields.packets ?? 0),
+    bytes: Number(fields.bytes ?? 0),
+  };
+}
+
 // Our server is routed to the MikroTik LAN too, so we can ping each lease directly.
 // The TTL doubles as a rough OS fingerprint — see classifyOS.
 async function pingTtl(ip: string): Promise<number | null> {
@@ -191,6 +220,28 @@ async function pollOnce() {
         `);
     }
     console.log(`[${new Date().toISOString()}] Polled ${interfaces.length} router interfaces.`);
+
+    // Take-and-clear the IP accounting snapshot for per-client traffic (Top Router Clients on
+    // the Top Consumers page) - "/ip accounting" itself was enabled once out-of-band
+    // (`/ip accounting set enabled=yes account-local-traffic=yes threshold=256`) since it
+    // defaults to off; RouterOS persists that setting across reboots, no need to re-set it here.
+    await ssh.execCommand("/ip accounting snapshot take");
+    const acctResult = await ssh.execCommand("/ip accounting snapshot print terse");
+    const acctLines = acctResult.stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+    let trafficRows = 0;
+    for (const line of acctLines) {
+      const row = parseAccountingLine(line);
+      if (!row) continue;
+      await db
+        .request()
+        .input("src", sql.VarChar, row.srcAddress)
+        .input("dst", sql.VarChar, row.dstAddress)
+        .input("packets", sql.BigInt, row.packets)
+        .input("bytes", sql.BigInt, row.bytes)
+        .query("INSERT INTO RouterClientTraffic (SrcAddress, DstAddress, Packets, Bytes) VALUES (@src, @dst, @packets, @bytes)");
+      trafficRows++;
+    }
+    console.log(`[${new Date().toISOString()}] Polled ${trafficRows} IP accounting traffic rows.`);
 
     const usersResult = await ssh.execCommand("/user active print terse");
     const activeUsers = parseActiveUsers(usersResult.stdout);
