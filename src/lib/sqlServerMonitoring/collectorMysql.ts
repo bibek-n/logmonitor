@@ -4,6 +4,7 @@ import { getMysqlConnection } from "./connectionMysql";
 import { notifyInstanceDown, notifyInstanceRecovered } from "./alerts";
 import { appendBlockingEvents, appendDeadlocks, appendTopQueries, getDeadlockWatermark, insertMetricsSnapshot, markInstanceFailed, markInstanceHealthy, replaceActiveSessions, replaceDatabaseSnapshots } from "./persist";
 import { collectBackupStatusViaSsh, type BackupStatus } from "./backupStatusSsh";
+import { collectCpuPctViaSsh } from "./cpuStatusSsh";
 import type { CollectedBlocking, CollectedDatabase, CollectedDeadlock, CollectedMetrics, CollectedQuery, CollectedSession, InstanceCollectionResult, InstanceToCollect } from "./shared";
 
 const TOP_QUERY_LIMIT = 10;
@@ -236,7 +237,7 @@ export async function runOneInstanceMysql(db: ConnectionPool, instance: Instance
     const conn = await getMysqlConnection(instance);
     const deadlockWatermark = await getDeadlockWatermark(db, instance.Id);
 
-    const [bufferCacheHitRatio, memory, sessionDetails, databases, deadlockCumulative, blocking, sessionCount, topByDuration, topByReads, newDeadlocks, backupStatusByDb] = await Promise.all([
+    const [bufferCacheHitRatio, memory, sessionDetails, databases, deadlockCumulative, blocking, sessionCount, topByDuration, topByReads, newDeadlocks, backupStatusByDb, cpuPct] = await Promise.all([
       collectBufferCacheHitRatio(conn).catch(() => null),
       collectMemory(conn).catch(() => ({ usedMB: null, targetMB: null })),
       collectActiveSessionDetails(conn).catch(() => []),
@@ -248,6 +249,7 @@ export async function runOneInstanceMysql(db: ConnectionPool, instance: Instance
       collectTopQueriesByReads(conn).catch(() => []),
       collectDeadlocks(conn, deadlockWatermark).catch(() => []),
       collectBackupStatusViaSsh(instance).catch((): Map<string, BackupStatus> => new Map()),
+      collectCpuPctViaSsh(instance).catch(() => null),
     ]);
 
     // Merge in whatever backup status the SSH check found, matched by database name - a no-op
@@ -263,7 +265,7 @@ export async function runOneInstanceMysql(db: ConnectionPool, instance: Instance
     }
 
     const metrics: CollectedMetrics = {
-      cpuPct: null, // MySQL doesn't expose global CPU% for the server process via portable SQL
+      cpuPct, // via SSH (cpuStatusSsh.ts) when configured - MySQL has no SQL-level way to report this
       memoryUsedMB: memory.usedMB,
       memoryTargetMB: memory.targetMB,
       bufferCacheHitRatio,
