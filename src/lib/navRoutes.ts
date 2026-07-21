@@ -299,6 +299,19 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/laravel-security/settings", key: "laravelSecurityRulesSettings", label: "Rules and Settings", icon: SlidersHorizontal },
     ],
   },
+  {
+    key: "compliance",
+    label: "Compliance",
+    icon: ShieldCheck,
+    items: [
+      { href: "/dashboard/compliance", key: "complianceDashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard/compliance/iso27001", key: "complianceIso27001", label: "ISO 27001", icon: ClipboardCheck },
+      { href: "/dashboard/compliance/pcidss", key: "compliancePciDss", label: "PCI DSS", icon: ClipboardCheck },
+      { href: "/dashboard/compliance/hipaa", key: "complianceHipaa", label: "HIPAA", icon: ClipboardCheck },
+      { href: "/dashboard/compliance/nist", key: "complianceNist", label: "NIST", icon: ClipboardCheck },
+      { href: "/dashboard/compliance/soc2", key: "complianceSoc2", label: "SOC 2", icon: ClipboardCheck },
+    ],
+  },
 ];
 
 // Flat list of every route + its parent group label, for the header's global search.
