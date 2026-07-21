@@ -64,7 +64,11 @@ async function checkBackupStatus(): Promise<AutoCheckResult> {
   `;
   const latest = result.recordset[0];
   if (!latest) return { status: "unknown", detail: "No application backup has ever been taken." };
-  if (latest.Status !== "Success" && latest.Status !== "Completed") {
+  // Case-insensitive: BackupHistory.Status is stored lowercase ("success") in practice, but
+  // nothing enforces a specific case at the schema level - confirmed live this was silently
+  // mis-flagging every successful backup as failed.
+  const statusLower = latest.Status.toLowerCase();
+  if (statusLower !== "success" && statusLower !== "completed") {
     return { status: "fail", detail: `Most recent backup (${latest.CreatedAt}) did not complete successfully (status: ${latest.Status}).` };
   }
   const ageMs = Date.now() - new Date(latest.CreatedAt + "Z").getTime();
@@ -79,10 +83,15 @@ async function checkBackupStatus(): Promise<AutoCheckResult> {
 // accounts, not "at least one admin happens to have it on."
 async function checkMfaEnabled(): Promise<AutoCheckResult> {
   const db = await getDb();
+  // LEFT JOIN + COUNT(DISTINCT ...) rather than a correlated EXISTS subquery inside a SUM(CASE
+  // ...) - confirmed live that SQL Server rejects the latter here with "Cannot perform an
+  // aggregate function on an expression containing an aggregate or a subquery."
   const result = await db.query<{ Total: number; WithMfa: number }>`
-    SELECT COUNT(*) AS Total,
-      SUM(CASE WHEN u.TotpEnabled = 1 OR EXISTS (SELECT 1 FROM UserPasskeys p WHERE p.UserId = u.Id) THEN 1 ELSE 0 END) AS WithMfa
-    FROM Users u WHERE u.Role = 'Admin' AND (u.IsActive = 1 OR u.IsActive IS NULL)
+    SELECT COUNT(DISTINCT u.Id) AS Total,
+      COUNT(DISTINCT CASE WHEN u.TotpEnabled = 1 OR p.Id IS NOT NULL THEN u.Id END) AS WithMfa
+    FROM Users u
+    LEFT JOIN UserPasskeys p ON p.UserId = u.Id
+    WHERE u.Role = 'Admin' AND (u.IsActive = 1 OR u.IsActive IS NULL)
   `;
   const { Total, WithMfa } = result.recordset[0];
   if (Total === 0) return { status: "unknown", detail: "No active admin accounts found." };
