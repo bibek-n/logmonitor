@@ -317,6 +317,36 @@ async function collectTopQueriesByMemory(pool: ConnectionPool): Promise<Collecte
   }
 }
 
+// total_logical_reads/total_logical_writes have existed on dm_exec_query_stats since SQL
+// Server 2005 (unlike max_used_grant_kb, 2016 SP1+ only), so this works even on older
+// instances that can't show a memory-grant ranking - ranked by combined reads+writes per
+// execution since that's the number that actually correlates with real disk/buffer pressure.
+async function collectTopQueriesByReads(pool: ConnectionPool): Promise<CollectedQuery[]> {
+  const result = await pool.request().query(`
+    WITH RankedStats AS (
+      SELECT TOP ${TOP_QUERY_CANDIDATE_POOL} qs.sql_handle, qs.plan_handle,
+        qs.total_elapsed_time / qs.execution_count / 1000.0 AS AvgDurationMs,
+        qs.total_logical_reads / qs.execution_count AS AvgLogicalReads,
+        qs.total_logical_writes / qs.execution_count AS AvgLogicalWrites,
+        qs.execution_count AS ExecutionCount,
+        qs.last_execution_time AS LastExecutedAt
+      FROM sys.dm_exec_query_stats qs
+      WHERE qs.execution_count > 0
+      ORDER BY (qs.total_logical_reads + qs.total_logical_writes) / qs.execution_count DESC
+    )
+    SELECT TOP ${TOP_QUERY_LIMIT}
+      DB_NAME(TRY_CONVERT(int, epa.value)) AS DatabaseName,
+      SUBSTRING(st.text, 1, 4000) AS QueryText,
+      rs.AvgDurationMs, rs.AvgLogicalReads, rs.AvgLogicalWrites, rs.ExecutionCount, rs.LastExecutedAt
+    FROM RankedStats rs
+    CROSS APPLY sys.dm_exec_sql_text(rs.sql_handle) st
+    OUTER APPLY sys.dm_exec_plan_attributes(rs.plan_handle) epa
+    WHERE epa.attribute = 'dbid'
+    ORDER BY (rs.AvgLogicalReads + rs.AvgLogicalWrites) DESC
+  `);
+  return mapQueryStatRows(result.recordset);
+}
+
 function mapQueryStatRows(rows: any[]): CollectedQuery[] {
   return rows.map((r) => ({
     databaseName: r.DatabaseName ?? null,
@@ -324,6 +354,8 @@ function mapQueryStatRows(rows: any[]): CollectedQuery[] {
     avgDurationMs: r.AvgDurationMs ?? null,
     avgCpuTimeMs: r.AvgCpuTimeMs ?? null,
     maxUsedGrantKB: r.MaxUsedGrantKB ?? null,
+    avgLogicalReads: r.AvgLogicalReads ?? null,
+    avgLogicalWrites: r.AvgLogicalWrites ?? null,
     executionCount: r.ExecutionCount,
     lastExecutedAt: r.LastExecutedAt ?? null,
   }));
@@ -337,7 +369,7 @@ export async function runOneInstanceMssql(db: ConnectionPool, instance: Instance
   try {
     const pool = await getInstanceConnection(instance);
 
-    const [cpuPct, memory, bufferCacheHitRatio, pageLifeExpectancy, sessions, deadlockCumulative, databases, logSpace, lastBackups, sessionDetails, topByDuration, topByCpu, topByMemory] =
+    const [cpuPct, memory, bufferCacheHitRatio, pageLifeExpectancy, sessions, deadlockCumulative, databases, logSpace, lastBackups, sessionDetails, topByDuration, topByCpu, topByMemory, topByReads] =
       await Promise.all([
         collectCpuPct(pool).catch(() => null),
         collectMemory(pool).catch(() => ({ usedMB: null, targetMB: null })),
@@ -352,6 +384,7 @@ export async function runOneInstanceMssql(db: ConnectionPool, instance: Instance
         collectTopQueriesByDuration(pool).catch(() => []),
         collectTopQueriesByCpu(pool).catch(() => []),
         collectTopQueriesByMemory(pool).catch(() => []),
+        collectTopQueriesByReads(pool).catch(() => []),
       ]);
 
     const databasesWithExtras: CollectedDatabase[] = databases.map((d) => {
@@ -387,6 +420,7 @@ export async function runOneInstanceMssql(db: ConnectionPool, instance: Instance
     await appendTopQueries(db, instance.Id, "duration", topByDuration);
     await appendTopQueries(db, instance.Id, "cpu", topByCpu);
     await appendTopQueries(db, instance.Id, "memory", topByMemory);
+    await appendTopQueries(db, instance.Id, "reads", topByReads);
 
     await markInstanceHealthy(db, instance.Id);
     await notifyInstanceRecovered(db, instance.Id, instance.Name, hostLabel, instance.LastCheckStatus);

@@ -41,6 +41,8 @@ interface QueryRow {
   AvgDurationMs?: number;
   AvgCpuTimeMs?: number | null;
   MaxUsedGrantKB?: number | null;
+  AvgLogicalReads?: number | null;
+  AvgLogicalWrites?: number | null;
 }
 interface SessionRow {
   SessionId: string;
@@ -58,7 +60,7 @@ type Selected =
   | { kind: "database"; row: DatabaseRow }
   | { kind: "deadlock"; row: DeadlockRow }
   | { kind: "blocking"; row: BlockingRow }
-  | { kind: "duration" | "cpu" | "memory"; row: QueryRow }
+  | { kind: "duration" | "cpu" | "memory" | "reads"; row: QueryRow }
   | { kind: "session"; row: SessionRow };
 
 function usageTone(pct: number | null): "success" | "warning" | "danger" | "neutral" {
@@ -119,6 +121,7 @@ function modalTitle(sel: Selected): string {
     case "duration":
     case "cpu":
     case "memory":
+    case "reads":
       return "Query Detail";
     case "session":
       return "Session Detail";
@@ -188,7 +191,7 @@ function ModalBody({ sel }: { sel: Selected }) {
     );
   }
 
-  // duration | cpu | memory query kinds
+  // duration | cpu | memory | reads query kinds
   const q = sel.row;
   return (
     <div>
@@ -199,6 +202,8 @@ function ModalBody({ sel }: { sel: Selected }) {
         {q.AvgDurationMs != null && <DetailRow label="Avg Duration" value={`${q.AvgDurationMs.toFixed(1)} ms`} />}
         {q.AvgCpuTimeMs != null && <DetailRow label="Avg CPU Time" value={`${q.AvgCpuTimeMs.toFixed(1)} ms`} />}
         {q.MaxUsedGrantKB != null && <DetailRow label="Max Memory Grant" value={`${(q.MaxUsedGrantKB / 1024).toFixed(1)} MB`} />}
+        {q.AvgLogicalReads != null && <DetailRow label="Avg Logical Reads" value={`${q.AvgLogicalReads.toLocaleString(undefined, { maximumFractionDigits: 0 })} pages`} />}
+        {q.AvgLogicalWrites != null && <DetailRow label="Avg Logical Writes" value={`${q.AvgLogicalWrites.toLocaleString(undefined, { maximumFractionDigits: 0 })} pages`} />}
       </dl>
       {q.QueryText ? <FullTextBlock text={q.QueryText} /> : <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No query text captured.</p>}
     </div>
@@ -212,6 +217,7 @@ export function InstanceDetailTables({
   durationQueries,
   cpuQueries,
   memoryQueries,
+  readsQueries,
   sessions,
   engine,
 }: {
@@ -221,6 +227,7 @@ export function InstanceDetailTables({
   durationQueries: QueryRow[];
   cpuQueries: QueryRow[];
   memoryQueries: QueryRow[];
+  readsQueries: QueryRow[];
   sessions: SessionRow[];
   engine: string;
 }) {
@@ -404,7 +411,11 @@ export function InstanceDetailTables({
             : "Not available for this engine - MySQL/PostgreSQL don't expose a per-query memory grant in their standard instrumentation."}
         </p>
         {memoryQueries.length === 0 ? (
-          <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No memory query stats available.</p>
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>
+            {engine === "mssql"
+              ? "No memory query stats available - this requires SQL Server 2016 SP1 or later (sys.dm_exec_query_stats.max_used_grant_kb doesn't exist on older versions)."
+              : "No memory query stats available."}
+          </p>
         ) : (
           <div style={{ maxHeight: 280, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
@@ -420,6 +431,43 @@ export function InstanceDetailTables({
                 {memoryQueries.map((q) => (
                   <tr key={q.Id} style={rowStyle} onClick={() => setSelected({ kind: "memory", row: q })}>
                     <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>{q.MaxUsedGrantKB != null ? `${(q.MaxUsedGrantKB / 1024).toFixed(1)} MB` : "—"}</td>
+                    <td style={cellStyle}>{q.ExecutionCount.toLocaleString()}</td>
+                    <td style={cellStyle}>{q.DatabaseName ?? "—"}</td>
+                    <td style={truncCellStyle}>{q.QueryText ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card className="flex flex-col gap-2">
+        <h3 style={{ fontSize: "0.9rem", margin: 0, color: "var(--ink)" }}>Top 10 Queries by Disk Reads/Writes</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.74rem", margin: 0 }}>
+          {engine === "mssql"
+            ? "Ranked by average logical reads + writes (8KB pages) per execution, cumulative since the plan cache was last cleared. Click a row for the full query."
+            : "Not available for this engine - MySQL/PostgreSQL don't expose per-query logical I/O in their standard instrumentation."}
+        </p>
+        {readsQueries.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No disk I/O query stats available yet.</p>
+        ) : (
+          <div style={{ maxHeight: 280, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                  <th style={cellStyle}>Reads</th>
+                  <th style={cellStyle}>Writes</th>
+                  <th style={cellStyle}>Executions</th>
+                  <th style={cellStyle}>Database</th>
+                  <th style={cellStyle}>Query</th>
+                </tr>
+              </thead>
+              <tbody>
+                {readsQueries.map((q) => (
+                  <tr key={q.Id} style={rowStyle} onClick={() => setSelected({ kind: "reads", row: q })}>
+                    <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>{q.AvgLogicalReads != null ? q.AvgLogicalReads.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</td>
+                    <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>{q.AvgLogicalWrites != null ? q.AvgLogicalWrites.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</td>
                     <td style={cellStyle}>{q.ExecutionCount.toLocaleString()}</td>
                     <td style={cellStyle}>{q.DatabaseName ?? "—"}</td>
                     <td style={truncCellStyle}>{q.QueryText ?? "—"}</td>

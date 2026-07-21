@@ -37,7 +37,7 @@ export interface SqlServerDatabaseRow {
 }
 
 export type DbEngine = "mssql" | "mysql" | "postgres";
-export type QueryRank = "duration" | "cpu" | "memory";
+export type QueryRank = "duration" | "cpu" | "memory" | "reads";
 
 // The row shape the dispatcher (collector.ts) reads from SqlServerInstances and hands to
 // whichever engine-specific runner handles this instance's Engine value.
@@ -123,13 +123,16 @@ export interface CollectedBlocking {
 
 // One row in a top-10-by-X query ranking. avgDurationMs is always populated when available
 // (useful context regardless of which metric the list is ranked by); avgCpuTimeMs/
-// maxUsedGrantKB are populated only when that specific ranking is being produced.
+// maxUsedGrantKB/avgLogicalReads/avgLogicalWrites are populated only when that specific
+// ranking is being produced.
 export interface CollectedQuery {
   databaseName: string | null;
   queryText: string | null;
   avgDurationMs: number | null;
   avgCpuTimeMs: number | null;
   maxUsedGrantKB: number | null;
+  avgLogicalReads: number | null;
+  avgLogicalWrites: number | null;
   executionCount: number;
   lastExecutedAt: string | Date | null;
 }

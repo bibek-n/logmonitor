@@ -129,11 +129,13 @@ export async function appendTopQueries(db: ConnectionPool, instanceId: number, r
       .input("avgDurationMs", sql.Float, q.avgDurationMs ?? 0)
       .input("avgCpuTimeMs", sql.Float, q.avgCpuTimeMs)
       .input("maxUsedGrantKB", sql.Float, q.maxUsedGrantKB)
+      .input("avgLogicalReads", sql.Float, q.avgLogicalReads)
+      .input("avgLogicalWrites", sql.Float, q.avgLogicalWrites)
       .input("executionCount", sql.BigInt, q.executionCount)
       .input("lastExecutedAt", sql.DateTime2, q.lastExecutedAt ? new Date(q.lastExecutedAt) : null)
       .query(`
-        INSERT INTO SqlServerSlowQueries (InstanceId, RankBy, DatabaseName, QueryText, AvgDurationMs, AvgCpuTimeMs, MaxUsedGrantKB, ExecutionCount, LastExecutedAt)
-        VALUES (@instanceId, @rankBy, @databaseName, @queryText, @avgDurationMs, @avgCpuTimeMs, @maxUsedGrantKB, @executionCount, @lastExecutedAt)
+        INSERT INTO SqlServerSlowQueries (InstanceId, RankBy, DatabaseName, QueryText, AvgDurationMs, AvgCpuTimeMs, MaxUsedGrantKB, AvgLogicalReads, AvgLogicalWrites, ExecutionCount, LastExecutedAt)
+        VALUES (@instanceId, @rankBy, @databaseName, @queryText, @avgDurationMs, @avgCpuTimeMs, @maxUsedGrantKB, @avgLogicalReads, @avgLogicalWrites, @executionCount, @lastExecutedAt)
       `);
   }
 }

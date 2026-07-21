@@ -149,6 +149,8 @@ async function collectTopQueriesByDuration(conn: Connection): Promise<CollectedQ
       avgDurationMs: r.AvgDurationMs != null ? Number(r.AvgDurationMs) : null,
       avgCpuTimeMs: null,
       maxUsedGrantKB: null,
+      avgLogicalReads: null,
+      avgLogicalWrites: null,
       executionCount: Number(r.ExecutionCount),
       lastExecutedAt: r.LastExecutedAt ?? null,
     }));

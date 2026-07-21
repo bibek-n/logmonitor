@@ -57,7 +57,7 @@ export default async function SqlServerInstanceDetailPage({ params }: { params: 
   const instance = instanceResult.recordset[0];
   if (!instance) notFound();
 
-  const [metricsResult, databasesResult, deadlocksResult, blockingResult, durationQueriesResult, cpuQueriesResult, memoryQueriesResult, sessionsResult] = await Promise.all([
+  const [metricsResult, databasesResult, deadlocksResult, blockingResult, durationQueriesResult, cpuQueriesResult, memoryQueriesResult, readsQueriesResult, sessionsResult] = await Promise.all([
     db.request().input("id", sql.Int, id).query(`
       SELECT TOP 1 CpuPct, MemoryUsedMB, MemoryTargetMB, BufferCacheHitRatio, PageLifeExpectancy, ActiveSessionCount, BlockingSessionCount, DeadlockCountCumulative,
         CONVERT(VARCHAR(19), ReceivedAt, 126) AS ReceivedAt
@@ -88,6 +88,10 @@ export default async function SqlServerInstanceDetailPage({ params }: { params: 
       FROM SqlServerSlowQueries WHERE InstanceId = @id AND RankBy = 'memory' ORDER BY DetectedAt DESC, MaxUsedGrantKB DESC
     `),
     db.request().input("id", sql.Int, id).query(`
+      SELECT TOP 10 Id, CONVERT(VARCHAR(19), DetectedAt, 126) AS DetectedAt, DatabaseName, QueryText, AvgLogicalReads, AvgLogicalWrites, ExecutionCount
+      FROM SqlServerSlowQueries WHERE InstanceId = @id AND RankBy = 'reads' ORDER BY DetectedAt DESC, (AvgLogicalReads + AvgLogicalWrites) DESC
+    `),
+    db.request().input("id", sql.Int, id).query(`
       SELECT TOP 50 SessionId, LoginName, HostName, ProgramName, DatabaseName, StatusText, CpuTimeMs, MemoryUsageKB,
         CONVERT(VARCHAR(19), LastRequestStartTime, 126) AS LastRequestStartTime
       FROM SqlServerActiveSessions WHERE InstanceId = @id ORDER BY CpuTimeMs DESC
@@ -101,6 +105,7 @@ export default async function SqlServerInstanceDetailPage({ params }: { params: 
   const durationQueries = durationQueriesResult.recordset;
   const cpuQueries = cpuQueriesResult.recordset;
   const memoryQueries = memoryQueriesResult.recordset;
+  const readsQueries = readsQueriesResult.recordset;
   const sessions = sessionsResult.recordset;
 
   return (
@@ -184,6 +189,7 @@ export default async function SqlServerInstanceDetailPage({ params }: { params: 
           durationQueries={durationQueries}
           cpuQueries={cpuQueries}
           memoryQueries={memoryQueries}
+          readsQueries={readsQueries}
           sessions={sessions}
           engine={instance.Engine}
         />
