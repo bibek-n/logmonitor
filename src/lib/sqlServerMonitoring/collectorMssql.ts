@@ -225,35 +225,62 @@ async function collectBlocking(pool: ConnectionPool): Promise<CollectedBlocking[
 // sp_executesql), so DB_NAME(st.dbid) came back NULL for nearly every real-world row. The
 // plan_handle's 'dbid' attribute is the reliable source - it reflects the actual compilation
 // database regardless of how the statement was submitted.
-const QUERY_STAT_SELECT_COLUMNS = `
-  DB_NAME(TRY_CONVERT(int, epa.value)) AS DatabaseName,
-  SUBSTRING(st.text, 1, 4000) AS QueryText,
-  qs.total_elapsed_time / qs.execution_count / 1000.0 AS AvgDurationMs,
-  qs.total_worker_time / qs.execution_count / 1000.0 AS AvgCpuTimeMs,
-  qs.execution_count AS ExecutionCount,
-  qs.last_execution_time AS LastExecutedAt
-`;
-const QUERY_STAT_FROM_JOIN = `
-  FROM sys.dm_exec_query_stats qs
-  CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
-  OUTER APPLY sys.dm_exec_plan_attributes(qs.plan_handle) epa
-  WHERE qs.execution_count > 0 AND epa.attribute = 'dbid'
-`;
+//
+// CROSS/OUTER APPLYing sql_text and plan_attributes must happen AFTER ranking down to a small
+// candidate set, never across the full dm_exec_query_stats first - each APPLY is effectively a
+// per-row RPC. Confirmed live against a real busy instance (1,134 databases, 52,000+ cached
+// plans): joining before the TOP/ORDER BY blew past the connection's 15s request timeout and
+// the caller's blanket .catch(() => []) silently turned that into "no query stats available"
+// with no error surfaced anywhere. Ranking on the bare DMV first (cheap, no APPLY) and taking
+// a candidate pool larger than TOP_QUERY_LIMIT before the epa.attribute = 'dbid' filter (which
+// can drop a few candidates that lack a resolvable dbid) keeps this fast regardless of plan
+// cache size while still reliably returning a full TOP_QUERY_LIMIT rows.
+const TOP_QUERY_CANDIDATE_POOL = 50;
+
+function buildRankedQueryStatsCte(orderByExpr: string, extraColumns = ""): string {
+  return `
+    WITH RankedStats AS (
+      SELECT TOP ${TOP_QUERY_CANDIDATE_POOL} qs.sql_handle, qs.plan_handle,
+        qs.total_elapsed_time / qs.execution_count / 1000.0 AS AvgDurationMs,
+        qs.total_worker_time / qs.execution_count / 1000.0 AS AvgCpuTimeMs,
+        qs.execution_count AS ExecutionCount,
+        qs.last_execution_time AS LastExecutedAt
+        ${extraColumns}
+      FROM sys.dm_exec_query_stats qs
+      WHERE qs.execution_count > 0
+      ORDER BY ${orderByExpr} DESC
+    )
+  `;
+}
 
 async function collectTopQueriesByDuration(pool: ConnectionPool): Promise<CollectedQuery[]> {
   const result = await pool.request().query(`
-    SELECT TOP ${TOP_QUERY_LIMIT} ${QUERY_STAT_SELECT_COLUMNS}
-    ${QUERY_STAT_FROM_JOIN}
-    ORDER BY AvgDurationMs DESC
+    ${buildRankedQueryStatsCte("qs.total_elapsed_time / qs.execution_count")}
+    SELECT TOP ${TOP_QUERY_LIMIT}
+      DB_NAME(TRY_CONVERT(int, epa.value)) AS DatabaseName,
+      SUBSTRING(st.text, 1, 4000) AS QueryText,
+      rs.AvgDurationMs, rs.AvgCpuTimeMs, rs.ExecutionCount, rs.LastExecutedAt
+    FROM RankedStats rs
+    CROSS APPLY sys.dm_exec_sql_text(rs.sql_handle) st
+    OUTER APPLY sys.dm_exec_plan_attributes(rs.plan_handle) epa
+    WHERE epa.attribute = 'dbid'
+    ORDER BY rs.AvgDurationMs DESC
   `);
   return mapQueryStatRows(result.recordset);
 }
 
 async function collectTopQueriesByCpu(pool: ConnectionPool): Promise<CollectedQuery[]> {
   const result = await pool.request().query(`
-    SELECT TOP ${TOP_QUERY_LIMIT} ${QUERY_STAT_SELECT_COLUMNS}
-    ${QUERY_STAT_FROM_JOIN}
-    ORDER BY AvgCpuTimeMs DESC
+    ${buildRankedQueryStatsCte("qs.total_worker_time / qs.execution_count")}
+    SELECT TOP ${TOP_QUERY_LIMIT}
+      DB_NAME(TRY_CONVERT(int, epa.value)) AS DatabaseName,
+      SUBSTRING(st.text, 1, 4000) AS QueryText,
+      rs.AvgDurationMs, rs.AvgCpuTimeMs, rs.ExecutionCount, rs.LastExecutedAt
+    FROM RankedStats rs
+    CROSS APPLY sys.dm_exec_sql_text(rs.sql_handle) st
+    OUTER APPLY sys.dm_exec_plan_attributes(rs.plan_handle) epa
+    WHERE epa.attribute = 'dbid'
+    ORDER BY rs.AvgCpuTimeMs DESC
   `);
   return mapQueryStatRows(result.recordset);
 }
@@ -264,18 +291,25 @@ async function collectTopQueriesByMemory(pool: ConnectionPool): Promise<Collecte
     // 2016 SP1+ - older/lower editions don't have these columns, so this collector degrades
     // to an empty list (not a failed pass) if the columns don't exist.
     const result = await pool.request().query(`
+      WITH RankedStats AS (
+        SELECT TOP ${TOP_QUERY_CANDIDATE_POOL} qs.sql_handle, qs.plan_handle,
+          qs.total_elapsed_time / qs.execution_count / 1000.0 AS AvgDurationMs,
+          qs.max_used_grant_kb AS MaxUsedGrantKB,
+          qs.execution_count AS ExecutionCount,
+          qs.last_execution_time AS LastExecutedAt
+        FROM sys.dm_exec_query_stats qs
+        WHERE qs.execution_count > 0 AND qs.max_used_grant_kb IS NOT NULL
+        ORDER BY qs.max_used_grant_kb DESC
+      )
       SELECT TOP ${TOP_QUERY_LIMIT}
         DB_NAME(TRY_CONVERT(int, epa.value)) AS DatabaseName,
         SUBSTRING(st.text, 1, 4000) AS QueryText,
-        qs.total_elapsed_time / qs.execution_count / 1000.0 AS AvgDurationMs,
-        qs.max_used_grant_kb AS MaxUsedGrantKB,
-        qs.execution_count AS ExecutionCount,
-        qs.last_execution_time AS LastExecutedAt
-      FROM sys.dm_exec_query_stats qs
-      CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
-      OUTER APPLY sys.dm_exec_plan_attributes(qs.plan_handle) epa
-      WHERE qs.execution_count > 0 AND qs.max_used_grant_kb IS NOT NULL AND epa.attribute = 'dbid'
-      ORDER BY MaxUsedGrantKB DESC
+        rs.AvgDurationMs, rs.MaxUsedGrantKB, rs.ExecutionCount, rs.LastExecutedAt
+      FROM RankedStats rs
+      CROSS APPLY sys.dm_exec_sql_text(rs.sql_handle) st
+      OUTER APPLY sys.dm_exec_plan_attributes(rs.plan_handle) epa
+      WHERE epa.attribute = 'dbid'
+      ORDER BY rs.MaxUsedGrantKB DESC
     `);
     return mapQueryStatRows(result.recordset);
   } catch {
