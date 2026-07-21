@@ -276,6 +276,11 @@ export function InstanceDetailTables({
 
       <Card className="flex flex-col gap-2">
         <h3 style={{ fontSize: "0.9rem", margin: 0, color: "var(--ink)" }}>Recent Deadlocks</h3>
+        {engine === "mysql" && (
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.74rem", margin: 0 }}>
+            MySQL/InnoDB only ever remembers its single most recent deadlock (no full history like SQL Server) - captured here the next time a scan runs after one occurs.
+          </p>
+        )}
         {deadlocks.length === 0 ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No deadlocks recorded.</p>
         ) : (
@@ -447,7 +452,9 @@ export function InstanceDetailTables({
         <p style={{ color: "var(--ink-muted)", fontSize: "0.74rem", margin: 0 }}>
           {engine === "mssql"
             ? "Ranked by average logical reads + writes (8KB pages) per execution, cumulative since the plan cache was last cleared. Click a row for the full query."
-            : "Not available for this engine - MySQL/PostgreSQL don't expose per-query logical I/O in their standard instrumentation."}
+            : engine === "mysql"
+              ? "Ranked by average rows examined + rows affected per execution (MySQL's closest proxy for read/write I/O - not page-based like SQL Server), cumulative since performance_schema counters were last reset. Click a row for the full query."
+              : "Not available for this engine - PostgreSQL doesn't expose per-query logical I/O in pg_stat_statements by default."}
         </p>
         {readsQueries.length === 0 ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No disk I/O query stats available yet.</p>

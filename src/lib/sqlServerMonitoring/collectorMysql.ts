@@ -2,9 +2,9 @@ import type { Connection } from "mysql2/promise";
 import type { ConnectionPool } from "mssql";
 import { getMysqlConnection } from "./connectionMysql";
 import { notifyInstanceDown, notifyInstanceRecovered } from "./alerts";
-import { appendBlockingEvents, appendTopQueries, insertMetricsSnapshot, markInstanceFailed, markInstanceHealthy, replaceActiveSessions, replaceDatabaseSnapshots } from "./persist";
+import { appendBlockingEvents, appendDeadlocks, appendTopQueries, getDeadlockWatermark, insertMetricsSnapshot, markInstanceFailed, markInstanceHealthy, replaceActiveSessions, replaceDatabaseSnapshots } from "./persist";
 import { collectBackupStatusViaSsh, type BackupStatus } from "./backupStatusSsh";
-import type { CollectedBlocking, CollectedDatabase, CollectedMetrics, CollectedQuery, CollectedSession, InstanceCollectionResult, InstanceToCollect } from "./shared";
+import type { CollectedBlocking, CollectedDatabase, CollectedDeadlock, CollectedMetrics, CollectedQuery, CollectedSession, InstanceCollectionResult, InstanceToCollect } from "./shared";
 
 const TOP_QUERY_LIMIT = 10;
 const TOP_SESSION_LIMIT = 50;
@@ -160,13 +160,83 @@ async function collectTopQueriesByDuration(conn: Connection): Promise<CollectedQ
   }
 }
 
+// MySQL has no per-query CPU time or memory-grant figure (confirmed live against
+// performance_schema.events_statements_summary_by_digest - no CPU_* or *_GRANT_* columns
+// exist on MySQL 5.7/8.0), but it DOES track rows_examined/rows_affected per statement
+// digest, a genuine (if row-count-based rather than page-based like SQL Server's logical
+// reads) proxy for read/write I/O work - reused here as the "reads" ranking rather than
+// leaving it unavailable like CPU/memory.
+async function collectTopQueriesByReads(conn: Connection): Promise<CollectedQuery[]> {
+  try {
+    const [rows] = await conn.query<any[]>(`
+      SELECT
+        SCHEMA_NAME AS DatabaseName,
+        DIGEST_TEXT AS QueryText,
+        AVG_TIMER_WAIT / 1000000 AS AvgDurationMs,
+        SUM_ROWS_EXAMINED / COUNT_STAR AS AvgLogicalReads,
+        SUM_ROWS_AFFECTED / COUNT_STAR AS AvgLogicalWrites,
+        COUNT_STAR AS ExecutionCount,
+        LAST_SEEN AS LastExecutedAt
+      FROM performance_schema.events_statements_summary_by_digest
+      WHERE COUNT_STAR > 0
+      ORDER BY (SUM_ROWS_EXAMINED + SUM_ROWS_AFFECTED) / COUNT_STAR DESC
+      LIMIT ${TOP_QUERY_LIMIT}
+    `);
+    return (rows as any[]).map((r) => ({
+      databaseName: r.DatabaseName ?? null,
+      queryText: r.QueryText ?? null,
+      avgDurationMs: r.AvgDurationMs != null ? Number(r.AvgDurationMs) : null,
+      avgCpuTimeMs: null,
+      maxUsedGrantKB: null,
+      avgLogicalReads: r.AvgLogicalReads != null ? Number(r.AvgLogicalReads) : null,
+      avgLogicalWrites: r.AvgLogicalWrites != null ? Number(r.AvgLogicalWrites) : null,
+      executionCount: Number(r.ExecutionCount),
+      lastExecutedAt: r.LastExecutedAt ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// InnoDB only ever remembers the SINGLE most recent deadlock (SHOW ENGINE INNODB STATUS's
+// "LATEST DETECTED DEADLOCK" section is overwritten by the next one, unlike SQL Server's
+// extended-events-based deadlock graph history) - dedupe against the last-recorded event's
+// own timestamp (embedded as the block's first line, e.g. "2026-07-21 10:15:23 0x...") via
+// the same watermark pattern collectorMssql.ts uses, so the same deadlock is never inserted
+// twice across repeated scan passes.
+async function collectDeadlocks(conn: Connection, watermark: string | null): Promise<CollectedDeadlock[]> {
+  try {
+    const [rows] = await conn.query<any[]>("SHOW ENGINE INNODB STATUS");
+    const statusText: string = (rows as any[])[0]?.Status ?? "";
+    const marker = "LATEST DETECTED DEADLOCK";
+    const startIdx = statusText.indexOf(marker);
+    if (startIdx === -1) return [];
+
+    const after = statusText.slice(startIdx + marker.length);
+    const endMatch = after.match(/\n-{4,}\n/);
+    const block = (endMatch ? after.slice(0, endMatch.index) : after).trim();
+    if (!block) return [];
+
+    const tsMatch = block.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+    if (!tsMatch) return [];
+    const detectedAt = tsMatch[1];
+    if (watermark && new Date(detectedAt) <= new Date(watermark.replace(/Z$/, ""))) return [];
+
+    const summaryLine = block.split("\n").find((l) => l.trim().startsWith("***")) ?? "Deadlock detected";
+    return [{ detectedAt, summary: summaryLine.trim().slice(0, 500), xml: block.slice(0, 8000) }];
+  } catch {
+    return [];
+  }
+}
+
 export async function runOneInstanceMysql(db: ConnectionPool, instance: InstanceToCollect): Promise<InstanceCollectionResult> {
   const hostLabel = `${instance.HostName}:${instance.Port}`;
   const startedAt = Date.now();
   try {
     const conn = await getMysqlConnection(instance);
+    const deadlockWatermark = await getDeadlockWatermark(db, instance.Id);
 
-    const [bufferCacheHitRatio, memory, sessionDetails, databases, deadlockCumulative, blocking, sessionCount, topByDuration, backupStatusByDb] = await Promise.all([
+    const [bufferCacheHitRatio, memory, sessionDetails, databases, deadlockCumulative, blocking, sessionCount, topByDuration, topByReads, newDeadlocks, backupStatusByDb] = await Promise.all([
       collectBufferCacheHitRatio(conn).catch(() => null),
       collectMemory(conn).catch(() => ({ usedMB: null, targetMB: null })),
       collectActiveSessionDetails(conn).catch(() => []),
@@ -175,6 +245,8 @@ export async function runOneInstanceMysql(db: ConnectionPool, instance: Instance
       collectBlocking(conn).catch(() => []),
       collectSessionCount(conn).catch(() => 0),
       collectTopQueriesByDuration(conn).catch(() => []),
+      collectTopQueriesByReads(conn).catch(() => []),
+      collectDeadlocks(conn, deadlockWatermark).catch(() => []),
       collectBackupStatusViaSsh(instance).catch((): Map<string, BackupStatus> => new Map()),
     ]);
 
@@ -206,12 +278,18 @@ export async function runOneInstanceMysql(db: ConnectionPool, instance: Instance
     await replaceActiveSessions(db, instance.Id, sessionDetails);
     await appendBlockingEvents(db, instance.Id, blocking);
     await appendTopQueries(db, instance.Id, "duration", topByDuration);
+    await appendTopQueries(db, instance.Id, "reads", topByReads);
+    await appendDeadlocks(db, instance.Id, newDeadlocks);
 
     await markInstanceHealthy(db, instance.Id);
     await notifyInstanceRecovered(db, instance.Id, instance.Name, hostLabel, instance.LastCheckStatus);
 
     const durationMs = Date.now() - startedAt;
-    return { instanceName: instance.Name, status: "Healthy", message: `${databases.length} database(s), ${blocking.length} blocking session(s) (${durationMs}ms)` };
+    return {
+      instanceName: instance.Name,
+      status: "Healthy",
+      message: `${databases.length} database(s), ${blocking.length} blocking session(s), ${newDeadlocks.length} new deadlock(s) (${durationMs}ms)`,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     await insertMetricsSnapshot(db, instance.Id, false, null).catch(() => {});
