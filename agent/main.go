@@ -20,6 +20,12 @@ func usage() {
 	fmt.Println()
 	if runtime.GOOS == "windows" {
 		fmt.Println("  agent.exe install --token=<TOKEN> --server=<SERVER_URL>   Enroll + register as a Windows service (run as administrator)")
+		fmt.Println("  agent.exe install-unattended --token=<TOKEN> --server=<SERVER_URL> --consent-accepted")
+		fmt.Println("                                                             Same as install, but for scripted/remote deployment - no GUI")
+		fmt.Println("                                                             dialog (would hang forever with no desktop to click it on).")
+		fmt.Println("                                                             --consent-accepted takes the place of the dialog click, same")
+		fmt.Println("                                                             as install.sh's flag on Linux - only pass it once a human has")
+		fmt.Println("                                                             actually authorized this install.")
 		fmt.Println("  agent.exe uninstall                                       Stop and remove the Windows service")
 		fmt.Println("  agent.exe run                                             Run in the foreground (for testing)")
 	} else {
@@ -37,6 +43,8 @@ func main() {
 	switch os.Args[1] {
 	case "install":
 		cmdInstall(os.Args[2:])
+	case "install-unattended":
+		cmdInstallUnattended(os.Args[2:])
 	case "enroll":
 		cmdEnroll(os.Args[2:])
 	case "uninstall":
@@ -93,6 +101,55 @@ func cmdInstall(args []string) {
 	if err := SaveChatConfig(&ChatConfig{ServerURL: *server, DeviceID: resp.DeviceID, ChatToken: resp.ChatToken}); err != nil {
 		// Non-fatal: the main agent (telemetry) is what matters most — chat is a bonus
 		// feature, so a failure here shouldn't abort the whole install.
+		fmt.Fprintln(os.Stderr, "warning: failed to save chat config (chat companion won't work):", err)
+	}
+
+	if err := InstallService(); err != nil {
+		fmt.Fprintln(os.Stderr, "service install failed:", err)
+		os.Exit(1)
+	}
+
+	installChatCompanion()
+
+	fmt.Println("Enrolled as device", resp.DeviceID, "- agent service installed and started.")
+}
+
+// cmdInstallUnattended is cmdInstall's scripted/remote-deployment twin: identical end state
+// (enrolled, config saved, Windows service installed and started), but gated by a
+// --consent-accepted flag instead of ShowConsentDialog()'s blocking native MessageBox - a
+// GUI dialog has no way to be answered over a non-interactive remote session (WinRM/PSRemoting
+// runs in a session with no attached desktop), so it would just hang forever waiting for a
+// click nobody can make. This mirrors cmdEnroll's Linux flag exactly, including the same
+// "don't set this without a human having actually agreed" expectation.
+func cmdInstallUnattended(args []string) {
+	fs := flag.NewFlagSet("install-unattended", flag.ExitOnError)
+	token := fs.String("token", "", "one-time enrollment token")
+	server := fs.String("server", "", "server URL, e.g. https://logs.tulipshrm.com:4433")
+	consentAccepted := fs.Bool("consent-accepted", false, "must be true; only set after a human has actually authorized this install")
+	fs.Parse(args)
+
+	if *token == "" || *server == "" || !*consentAccepted {
+		fmt.Fprintln(os.Stderr, "usage: agent.exe install-unattended --token=<TOKEN> --server=<SERVER_URL> --consent-accepted")
+		os.Exit(1)
+	}
+
+	resp, err := Enroll(*server, *token, hostname(), HostVersion())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "enrollment failed:", err)
+		os.Exit(1)
+	}
+
+	cfg := &Config{
+		ServerURL:                *server,
+		DeviceID:                 resp.DeviceID,
+		APIKey:                   resp.APIKey,
+		HeartbeatIntervalSeconds: 30,
+	}
+	if err := SaveConfig(cfg); err != nil {
+		fmt.Fprintln(os.Stderr, "failed to save config:", err)
+		os.Exit(1)
+	}
+	if err := SaveChatConfig(&ChatConfig{ServerURL: *server, DeviceID: resp.DeviceID, ChatToken: resp.ChatToken}); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: failed to save chat config (chat companion won't work):", err)
 	}
 
