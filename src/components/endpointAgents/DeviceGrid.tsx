@@ -65,7 +65,36 @@ export function DeviceGrid({ devices }: { devices: DeviceRow[] }) {
           </div>
         </Card>
       ) : (
-        <Card>
+        <>
+        <div className="flex flex-col gap-3 md:hidden">
+          {filtered.map((d) => (
+            <Card key={d.deviceId} className="flex flex-col gap-2" style={{ padding: "0.9rem 1rem" }}>
+              <div className="flex items-center justify-between gap-2">
+                {d.staffName ? (
+                  <Link href="/dashboard/staff" style={{ color: "var(--series-1)", fontWeight: 600 }}>
+                    {d.staffName}
+                  </Link>
+                ) : (
+                  <span style={{ color: "var(--ink-muted)", fontWeight: 600 }}>Unassigned ({d.hostname})</span>
+                )}
+                <Badge tone="success">Enrolled</Badge>
+              </div>
+              <dl className="grid grid-cols-2 gap-2" style={{ margin: 0, fontSize: "0.78rem" }}>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>IP Address</dt>
+                  <dd style={{ margin: 0 }}>{d.lastIp ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>MAC Address</dt>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{d.macAddress ?? "-"}</dd>
+                </div>
+              </dl>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="hidden md:block">
+          <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
@@ -96,7 +125,9 @@ export function DeviceGrid({ devices }: { devices: DeviceRow[] }) {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
+        </>
       )}
 
       <div style={{ marginTop: "0.75rem", fontSize: "0.72rem", color: "var(--ink-muted)", display: "flex", alignItems: "center", gap: 6 }}>

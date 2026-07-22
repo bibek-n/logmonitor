@@ -3,11 +3,27 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Pencil, Search, X } from "lucide-react";
+import { Pencil, Search, X, Globe } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ToastProvider } from "@/components/ui/Toast";
 import { EditEmployeeModal, type EditableEmployee } from "./EditEmployeeModal";
 import { removeStaff } from "@/app/dashboard/staff/actions";
+
+// Deliberately NOT imported from @/lib/staffStatus - that module pulls in src/lib/db.ts
+// (mssql/tedious, server-only) transitively, which webpack correctly refuses to bundle into
+// this "use client" component. Duplicated here rather than restructuring staffStatus.ts, since
+// this is the only piece of it a client component needs.
+function formatDuration(from: Date | null): string {
+  if (!from) return "-";
+  const ms = Date.now() - from.getTime();
+  if (ms < 0) return "-";
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
 
 export interface EmployeeRow extends EditableEmployee {
   isOnline: boolean;
@@ -19,6 +35,8 @@ export interface EmployeeRow extends EditableEmployee {
   lastSeen: Date | null;
   firstSeen: Date | null;
   source: "mikrotik" | "sophos" | null;
+  webActivityCount: number;
+  webActivityLastSeen: Date | null;
 }
 
 function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
@@ -78,7 +96,105 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
       {filteredEmployees.length === 0 ? (
         <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>{t("noMatchesText")}</p>
       ) : (
-      <div style={{ overflowX: "auto" }}>
+      <>
+      <div className="flex flex-col gap-3 md:hidden">
+        {filteredEmployees.map((s) => {
+          const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "critical";
+          return (
+            <div key={s.Id} className="flex flex-col gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "0.9rem 1rem" }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Avatar name={s.Name} photoPath={s.PhotoPath} size={32} />
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className={`status-dot status-${status}`} />
+                      <Link href={`/dashboard/staff/${s.Id}`} style={{ color: "var(--series-1)", fontWeight: 600 }}>
+                        {s.Name}
+                      </Link>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>
+                      {!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : t("offlineStatus")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-2" style={{ margin: 0, fontSize: "0.78rem" }}>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("emailColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.Email ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("departmentColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.Department ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("positionColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.Position ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("computerNameColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.deviceName ?? "-"}</dd>
+                </div>
+                <div>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("ipAddressColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.currentIp ?? t("notCurrentlyOnlineFallback")}</dd>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("lastSeenColumn")}</dt>
+                  <dd style={{ margin: 0 }}>{s.lastSeen ? s.lastSeen.toLocaleString() : "-"}</dd>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <dt style={{ color: "var(--ink-muted)" }}>{t("macAddressColumn")}</dt>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{s.MacAddress ?? "-"}</dd>
+                </div>
+                {s.webActivityCount > 0 && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <dt style={{ color: "var(--ink-muted)" }}>{t("webActivityColumn")}</dt>
+                    <dd style={{ margin: 0 }}>
+                      <Link
+                        href={`/dashboard/staff/${s.Id}#router-web`}
+                        style={{ color: "var(--series-1)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                        title={t("webActivityTitle", { count: s.webActivityCount })}
+                      >
+                        <Globe size={12} />
+                        {t("webActivityAgo", { duration: formatDuration(s.webActivityLastSeen) })}
+                      </Link>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <div className="flex items-center gap-3" style={{ marginTop: "0.15rem" }}>
+                <button
+                  onClick={() => setEditing(s)}
+                  className="flex items-center gap-1"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: "0.8rem", padding: 0 }}
+                >
+                  <Pencil size={13} /> {t("editTitle")}
+                </button>
+                <form action={removeStaff}>
+                  <input type="hidden" name="id" value={s.Id} />
+                  <button
+                    type="submit"
+                    style={{
+                      background: "none",
+                      border: "1px solid var(--border)",
+                      color: "var(--ink-muted)",
+                      borderRadius: 6,
+                      padding: "0.2rem 0.55rem",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t("removeButton")}
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
@@ -92,6 +208,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
               <th style={{ padding: "0.5rem" }}>{t("ipAddressColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("lastSeenColumn")}</th>
               <th style={{ padding: "0.5rem" }}>{t("macAddressColumn")}</th>
+              <th style={{ padding: "0.5rem" }}>{t("webActivityColumn")}</th>
               <th style={{ padding: "0.5rem" }}></th>
             </tr>
           </thead>
@@ -117,6 +234,20 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                   <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.currentIp ?? t("notCurrentlyOnlineFallback")}</td>
                   <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.lastSeen ? s.lastSeen.toLocaleString() : "-"}</td>
                   <td style={{ padding: "0.5rem", fontFamily: "monospace", fontSize: "0.78rem" }}>{s.MacAddress ?? "-"}</td>
+                  <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>
+                    {s.webActivityCount > 0 ? (
+                      <Link
+                        href={`/dashboard/staff/${s.Id}#router-web`}
+                        style={{ color: "var(--series-1)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                        title={t("webActivityTitle", { count: s.webActivityCount })}
+                      >
+                        <Globe size={12} />
+                        {t("webActivityAgo", { duration: formatDuration(s.webActivityLastSeen) })}
+                      </Link>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>
                     <button
                       onClick={() => setEditing(s)}
@@ -149,6 +280,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
           </tbody>
         </table>
       </div>
+      </>
       )}
 
       {editing && <EditEmployeeModal employee={editing} onClose={() => setEditing(null)} />}

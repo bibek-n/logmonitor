@@ -53,9 +53,66 @@ function ServersTableInner({ servers }: { servers: ServerRow[] }) {
     }
   }
 
+  if (servers.length === 0) {
+    return (
+      <Card style={{ textAlign: "center", color: "var(--ink-muted)", padding: "1.75rem 1rem" }}>
+        No servers registered yet — click &quot;Add Server&quot; to get started.
+      </Card>
+    );
+  }
+
   return (
     <>
-      <Card style={{ padding: 0 }}>
+      <div className="flex flex-col gap-3 md:hidden">
+        {servers.map((s) => (
+          <Card key={s.DeviceId} className="flex flex-col gap-2" style={{ padding: "0.9rem 1rem" }}>
+            <div className="flex items-start justify-between gap-2">
+              <Link href={`/dashboard/servers/${s.DeviceId}`} style={{ color: "var(--primary)", fontWeight: 600, fontSize: "0.95rem" }}>
+                {s.DeviceName || s.Hostname || "(unnamed)"}
+              </Link>
+              <div className="flex flex-col items-end gap-1" style={{ flexShrink: 0 }}>
+                <Badge tone={isOnline(s.LastHeartbeat) ? "success" : "neutral"}>{isOnline(s.LastHeartbeat) ? "Online" : "Offline"}</Badge>
+                <Badge tone={STATUS_TONE[s.LifecycleStatus] ?? "neutral"}>{s.LifecycleStatus}</Badge>
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--ink-muted)" }}>
+              {s.Hostname || "Pending enrollment"} · {s.ServerRole ?? "No role set"}
+            </p>
+            <dl className="grid grid-cols-2 gap-2" style={{ margin: 0, fontSize: "0.78rem" }}>
+              <div>
+                <dt style={{ color: "var(--ink-muted)" }}>IP Address</dt>
+                <dd style={{ margin: 0 }}>{s.StaticIpAddress ?? s.LastIp ?? "—"}</dd>
+              </div>
+              <div>
+                <dt style={{ color: "var(--ink-muted)" }}>OS</dt>
+                <dd style={{ margin: 0, textTransform: "capitalize" }}>{s.OS}</dd>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <dt style={{ color: "var(--ink-muted)" }}>MAC Address</dt>
+                <dd style={{ margin: 0, fontFamily: "monospace" }}>{s.MacAddress ?? "—"}</dd>
+              </div>
+            </dl>
+            <div className="flex items-center gap-3" style={{ marginTop: "0.15rem" }}>
+              <button
+                onClick={() => setEditing(s)}
+                className="flex items-center gap-1"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: "0.8rem", padding: 0 }}
+              >
+                <Pencil size={13} /> Edit
+              </button>
+              <button
+                onClick={() => setDeleting(s)}
+                className="flex items-center gap-1"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.8rem", padding: 0 }}
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="hidden md:block" style={{ padding: 0 }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
@@ -98,13 +155,6 @@ function ServersTableInner({ servers }: { servers: ServerRow[] }) {
                   </td>
                 </tr>
               ))}
-              {servers.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ padding: "1.5rem", textAlign: "center", color: "var(--ink-muted)" }}>
-                    No servers registered yet — click "Add Server" to get started.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

@@ -29,7 +29,8 @@ interface InstanceRow {
   latestMetrics: LatestMetrics | null;
 }
 
-const inputStyle = { padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", fontSize: "0.82rem" };
+const inputStyle = { padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", fontSize: "0.82rem", width: "100%" };
+const fieldWrapStyle = { flex: "1 1 160px" };
 
 const ENGINE_LABELS: Record<string, string> = { mssql: "SQL Server", mysql: "MySQL", postgres: "PostgreSQL" };
 const DEFAULT_PORT_BY_ENGINE: Record<string, string> = { mssql: "1433", mysql: "3306", postgres: "5432" };
@@ -192,11 +193,11 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
       {showAddForm && (
         <Card style={{ marginBottom: "1rem" }}>
           <form onSubmit={addInstance} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div>
+            <div style={fieldWrapStyle}>
               <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Name</label>
               <input value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle} placeholder="e.g. Reporting SQL Server" />
             </div>
-            <div>
+            <div style={fieldWrapStyle}>
               <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Engine</label>
               <select value={engine} onChange={(e) => changeEngine(e.target.value as "mssql" | "mysql" | "postgres")} style={inputStyle}>
                 <option value="mssql">SQL Server</option>
@@ -204,11 +205,11 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
                 <option value="postgres">PostgreSQL</option>
               </select>
             </div>
-            <div>
+            <div style={fieldWrapStyle}>
               <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Host</label>
               <input value={hostName} onChange={(e) => setHostName(e.target.value)} required style={inputStyle} placeholder="hostname or IP" />
             </div>
-            <div>
+            <div style={{ flex: "1 1 100px" }}>
               <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Port</label>
               <input
                 value={port}
@@ -216,12 +217,12 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
                   setPort(e.target.value);
                   setPortTouched(true);
                 }}
-                style={{ ...inputStyle, width: 90 }}
+                style={inputStyle}
                 placeholder={DEFAULT_PORT_BY_ENGINE[engine]}
               />
             </div>
             {engine === "mssql" && (
-              <div>
+              <div style={fieldWrapStyle}>
                 <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Auth Type</label>
                 <select value={authType} onChange={(e) => setAuthType(e.target.value as "sql" | "windows")} style={inputStyle}>
                   <option value="sql">SQL Login</option>
@@ -231,13 +232,13 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
             )}
             {(engine !== "mssql" || authType === "sql") && (
               <>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>
                     {engine === "mssql" ? "SQL Username" : "Username"}
                   </label>
                   <input value={sqlUsername} onChange={(e) => setSqlUsername(e.target.value)} style={inputStyle} />
                 </div>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.75rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>
                     {engine === "mssql" ? "SQL Password" : "Password"}
                   </label>
@@ -275,7 +276,7 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
               {instance.IsSelfMonitoring ? "This app's own database" : `${instance.HostName}:${instance.Port}`}
             </div>
             {instance.latestMetrics && (
-              <div style={{ display: "flex", gap: "1rem", fontSize: "0.78rem" }}>
+              <div style={{ display: "flex", gap: "1rem", fontSize: "0.78rem", flexWrap: "wrap" }}>
                 <span>CPU {instance.latestMetrics.CpuPct != null ? `${instance.latestMetrics.CpuPct.toFixed(0)}%` : "—"}</span>
                 <span>Mem {instance.latestMetrics.MemoryUsedMB != null ? `${(instance.latestMetrics.MemoryUsedMB / 1024).toFixed(1)} GB` : "—"}</span>
                 <span>PLE {instance.latestMetrics.PageLifeExpectancy ?? "—"}s</span>
@@ -309,23 +310,23 @@ export function InstancesListClient({ initialInstances }: { initialInstances: In
 
             {sshFormInstanceId === instance.Id && (
               <form onSubmit={(e) => saveSshConfig(e, instance.Id)} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "flex-end", marginTop: "0.5rem", paddingTop: "0.5rem", borderTop: "1px solid var(--border)" }}>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>SSH Host</label>
                   <input value={sshHost} onChange={(e) => setSshHost(e.target.value)} required style={inputStyle} placeholder="e.g. same as HostName" />
                 </div>
-                <div>
+                <div style={{ flex: "1 1 90px" }}>
                   <label style={{ display: "block", fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Port</label>
-                  <input value={sshPort} onChange={(e) => setSshPort(e.target.value)} style={{ ...inputStyle, width: 70 }} />
+                  <input value={sshPort} onChange={(e) => setSshPort(e.target.value)} style={inputStyle} />
                 </div>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>SSH Username</label>
                   <input value={sshUsername} onChange={(e) => setSshUsername(e.target.value)} required style={inputStyle} />
                 </div>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>SSH Password</label>
                   <input type="password" value={sshPassword} onChange={(e) => setSshPassword(e.target.value)} required style={inputStyle} />
                 </div>
-                <div>
+                <div style={fieldWrapStyle}>
                   <label style={{ display: "block", fontSize: "0.72rem", color: "var(--ink-muted)", marginBottom: "0.2rem" }}>Backup Dir (optional)</label>
                   <input value={backupBaseDir} onChange={(e) => setBackupBaseDir(e.target.value)} style={inputStyle} placeholder="/var/lib/automysqlbackup" />
                 </div>
