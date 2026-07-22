@@ -67,7 +67,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
     .query(`
       SELECT DeviceId, DeviceName, Hostname, StaticIpAddress, LastIp, ServerRole, OS, OsVersion, LifecycleStatus,
         MacAddress, Manufacturer, Model, SerialNumber, BiosVersion, MotherboardSerial, AgentVersion,
-        CONVERT(VARCHAR(19), LastHeartbeat, 126) AS LastHeartbeat,
+        CASE WHEN LastHeartbeat IS NULL THEN NULL ELSE CONVERT(VARCHAR(19), LastHeartbeat, 126) + 'Z' END AS LastHeartbeat,
         CONVERT(VARCHAR(19), EnrolledAt, 126) AS EnrolledAt,
         CONVERT(VARCHAR(19), LastBootTime, 126) AS LastBootTime,
         CONVERT(VARCHAR(19), LastWindowsUpdateAt, 126) AS LastWindowsUpdateAt,

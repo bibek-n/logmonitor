@@ -21,7 +21,7 @@ export default async function ServersPage() {
   const db = await getDb();
   const result = await db.query`
     SELECT DeviceId, DeviceName, Hostname, StaticIpAddress, LastIp, ServerRole, OS, LifecycleStatus, MacAddress,
-      CONVERT(VARCHAR(19), LastHeartbeat, 126) AS LastHeartbeat
+      CASE WHEN LastHeartbeat IS NULL THEN NULL ELSE CONVERT(VARCHAR(19), LastHeartbeat, 126) + 'Z' END AS LastHeartbeat
     FROM Devices
     WHERE DeviceType = 'Server'
     ORDER BY DeviceName ASC, Hostname ASC
