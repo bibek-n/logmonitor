@@ -33,6 +33,18 @@ export function sanitizeEvidence(text: string | null | undefined): string | null
   return redacted.length > MAX_EVIDENCE_LENGTH ? redacted.slice(0, MAX_EVIDENCE_LENGTH) + "...[truncated]" : redacted;
 }
 
+// RequestPath (the query string in particular) is exactly the kind of place a token/API key/
+// password shows up in the wild - confirmed live: a real forwarded request path turned out to
+// contain a plaintext chat auth token. Shared by store.ts (SecurityEvents.RequestPath) and
+// alertManager.ts (SecurityAlerts.RequestPath) - both columns are NVARCHAR(2000), and
+// sanitizeEvidence's "...[truncated]" suffix can overflow that on an already-long path, so
+// this hard-truncates to fit instead of appending anything.
+export function sanitizeRequestPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const redacted = redactSensitive(path);
+  return redacted.length > 2000 ? redacted.slice(0, 2000) : redacted;
+}
+
 // IP anonymization (privacy requirement, off by default - detection needs the real IP to
 // correlate repeated behavior; this is for exported reports/notifications where an admin
 // has opted into masking the last octet/segment).

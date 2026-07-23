@@ -1,5 +1,5 @@
 import { getDb, sql } from "@/lib/db";
-import { sanitizeEvidence } from "./redaction";
+import { sanitizeEvidence, sanitizeRequestPath } from "./redaction";
 import type { NormalizedSecurityEvent } from "./shared";
 
 // Inserts one normalized event and keeps the per-IP rollup (SecurityIpProfiles) current -
@@ -17,7 +17,7 @@ export async function insertSecurityEvent(event: NormalizedSecurityEvent): Promi
     .input("sourceIp", sql.VarChar, event.sourceIp)
     .input("destinationHost", sql.NVarChar, event.destinationHost)
     .input("requestMethod", sql.VarChar, event.requestMethod)
-    .input("requestPath", sql.NVarChar, event.requestPath)
+    .input("requestPath", sql.NVarChar, sanitizeRequestPath(event.requestPath))
     .input("responseStatus", sql.Int, event.responseStatus)
     .input("userAgent", sql.NVarChar, event.userAgent)
     .input("userAccount", sql.NVarChar, event.userAccount)

@@ -3,7 +3,7 @@ import { sendNotificationEmail } from "@/lib/notifyEmail";
 import { getModuleRecipients } from "@/lib/notificationRecipients";
 import type { RuleMatch } from "./ruleEngine";
 import { computeRiskScore, explainRiskScore, buildEvidenceSummary } from "./riskScoring";
-import { sanitizeEvidence } from "./redaction";
+import { sanitizeEvidence, sanitizeRequestPath } from "./redaction";
 import type { NormalizedSecurityEvent, Severity } from "./shared";
 
 const NOTIFY_SEVERITIES: Severity[] = ["high", "critical"];
@@ -80,7 +80,7 @@ export async function processMatch(match: RuleMatch, event: NormalizedSecurityEv
     .input("sourceIp", sql.VarChar, event.sourceIp)
     .input("destinationHost", sql.NVarChar, event.destinationHost)
     .input("requestMethod", sql.VarChar, event.requestMethod)
-    .input("requestPath", sql.NVarChar, event.requestPath)
+    .input("requestPath", sql.NVarChar, sanitizeRequestPath(event.requestPath))
     .input("responseStatus", sql.Int, event.responseStatus)
     .input("userAgent", sql.NVarChar, event.userAgent)
     .input("userAccount", sql.NVarChar, event.userAccount)
