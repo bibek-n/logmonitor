@@ -1,15 +1,11 @@
 import { getDb, sql } from "@/lib/db";
 import { sendNotificationEmail } from "@/lib/notifyEmail";
+import { getModuleRecipients } from "@/lib/notificationRecipients";
 import type { RuleMatch } from "./ruleEngine";
 import { computeRiskScore, explainRiskScore, buildEvidenceSummary } from "./riskScoring";
 import { sanitizeEvidence } from "./redaction";
 import type { NormalizedSecurityEvent, Severity } from "./shared";
 
-// Same default recipients this app already uses for other critical-severity system alerts
-// (website performance threshold breaches) - see src/lib/websitePerformance/runTest.ts.
-// Phase 2's SecurityNotificationChannels table will make this admin-configurable per
-// channel/severity; for now every Critical/High alert goes to these two addresses.
-const DEFAULT_ALERT_RECIPIENTS = ["bibek@tulipstechnologies.com", "support@websearchpro.net"];
 const NOTIFY_SEVERITIES: Severity[] = ["high", "critical"];
 
 function buildGroupingKey(template: string, ruleKey: string, event: NormalizedSecurityEvent): string {
@@ -125,6 +121,9 @@ export async function processMatch(match: RuleMatch, event: NormalizedSecurityEv
 }
 
 async function notifyNewAlert(alertId: number, match: RuleMatch, event: NormalizedSecurityEvent, riskScore: number): Promise<void> {
+  const recipients = await getModuleRecipients("intrusion-detection");
+  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
+
   const subject = `[${match.rule.Severity.toUpperCase()}] ${match.rule.Name} - Intrusion Detection Alert #${alertId}`;
   const body = [
     `A new ${match.rule.Severity} severity alert was created by the Intrusion Detection System.`,
@@ -140,7 +139,5 @@ async function notifyNewAlert(alertId: number, match: RuleMatch, event: Normaliz
     `Recommended action: ${match.rule.RecommendedAction ?? "Review the alert in the Security Dashboard."}`,
   ].join("\n");
 
-  for (const recipient of DEFAULT_ALERT_RECIPIENTS) {
-    await sendNotificationEmail({ to: recipient, subject, body });
-  }
+  await sendNotificationEmail({ to: recipients, subject, body });
 }
