@@ -78,6 +78,7 @@
     "migrate:security-headers": "tsx scripts/migrate-security-headers.ts",
     "migrate:wordpress-scan": "tsx scripts/migrate-wordpress-scan.ts",
     "migrate:intrusion-detection": "tsx scripts/migrate-intrusion-detection.ts",
+    "migrate:agent-weblog": "tsx scripts/migrate-agent-weblog.ts",
     "migrate:sqlserver-monitoring": "tsx scripts/migrate-sqlserver-monitoring.ts",
     "migrate:sqlserver-monitoring-v2": "tsx scripts/migrate-sqlserver-monitoring-v2.ts",
     "migrate:malware-detection": "tsx scripts/migrate-malware-detection.ts",

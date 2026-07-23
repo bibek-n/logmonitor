@@ -33,12 +33,39 @@ export async function runCollectionPass(): Promise<CollectorRunSummary[]> {
 
   const summaries: CollectorRunSummary[] = [];
 
+  // AgentWebLog sources are push-based (an endpoint agent forwards its own web log directly
+  // to /api/agent/weblog-events - see agentWebLogIngest.ts), not pulled by this scheduled
+  // pass, and have no entry in ADAPTERS by design - skip them here rather than let
+  // runOneLogSource mark them "Failed" every pass for lacking a pull adapter that was never
+  // supposed to exist. Their own health is recorded directly by the ingestion route instead.
   for (const logSource of logSources) {
+    if (logSource.AdapterType === "AgentWebLog") continue;
     const summary = await runOneLogSource(logSource, rules, exclusions, websiteAppsByHostname);
     summaries.push(summary);
   }
 
   return summaries;
+}
+
+// The per-event body of the pipeline (attribute -> insert -> evaluate -> alert), extracted so
+// a push-based source (an agent forwarding its own web log, see agentWebLogIngest.ts) can run
+// the exact same detection path a pull-based adapter's events go through in runOneLogSource
+// below, rather than a second, easily-drifting copy of this logic.
+export async function ingestEvent(
+  rawEvent: NormalizedSecurityEvent,
+  rules: Awaited<ReturnType<typeof loadEnabledRules>>,
+  exclusions: Awaited<ReturnType<typeof loadExclusions>>,
+  websiteAppsByHostname: Map<string, number>
+): Promise<{ eventId: number; alertCreated: boolean }> {
+  const event = attributeToWebsite(rawEvent, websiteAppsByHostname);
+  const eventId = await insertSecurityEvent(event);
+  const matches = await evaluateRulesForEvent(event, rules, exclusions);
+  let alertCreated = false;
+  for (const match of matches) {
+    const alertId = await processMatch(match, event, eventId);
+    if (alertId) alertCreated = true;
+  }
+  return { eventId, alertCreated };
 }
 
 function attributeToWebsite(event: NormalizedSecurityEvent, websiteAppsByHostname: Map<string, number>): NormalizedSecurityEvent {
@@ -71,13 +98,8 @@ async function runOneLogSource(
     let alertsCreated = 0;
 
     for (const rawEvent of result.events) {
-      const event = attributeToWebsite(rawEvent, websiteAppsByHostname);
-      const eventId = await insertSecurityEvent(event);
-      const matches = await evaluateRulesForEvent(event, rules, exclusions);
-      for (const match of matches) {
-        const alertId = await processMatch(match, event, eventId);
-        if (alertId) alertsCreated++;
-      }
+      const { alertCreated } = await ingestEvent(rawEvent, rules, exclusions, websiteAppsByHostname);
+      if (alertCreated) alertsCreated++;
     }
 
     if ("newFileSize" in result && result.newFileSize !== undefined) {

@@ -90,6 +90,19 @@ export async function updateLogSourcePosition(logSourceId: number, filePath: str
     `);
 }
 
+// The push-based counterpart to updateLogSourcePosition (which assumes a file position/size
+// to track - meaningless for a source an agent posts events to rather than this app polling a
+// file). Sets the same LastRunAt/LastRunStatus/LastErrorMessage columns the dashboard's
+// Collector Health section already reads directly from SecurityLogSources, so an
+// agent-pushed source shows accurate freshness there too, not just in SecurityCollectorHealth.
+export async function markLogSourceHealthy(logSourceId: number): Promise<void> {
+  const db = await getDb();
+  await db
+    .request()
+    .input("id", sql.Int, logSourceId)
+    .query(`UPDATE SecurityLogSources SET LastRunAt = SYSUTCDATETIME(), LastRunStatus = 'Success', LastErrorMessage = NULL, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id`);
+}
+
 export async function markLogSourceError(logSourceId: number, message: string): Promise<void> {
   const db = await getDb();
   await db
