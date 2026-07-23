@@ -43,6 +43,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	go runLinuxSecurityPolling(client, stop)
 	go runMalwarePolling(client, stop)
 	go runPhpPolling(client, stop)
+	go runWeblogTailing(client, stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

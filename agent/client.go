@@ -267,3 +267,22 @@ func (c *Client) UploadScreenshot(pngBytes []byte, capturedBy string) error {
 	}
 	return nil
 }
+
+// weblogEvent is the wire shape for a single forwarded web-server access log line - defined
+// here (not in weblog_windows.go) since a future Linux nginx/apache tailer would produce the
+// exact same shape, and this file builds on every platform while weblog_windows.go is
+// Windows-only.
+type weblogEvent struct {
+	EventTime      string `json:"eventTime"`
+	SourceIP       string `json:"sourceIp"`
+	RequestMethod  string `json:"requestMethod"`
+	RequestPath    string `json:"requestPath"`
+	ResponseStatus *int   `json:"responseStatus"`
+	UserAgent      string `json:"userAgent"`
+	UserAccount    string `json:"userAccount"`
+	TimeTakenMs    *int   `json:"timeTakenMs"`
+}
+
+func (c *Client) PostWeblogEvents(siteName string, events []weblogEvent) error {
+	return c.postJSON("/api/agent/weblog-events", map[string]interface{}{"siteName": siteName, "events": events})
+}
