@@ -54,6 +54,11 @@ export interface WebsiteCheckResult {
   ssl: SslCertificateInfo | null;
   errorCode: string | null;
   errorMessage: string | null;
+  // True when the response looks like a WAF/anti-bot challenge page (Cloudflare, Sucuri, a
+  // generic Captcha wall) rather than the site's real content — see wafChallengeDetector.ts.
+  // Drives an extended backoff in the scan script instead of retrying at the normal interval,
+  // which is what actually caused this app's own IP to be blocked on a real site.
+  wafChallengeDetected: boolean;
 }
 
 export interface MonitorCheckLimits {
@@ -134,6 +139,8 @@ export interface ApiCheckResult {
   assertionResults: ApiAssertionResult[];
   errorCode: string | null;
   errorMessage: string | null;
+  // See WebsiteCheckResult.wafChallengeDetected — identical purpose for API monitors.
+  wafChallengeDetected: boolean;
 }
 
 // --- Phase 3: alert channels, escalation, quiet hours, maintenance, incident workflow ---

@@ -3,6 +3,7 @@ import https from "https";
 import type { PeerCertificate, TLSSocket } from "tls";
 import { checkLiteralIpNotRestricted, createSafeLookup, SsrfBlockedError } from "./ssrfGuard";
 import { checkContent, checkEmptyBody } from "./contentCheck";
+import { detectWafChallenge } from "./wafChallengeDetector";
 import { MonitorCheckLimits, SslCertificateInfo, WebsiteCheckResult, WebsiteMonitorConfig } from "./types";
 
 const MAX_BODY_BYTES_FOR_CONTENT_CHECK = 256 * 1024; // enough for keyword/title checks, nowhere near a full page cap
@@ -19,6 +20,7 @@ interface HopResult {
   tlsMs: number;
   ttfbMs: number;
   ssl: SslCertificateInfo | null;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 function rdnValue(v: string | string[] | undefined): string | null {
@@ -143,6 +145,7 @@ function fetchOnce(targetUrl: string, method: "GET" | "HEAD", sslVerify: boolean
             tlsMs: tlsAt,
             ttfbMs,
             ssl,
+            headers: res.headers,
           });
         });
         res.on("error", reject);
@@ -213,9 +216,10 @@ export async function checkWebsite(config: WebsiteMonitorConfig, limits: Monitor
       }
 
       const success = statusMatches && (contentCheck === null || contentCheck.passed);
+      const wafChallengeDetected = detectWafChallenge(hop.statusCode, hop.bodyExcerpt, hop.headers);
 
       return {
-        success,
+        success: success && !wafChallengeDetected,
         httpStatusCode: hop.statusCode,
         dnsMs: firstDnsMs,
         tcpMs: firstTcpMs,
@@ -227,8 +231,13 @@ export async function checkWebsite(config: WebsiteMonitorConfig, limits: Monitor
         finalUrl: currentUrl,
         contentCheck,
         ssl: hop.ssl,
-        errorCode: statusMatches ? null : "UNEXPECTED_STATUS",
-        errorMessage: statusMatches ? null : `Expected HTTP ${config.expectedStatusCode}, got ${hop.statusCode}.`,
+        errorCode: wafChallengeDetected ? "WAF_CHALLENGE" : statusMatches ? null : "UNEXPECTED_STATUS",
+        errorMessage: wafChallengeDetected
+          ? "Response looks like a WAF/anti-bot challenge page, not the site's real content."
+          : statusMatches
+            ? null
+            : `Expected HTTP ${config.expectedStatusCode}, got ${hop.statusCode}.`,
+        wafChallengeDetected,
       };
     }
   } catch (err) {
@@ -248,6 +257,7 @@ export async function checkWebsite(config: WebsiteMonitorConfig, limits: Monitor
       ssl: null,
       errorCode: isBlocked ? "SSRF_BLOCKED" : "CONNECTION_ERROR",
       errorMessage: err instanceof Error ? err.message : "Connection failed.",
+      wafChallengeDetected: false,
     };
   }
 }

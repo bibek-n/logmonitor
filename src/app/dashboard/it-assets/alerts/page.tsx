@@ -1,10 +1,10 @@
 import { getItAssetSession } from "@/lib/requireItAssetPermission";
-import { ComingSoon } from "@/components/itAssetLogsheet/ComingSoon";
+import { AlertsClient } from "@/components/itAssetLogsheet/AlertsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ItAssetAlertsPage() {
-  const ita = await getItAssetSession("ita_view");
+  const ita = await getItAssetSession("ita_alerts_manage");
   if (!ita) {
     return (
       <div>
@@ -17,7 +17,7 @@ export default async function ItAssetAlertsPage() {
   return (
     <div>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "1rem" }}>Alerts</h1>
-      <ComingSoon feature="In-app and email alerting (password/patch/maintenance due dates, warranty and licence expiry, escalation rules)" />
+      <AlertsClient />
     </div>
   );
 }

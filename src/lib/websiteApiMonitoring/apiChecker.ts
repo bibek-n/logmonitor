@@ -3,6 +3,7 @@ import https from "https";
 import { checkLiteralIpNotRestricted, createSafeLookup, SsrfBlockedError } from "./ssrfGuard";
 import { evaluateAssertions } from "./apiAssertions";
 import { getOAuth2AccessToken } from "./oauth2";
+import { detectWafChallenge } from "./wafChallengeDetector";
 import { ApiCheckResult, ApiMonitorConfig, MonitorCheckLimits } from "./types";
 
 const USER_AGENT_DEFAULT = "LogMonitor-ApiMonitor/1.0";
@@ -15,6 +16,7 @@ interface HopResult {
   dnsMs: number;
   tcpMs: number;
   ttfbMs: number;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 function buildUrlWithQuery(baseUrl: string, queryParams: { key: string; value: string }[]): URL {
@@ -110,6 +112,7 @@ function fetchOnce(
           dnsMs: dnsAt,
           tcpMs: tcpAt,
           ttfbMs,
+          headers: res.headers,
         });
       });
       res.on("error", reject);
@@ -178,12 +181,16 @@ export async function checkApi(config: ApiMonitorConfig, limits: MonitorCheckLim
       const statusMatches = hop.statusCode === config.expectedStatusCode || hop.statusCode === 429;
       const assertionResults = hop.statusCode !== 429 ? evaluateAssertions(hop.body, config.assertions) : [];
       const assertionsPassed = assertionResults.every((a) => a.passed);
-      const success = statusMatches && assertionsPassed;
+      const wafChallengeDetected = detectWafChallenge(hop.statusCode, hop.body, hop.headers);
+      const success = statusMatches && assertionsPassed && !wafChallengeDetected;
 
       let errorCode: string | null = null;
       let errorMessage: string | null = null;
       if (!success) {
-        if (!statusMatches) {
+        if (wafChallengeDetected) {
+          errorCode = "WAF_CHALLENGE";
+          errorMessage = "Response looks like a WAF/anti-bot challenge page, not the API's real response.";
+        } else if (!statusMatches) {
           errorCode = "UNEXPECTED_STATUS";
           errorMessage = `Expected HTTP ${config.expectedStatusCode}, got ${hop.statusCode}.`;
         } else {
@@ -206,6 +213,7 @@ export async function checkApi(config: ApiMonitorConfig, limits: MonitorCheckLim
         assertionResults,
         errorCode,
         errorMessage,
+        wafChallengeDetected,
       };
     }
   } catch (err) {
@@ -224,6 +232,7 @@ export async function checkApi(config: ApiMonitorConfig, limits: MonitorCheckLim
       assertionResults: [],
       errorCode: isBlocked ? "SSRF_BLOCKED" : "CONNECTION_ERROR",
       errorMessage: err instanceof Error ? err.message : "Connection failed.",
+      wafChallengeDetected: false,
     };
   }
 }

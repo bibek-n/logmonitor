@@ -51,10 +51,17 @@ async function getDesiredBlockedIps(): Promise<string[]> {
 }
 
 async function getExistingWafRuleNames(): Promise<string[]> {
+  // Get-NetFirewallRule's CDXML/CIM cmdletization throws a terminating "not found" error when
+  // the DisplayGroup doesn't exist yet (e.g. this script's very first run, before any rule has
+  // ever been created). Even with -ErrorAction SilentlyContinue AND a try/catch around it,
+  // powershell.exe's own process exit code still reflects the failed $? state left behind by
+  // that error - execFile treats any non-zero exit as a rejected promise regardless of stdout.
+  // The explicit `exit 0` is the actual fix, verified directly against this host; the
+  // try/catch + -ErrorAction SilentlyContinue stay as defense-in-depth.
   const { stdout } = await execFileAsync("powershell", [
     "-NoProfile",
     "-Command",
-    `Get-NetFirewallRule -DisplayGroup '${FIREWALL_DISPLAY_GROUP}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name`,
+    `try { Get-NetFirewallRule -DisplayGroup '${FIREWALL_DISPLAY_GROUP}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name } catch { }; exit 0`,
   ]);
   return stdout
     .split(/\r?\n/)

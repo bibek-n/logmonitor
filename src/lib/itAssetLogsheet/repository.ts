@@ -318,6 +318,24 @@ export async function updateAsset(
   `);
 }
 
+// Applies the same partial patch to every asset ID in the list, reusing updateAsset() per row
+// rather than a single multi-row UPDATE - each asset still gets its own UpdatedAt/UpdatedBy
+// stamp and (via the caller) its own audit-log entry, and a bad ID in the middle of a large
+// batch just no-ops for that one row (updateAsset's WHERE already excludes soft-deleted/
+// missing rows) instead of failing the whole batch.
+export async function bulkUpdateAssets(
+  ids: number[],
+  data: Partial<Record<(typeof ASSET_INSERT_COLUMNS)[number], unknown>>,
+  actor: { userId: number; username: string }
+): Promise<number> {
+  let updated = 0;
+  for (const id of ids) {
+    await updateAsset(id, data, actor);
+    updated++;
+  }
+  return updated;
+}
+
 // Soft delete only, per spec section 15 ("Use soft deletion instead of permanent deletion for
 // operational records") - the row and every linked log row remain queryable via audit history,
 // just excluded from normal list/detail views.

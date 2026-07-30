@@ -113,7 +113,7 @@ interface ListRow {
   CreatedAt: string;
 }
 
-const TABS = ["Alerts", "Events", "Rules", "Websites", "Website Report", "Allowlist", "Blocklist"] as const;
+const TABS = ["Alerts", "Events", "Rules", "Websites", "Website Report", "Allowlist", "Blocklist", "File Integrity", "Notifications", "Response Actions"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SecurityDashboardClient() {
@@ -205,6 +205,9 @@ export default function SecurityDashboardClient() {
       {tab === "Website Report" && <WebsiteReportTab onJump={jumpTo} />}
       {tab === "Allowlist" && <IpListTab kind="allowlist" />}
       {tab === "Blocklist" && <IpListTab kind="blocklist" />}
+      {tab === "File Integrity" && <FileIntegrityTab />}
+      {tab === "Notifications" && <NotificationChannelsTab />}
+      {tab === "Response Actions" && <ResponseActionsTab />}
     </div>
   );
 }
@@ -923,8 +926,8 @@ function IpListTab({ kind }: { kind: "allowlist" | "blocklist" }) {
     <div className="dash-panel">
       {kind === "blocklist" && (
         <p style={{ color: "var(--warning)", fontSize: "0.78rem", marginTop: 0 }}>
-          Entries here are tracked for visibility and audit only — they do not block any traffic yet. Enforcement (Windows
-          Firewall integration) is a planned Phase 2 feature, disabled by default even once built.
+          Entries added here are tracked for visibility and audit only — they do not block any traffic by themselves. For
+          reviewed, reversible enforcement (a real Windows Firewall block), use the Response Actions tab instead.
         </p>
       )}
       <form onSubmit={add} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
@@ -967,6 +970,484 @@ function IpListTab({ kind }: { kind: "allowlist" | "blocklist" }) {
                   >
                     Remove
                   </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+interface FileIntegrityBaselineRow {
+  id: number;
+  filePath: string;
+  sha256Hash: string;
+  sizeBytes: number;
+  lastVerifiedAt: string;
+}
+
+interface FileIntegrityEventRow {
+  id: number;
+  filePath: string;
+  changeType: string;
+  detectedAt: string;
+  acknowledged: boolean;
+}
+
+function FileIntegrityTab() {
+  const [baselines, setBaselines] = useState<FileIntegrityBaselineRow[]>([]);
+  const [events, setEvents] = useState<FileIntegrityEventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filePath, setFilePath] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      fetch("/api/admin/intrusion-detection/file-integrity/baselines").then((r) => r.json()),
+      fetch("/api/admin/intrusion-detection/file-integrity/events").then((r) => r.json()),
+    ])
+      .then(([b, e]) => {
+        if (b.ok) setBaselines(b.data);
+        if (e.ok) setEvents(e.data);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => load(), [load]);
+
+  async function addBaseline(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/admin/intrusion-detection/file-integrity/baselines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filePath: filePath.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.error ?? "Failed to add baseline.");
+      return;
+    }
+    setFilePath("");
+    load();
+  }
+
+  async function removeBaseline(id: number) {
+    await fetch(`/api/admin/intrusion-detection/file-integrity/baselines/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function acknowledge(id: number) {
+    await fetch(`/api/admin/intrusion-detection/file-integrity/events/${id}/acknowledge`, { method: "PATCH" });
+    load();
+  }
+
+  async function checkNow() {
+    setChecking(true);
+    setCheckResult(null);
+    const res = await fetch("/api/admin/intrusion-detection/file-integrity/check", { method: "POST" });
+    const data = await res.json();
+    setChecking(false);
+    if (data.ok) {
+      setCheckResult(`Checked ${data.data.checked}, unchanged ${data.data.unchanged}, modified ${data.data.modified}, deleted ${data.data.deleted}.`);
+      load();
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "1rem" }}>
+      <div className="dash-panel">
+        <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Monitored Files</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+          Watches specific files on this application&apos;s own host (config files, secrets, startup scripts) for
+          unexpected changes. Each add captures a SHA-256 baseline immediately; every check re-hashes and compares.
+        </p>
+        <form onSubmit={addBaseline} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+          <input
+            placeholder="Absolute file path, e.g. D:\WWWROOT\LogMonitor\web.config"
+            value={filePath}
+            onChange={(e) => setFilePath(e.target.value)}
+            required
+            style={{ ...inputStyle, flex: 1, minWidth: 320 }}
+          />
+          <button type="submit" className="submit" style={{ width: "auto", marginTop: 0, padding: "0.4rem 1rem" }}>
+            Add Baseline
+          </button>
+          <button type="button" onClick={checkNow} disabled={checking} style={{ padding: "0.4rem 1rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer", fontSize: "0.85rem" }}>
+            {checking ? "Checking..." : "Check Now"}
+          </button>
+        </form>
+        {error && <div className="error" style={{ marginBottom: "0.75rem" }}>{error}</div>}
+        {checkResult && <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem" }}>{checkResult}</p>}
+        {loading ? (
+          <p style={{ color: "var(--ink-muted)" }}>Loading...</p>
+        ) : baselines.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)" }}>No files are being monitored yet.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "0.4rem" }}>File Path</th>
+                <th style={{ padding: "0.4rem" }}>SHA-256</th>
+                <th style={{ padding: "0.4rem" }}>Size</th>
+                <th style={{ padding: "0.4rem" }}>Last Verified</th>
+                <th style={{ padding: "0.4rem" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {baselines.map((b) => (
+                <tr key={b.id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                  <td style={{ padding: "0.4rem", fontFamily: "monospace", fontSize: "0.75rem" }}>{b.filePath}</td>
+                  <td style={{ padding: "0.4rem", fontFamily: "monospace", fontSize: "0.72rem", color: "var(--ink-muted)" }}>{b.sha256Hash.slice(0, 16)}...</td>
+                  <td style={{ padding: "0.4rem" }}>{b.sizeBytes.toLocaleString()} B</td>
+                  <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(b.lastVerifiedAt).toLocaleString()}</td>
+                  <td style={{ padding: "0.4rem" }}>
+                    <button type="button" onClick={() => removeBaseline(b.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "0.8rem" }}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="dash-panel">
+        <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Change History</h3>
+        {events.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)" }}>No changes detected yet.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "0.4rem" }}>File Path</th>
+                <th style={{ padding: "0.4rem" }}>Change</th>
+                <th style={{ padding: "0.4rem" }}>Detected</th>
+                <th style={{ padding: "0.4rem" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e) => (
+                <tr key={e.id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                  <td style={{ padding: "0.4rem", fontFamily: "monospace", fontSize: "0.75rem" }}>{e.filePath}</td>
+                  <td style={{ padding: "0.4rem" }}>
+                    <Badge tone={e.changeType === "Deleted" ? "var(--danger)" : "var(--warning)"}>{e.changeType}</Badge>
+                  </td>
+                  <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(e.detectedAt).toLocaleString()}</td>
+                  <td style={{ padding: "0.4rem" }}>
+                    {!e.acknowledged && (
+                      <button type="button" onClick={() => acknowledge(e.id)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: "0.8rem" }}>
+                        Acknowledge
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const CHANNEL_TYPE_OPTIONS = [
+  { value: "slack", label: "Slack" },
+  { value: "teams", label: "Microsoft Teams" },
+  { value: "webhook", label: "Generic Webhook" },
+  { value: "email", label: "Email" },
+  { value: "in_app", label: "In-App" },
+];
+const SEVERITY_OPTIONS: Severity[] = ["informational", "low", "medium", "high", "critical"];
+
+interface NotificationChannelRow {
+  id: number;
+  channelType: string;
+  name: string;
+  enabled: boolean;
+  minSeverity: Severity;
+  hasConfig: boolean;
+}
+
+function NotificationChannelsTab() {
+  const [channels, setChannels] = useState<NotificationChannelRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [channelType, setChannelType] = useState("slack");
+  const [name, setName] = useState("");
+  const [minSeverity, setMinSeverity] = useState<Severity>("high");
+  const [configValue, setConfigValue] = useState("");
+  const [configSecret, setConfigSecret] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<Record<number, string>>({});
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch("/api/admin/intrusion-detection/notification-channels")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setChannels(d.data);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => load(), [load]);
+
+  function buildConfig(): Record<string, string> {
+    if (channelType === "slack" || channelType === "teams") return { webhookUrl: configValue };
+    if (channelType === "webhook") return { url: configValue, signingSecret: configSecret };
+    if (channelType === "email") return { to: configValue };
+    return { username: configValue };
+  }
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/admin/intrusion-detection/notification-channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelType, name: name.trim(), minSeverity, config: buildConfig() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.error ?? "Failed to create channel.");
+      return;
+    }
+    setName("");
+    setConfigValue("");
+    setConfigSecret("");
+    load();
+  }
+
+  async function toggleEnabled(id: number, enabled: boolean) {
+    await fetch(`/api/admin/intrusion-detection/notification-channels/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    load();
+  }
+
+  async function remove(id: number) {
+    await fetch(`/api/admin/intrusion-detection/notification-channels/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function test(id: number) {
+    const res = await fetch(`/api/admin/intrusion-detection/notification-channels/${id}/test`, { method: "POST" });
+    const data = await res.json();
+    setTestResult((prev) => ({ ...prev, [id]: data.ok ? "Sent successfully." : `Failed: ${data.error}` }));
+  }
+
+  const configLabel = channelType === "slack" || channelType === "teams" ? "Webhook URL" : channelType === "webhook" ? "Webhook URL" : channelType === "email" ? "Recipient email(s)" : "Username";
+
+  return (
+    <div className="dash-panel">
+      <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Notification Channels</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+        Every enabled channel below receives new alerts at or above its Min Severity, in addition to the default
+        recipients configured in Settings &gt; Notifications. Secrets are AES-256-GCM encrypted at rest and never
+        shown again after saving.
+      </p>
+      <form onSubmit={create} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
+        <select value={channelType} onChange={(e) => setChannelType(e.target.value)} style={inputStyle}>
+          {CHANNEL_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle} />
+        <select value={minSeverity} onChange={(e) => setMinSeverity(e.target.value as Severity)} style={inputStyle}>
+          {SEVERITY_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <input placeholder={configLabel} value={configValue} onChange={(e) => setConfigValue(e.target.value)} required style={{ ...inputStyle, minWidth: 220 }} />
+        {channelType === "webhook" && (
+          <input placeholder="Signing secret (optional)" value={configSecret} onChange={(e) => setConfigSecret(e.target.value)} style={inputStyle} />
+        )}
+        <button type="submit" className="submit" style={{ width: "auto", marginTop: 0, padding: "0.4rem 1rem" }}>
+          Add Channel
+        </button>
+      </form>
+      {error && <div className="error" style={{ marginBottom: "0.75rem" }}>{error}</div>}
+      {loading ? (
+        <p style={{ color: "var(--ink-muted)" }}>Loading...</p>
+      ) : channels.length === 0 ? (
+        <p style={{ color: "var(--ink-muted)" }}>No notification channels configured yet.</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+              <th style={{ padding: "0.4rem" }}>Name</th>
+              <th style={{ padding: "0.4rem" }}>Type</th>
+              <th style={{ padding: "0.4rem" }}>Min Severity</th>
+              <th style={{ padding: "0.4rem" }}>Enabled</th>
+              <th style={{ padding: "0.4rem" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {channels.map((c) => (
+              <tr key={c.id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                <td style={{ padding: "0.4rem" }}>{c.name}</td>
+                <td style={{ padding: "0.4rem" }}>{CHANNEL_TYPE_OPTIONS.find((o) => o.value === c.channelType)?.label ?? c.channelType}</td>
+                <td style={{ padding: "0.4rem" }}>{c.minSeverity}</td>
+                <td style={{ padding: "0.4rem" }}>
+                  <input type="checkbox" checked={c.enabled} onChange={(e) => toggleEnabled(c.id, e.target.checked)} />
+                </td>
+                <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                  <button type="button" onClick={() => test(c.id)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: "0.8rem", marginRight: "0.5rem" }}>
+                    Test
+                  </button>
+                  <button type="button" onClick={() => remove(c.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "0.8rem" }}>
+                    Remove
+                  </button>
+                  {testResult[c.id] && <div style={{ color: "var(--ink-muted)", fontSize: "0.72rem" }}>{testResult[c.id]}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+interface ResponseActionRow {
+  id: number;
+  alertId: number | null;
+  actionType: string;
+  targetValue: string;
+  status: string;
+  dryRun: boolean;
+  requestedByUsername: string | null;
+  requestedAt: string;
+  result: string | null;
+}
+
+function ResponseActionsTab() {
+  const [actions, setActions] = useState<ResponseActionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionType, setActionType] = useState("block_ip");
+  const [targetValue, setTargetValue] = useState("");
+  const [dryRun, setDryRun] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch("/api/admin/intrusion-detection/response-actions")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setActions(d.data);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => load(), [load]);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/admin/intrusion-detection/response-actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actionType, targetValue: targetValue.trim(), dryRun, alertId: null }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.error ?? "Failed to request action.");
+      return;
+    }
+    setTargetValue("");
+    load();
+  }
+
+  async function execute(id: number) {
+    setBusyId(id);
+    await fetch(`/api/admin/intrusion-detection/response-actions/${id}/execute`, { method: "POST" });
+    setBusyId(null);
+    load();
+  }
+
+  async function rollback(id: number) {
+    setBusyId(id);
+    await fetch(`/api/admin/intrusion-detection/response-actions/${id}/rollback`, { method: "POST" });
+    setBusyId(null);
+    load();
+  }
+
+  return (
+    <div className="dash-panel">
+      <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Response Actions</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+        Requesting an action never does anything by itself - it always requires a separate Execute step. Block IP is
+        enforced via Windows Firewall (through the existing WAF sync job); Disable Account blocks future logins but
+        cannot revoke an already-active session (this app has no server-side session store). Both are reversible via
+        Rollback.
+      </p>
+      <form onSubmit={create} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
+        <select value={actionType} onChange={(e) => setActionType(e.target.value)} style={inputStyle}>
+          <option value="block_ip">Block IP</option>
+          <option value="disable_account">Disable Account</option>
+        </select>
+        <input
+          placeholder={actionType === "block_ip" ? "IP address or CIDR" : "Username"}
+          value={targetValue}
+          onChange={(e) => setTargetValue(e.target.value)}
+          required
+          style={{ ...inputStyle, minWidth: 220 }}
+        />
+        <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>
+          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+          Dry run (just record, don&apos;t execute yet)
+        </label>
+        <button type="submit" className="submit" style={{ width: "auto", marginTop: 0, padding: "0.4rem 1rem" }}>
+          Request
+        </button>
+      </form>
+      {error && <div className="error" style={{ marginBottom: "0.75rem" }}>{error}</div>}
+      {loading ? (
+        <p style={{ color: "var(--ink-muted)" }}>Loading...</p>
+      ) : actions.length === 0 ? (
+        <p style={{ color: "var(--ink-muted)" }}>No response actions requested yet.</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+              <th style={{ padding: "0.4rem" }}>Action</th>
+              <th style={{ padding: "0.4rem" }}>Target</th>
+              <th style={{ padding: "0.4rem" }}>Status</th>
+              <th style={{ padding: "0.4rem" }}>Requested By</th>
+              <th style={{ padding: "0.4rem" }}>Result</th>
+              <th style={{ padding: "0.4rem" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {actions.map((a) => (
+              <tr key={a.id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                <td style={{ padding: "0.4rem" }}>{a.actionType === "block_ip" ? "Block IP" : "Disable Account"}</td>
+                <td style={{ padding: "0.4rem", fontFamily: "monospace" }}>{a.targetValue}</td>
+                <td style={{ padding: "0.4rem" }}>
+                  <Badge tone={a.status === "Executed" ? "var(--success)" : a.status === "Failed" ? "var(--danger)" : "var(--ink-muted)"}>{a.status}</Badge>
+                </td>
+                <td style={{ padding: "0.4rem" }}>{a.requestedByUsername ?? "-"}</td>
+                <td style={{ padding: "0.4rem", maxWidth: 260, fontSize: "0.76rem", color: "var(--ink-muted)" }}>{a.result ?? "-"}</td>
+                <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                  {(a.status === "Pending" || a.status === "Simulated" || a.status === "Failed") && (
+                    <button type="button" disabled={busyId === a.id} onClick={() => execute(a.id)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: "0.8rem", marginRight: "0.5rem" }}>
+                      Execute
+                    </button>
+                  )}
+                  {a.status === "Executed" && (
+                    <button type="button" disabled={busyId === a.id} onClick={() => rollback(a.id)} style={{ background: "none", border: "none", color: "var(--warning)", cursor: "pointer", fontSize: "0.8rem" }}>
+                      Rollback
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

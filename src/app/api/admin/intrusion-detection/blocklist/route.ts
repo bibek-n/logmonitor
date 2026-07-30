@@ -19,10 +19,11 @@ export async function GET() {
 
 // IMPORTANT: this only records an entry in SecurityIpBlocklist - it does NOT touch the
 // Windows Firewall, IIS IP restrictions, or anything else that would actually block traffic.
-// Real enforcement is a Phase 2 response-action (tracked separately, dry-run by default,
-// requires explicit confirmation) - see the IDS Phase 2 tasks. Recording the *intent* to
-// block here is still useful on its own (dashboard visibility, audit trail, future
-// enforcement backlog) without carrying any of the risk of an automated action.
+// Real, reviewable enforcement now exists via Response Actions (src/lib/intrusionDetection/
+// responseActions.ts, POST /api/admin/intrusion-detection/response-actions with
+// actionType: "block_ip") - dry-run by default, requires an explicit execute step, and is
+// reversible. This route stays a lower-friction "just track it" path for entries that don't
+// need the request/execute/rollback workflow (dashboard visibility, audit trail).
 export async function POST(req: NextRequest) {
   const session = await requireSecurityRole("security_admin");
   if (!isSecuritySession(session)) return session;

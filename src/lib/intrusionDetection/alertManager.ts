@@ -5,6 +5,7 @@ import type { RuleMatch } from "./ruleEngine";
 import { computeRiskScore, explainRiskScore, buildEvidenceSummary } from "./riskScoring";
 import { sanitizeEvidence, sanitizeRequestPath } from "./redaction";
 import type { NormalizedSecurityEvent, Severity } from "./shared";
+import { dispatchAlertNotifications } from "./notificationChannels";
 
 const NOTIFY_SEVERITIES: Severity[] = ["high", "critical"];
 
@@ -111,19 +112,25 @@ export async function processMatch(match: RuleMatch, event: NormalizedSecurityEv
 
   await db.request().input("id", sql.Int, eventId).input("alertId", sql.Int, alertId).query(`UPDATE SecurityEvents SET AlertId = @alertId WHERE Id = @id`);
 
+  const { subject, body } = buildAlertNotificationText(alertId, match, event, risk.score);
+
   if (NOTIFY_SEVERITIES.includes(match.rule.Severity)) {
-    void notifyNewAlert(alertId, match, event, risk.score).catch((err) => {
+    void notifyNewAlert(subject, body).catch((err) => {
       console.error(`[intrusion-detection] failed to send alert notification for alert ${alertId}:`, err instanceof Error ? err.message : err);
     });
   }
 
+  // Additive to the default-recipients email above - fans out to whatever Slack/Teams/webhook/
+  // extra-email/in-app channels an admin has configured in Notifications settings, each gated
+  // by its own MinSeverity threshold rather than the fixed NOTIFY_SEVERITIES list.
+  void dispatchAlertNotifications({ alertId, severity: match.rule.Severity, subject, body }).catch((err) => {
+    console.error(`[intrusion-detection] failed to dispatch configured notification channels for alert ${alertId}:`, err instanceof Error ? err.message : err);
+  });
+
   return alertId;
 }
 
-async function notifyNewAlert(alertId: number, match: RuleMatch, event: NormalizedSecurityEvent, riskScore: number): Promise<void> {
-  const recipients = await getModuleRecipients("intrusion-detection");
-  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
-
+function buildAlertNotificationText(alertId: number, match: RuleMatch, event: NormalizedSecurityEvent, riskScore: number): { subject: string; body: string } {
   const subject = `[${match.rule.Severity.toUpperCase()}] ${match.rule.Name} - Intrusion Detection Alert #${alertId}`;
   const body = [
     `A new ${match.rule.Severity} severity alert was created by the Intrusion Detection System.`,
@@ -138,6 +145,11 @@ async function notifyNewAlert(alertId: number, match: RuleMatch, event: Normaliz
     ``,
     `Recommended action: ${match.rule.RecommendedAction ?? "Review the alert in the Security Dashboard."}`,
   ].join("\n");
+  return { subject, body };
+}
 
+async function notifyNewAlert(subject: string, body: string): Promise<void> {
+  const recipients = await getModuleRecipients("intrusion-detection");
+  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
   await sendNotificationEmail({ to: recipients, subject, body });
 }

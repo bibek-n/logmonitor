@@ -311,6 +311,9 @@ function WebsitePerformanceDetailClientInner({ website }: { website: WebsiteInfo
           <a href={`/api/admin/website-performance/${website.Id}/export`} style={secondaryBtnStyle}>
             <Download size={14} /> Export CSV
           </a>
+          <a href={`/api/admin/website-performance/${website.Id}/export?format=pdf&device=${device}`} style={secondaryBtnStyle}>
+            <Download size={14} /> PDF Report
+          </a>
         </div>
       </div>
 

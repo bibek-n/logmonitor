@@ -227,6 +227,20 @@ export const updateItAssetSettingsSchema = z.object({
   emailAlertsEnabled: z.boolean().optional(),
 });
 
+export const bulkUpdateAssetsSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(500),
+  patch: z
+    .object({
+      status: z.enum(ASSET_STATUSES as [string, ...string[]]).optional(),
+      department: z.string().trim().max(200).optional().nullable(),
+      location: z.string().trim().max(200).optional().nullable(),
+      criticality: z.enum(ASSET_CRITICALITIES as [string, ...string[]]).optional(),
+      assignedUser: z.string().trim().max(200).optional().nullable(),
+      responsibleTechnician: z.string().trim().max(200).optional().nullable(),
+    })
+    .refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided to update." }),
+});
+
 export const lookupValueSchema = z.object({
   category: z.string().trim().min(1).max(50),
   value: z.string().trim().min(1).max(200),

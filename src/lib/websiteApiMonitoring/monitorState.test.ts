@@ -29,6 +29,7 @@ function successResult(totalMs = 100): WebsiteCheckResult {
     ssl: null,
     errorCode: null,
     errorMessage: null,
+    wafChallengeDetected: false,
   };
 }
 
@@ -48,6 +49,7 @@ function failureResult(): WebsiteCheckResult {
     ssl: null,
     errorCode: "ECONNREFUSED",
     errorMessage: "connection refused",
+    wafChallengeDetected: false,
   };
 }
 

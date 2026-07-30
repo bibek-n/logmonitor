@@ -1,5 +1,5 @@
 import { getItAssetSession } from "@/lib/requireItAssetPermission";
-import { ComingSoon } from "@/components/itAssetLogsheet/ComingSoon";
+import { ReportsClient } from "@/components/itAssetLogsheet/ReportsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export default async function ItAssetReportsPage() {
   return (
     <div>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "1rem" }}>Reports</h1>
-      <ComingSoon feature="The 15 audit-ready report types (asset inventory, password/patch compliance, licence expiry, technician activity, and more)" />
+      <ReportsClient />
     </div>
   );
 }

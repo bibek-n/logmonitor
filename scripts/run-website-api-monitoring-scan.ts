@@ -13,6 +13,7 @@ import { getActiveMaintenanceMonitorIds, syncMaintenanceStatuses } from "../src/
 import { processEscalations } from "../src/lib/websiteApiMonitoring/escalation";
 import { processNotificationRetries } from "../src/lib/websiteApiMonitoring/notificationRetry";
 import { processSlaBreaches } from "../src/lib/websiteApiMonitoring/slaEvaluator";
+import { computeWafBackoffSeconds } from "../src/lib/websiteApiMonitoring/wafChallengeDetector";
 import { MonitorCheckLimits, WebsiteCheckResult } from "../src/lib/websiteApiMonitoring/types";
 
 // Bounds one pass's worst case, matching the same "bounded incremental catch-up" convention as
@@ -161,13 +162,25 @@ async function processMonitor(monitor: Awaited<ReturnType<typeof listDueWebsiteM
   };
   const transition = evaluateCheckResult(state, result, monitor.config);
 
+  // A challenge-walled site gets a steeply backed-off next check instead of the normal
+  // interval - repeating a check every few minutes forever against a site that's issuing
+  // Captcha challenges is exactly the "crawler without a rate-limit" pattern that gets an IP
+  // permanently blocked (confirmed as the real-world cause of this app's own outbound IP
+  // being blocked). See wafChallengeDetector.ts.
+  const nextCheckSeconds = result.wafChallengeDetected
+    ? computeWafBackoffSeconds(monitor.intervalSeconds, transition.newConsecutiveFailures)
+    : monitor.intervalSeconds;
+  if (result.wafChallengeDetected) {
+    console.warn(`[monitoring-scan] ${monitor.name}: WAF/Captcha challenge detected - backing off to ${nextCheckSeconds}s before the next check.`);
+  }
+
   await db
     .request()
     .input("id", sql.Int, monitor.id)
     .input("status", sql.VarChar, transition.newStatus)
     .input("consecutiveFailures", sql.Int, transition.newConsecutiveFailures)
     .input("consecutiveSuccesses", sql.Int, transition.newConsecutiveSuccesses)
-    .input("nextCheckAt", sql.DateTime2, new Date(Date.now() + monitor.intervalSeconds * 1000))
+    .input("nextCheckAt", sql.DateTime2, new Date(Date.now() + nextCheckSeconds * 1000))
     .query(`
       UPDATE Monitors SET Status=@status, ConsecutiveFailures=@consecutiveFailures, ConsecutiveSuccesses=@consecutiveSuccesses,
         LastCheckedAt=SYSUTCDATETIME(), NextCheckAt=@nextCheckAt
@@ -235,13 +248,25 @@ async function processApiMonitor(monitor: Awaited<ReturnType<typeof listDueApiMo
   };
   const transition = evaluateCheckResult(state, result, monitor.config);
 
+  // A challenge-walled site gets a steeply backed-off next check instead of the normal
+  // interval - repeating a check every few minutes forever against a site that's issuing
+  // Captcha challenges is exactly the "crawler without a rate-limit" pattern that gets an IP
+  // permanently blocked (confirmed as the real-world cause of this app's own outbound IP
+  // being blocked). See wafChallengeDetector.ts.
+  const nextCheckSeconds = result.wafChallengeDetected
+    ? computeWafBackoffSeconds(monitor.intervalSeconds, transition.newConsecutiveFailures)
+    : monitor.intervalSeconds;
+  if (result.wafChallengeDetected) {
+    console.warn(`[monitoring-scan] ${monitor.name}: WAF/Captcha challenge detected - backing off to ${nextCheckSeconds}s before the next check.`);
+  }
+
   await db
     .request()
     .input("id", sql.Int, monitor.id)
     .input("status", sql.VarChar, transition.newStatus)
     .input("consecutiveFailures", sql.Int, transition.newConsecutiveFailures)
     .input("consecutiveSuccesses", sql.Int, transition.newConsecutiveSuccesses)
-    .input("nextCheckAt", sql.DateTime2, new Date(Date.now() + monitor.intervalSeconds * 1000))
+    .input("nextCheckAt", sql.DateTime2, new Date(Date.now() + nextCheckSeconds * 1000))
     .query(`
       UPDATE Monitors SET Status=@status, ConsecutiveFailures=@consecutiveFailures, ConsecutiveSuccesses=@consecutiveSuccesses,
         LastCheckedAt=SYSUTCDATETIME(), NextCheckAt=@nextCheckAt
