@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { DeviceDrilldownTrigger } from "./DeviceDrilldownTrigger";
 import type { AlertRow } from "@/lib/alerts";
 
 const SEVERITY_TONE: Record<string, "danger" | "warning" | "info" | "neutral"> = {
@@ -47,7 +48,15 @@ export function AlertsTable({ alerts }: { alerts: AlertRow[] }) {
                   <td style={{ padding: "0.55rem 0.5rem" }}>
                     <Badge tone={SEVERITY_TONE[a.Severity] ?? "neutral"}>{a.Severity}</Badge>
                   </td>
-                  <td style={{ padding: "0.55rem 0.5rem", color: "var(--ink)" }}>{a.Detail}</td>
+                  <td style={{ padding: "0.55rem 0.5rem", color: "var(--ink)" }}>
+                    {a.Ip ? (
+                      <DeviceDrilldownTrigger ip={a.Ip}>
+                        <span style={{ textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}>{a.Detail}</span>
+                      </DeviceDrilldownTrigger>
+                    ) : (
+                      a.Detail
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

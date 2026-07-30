@@ -4,6 +4,11 @@ export interface AlertRow {
   EventTime: string;
   Severity: string;
   Detail: string;
+  // Populated only for alerts tied to a specific network host (RouterClients conflicts,
+  // DeviceAlerts via the owning device's known IP) - null for WebsitePerformanceAlerts,
+  // which have no endpoint/network-host concept at all. The UI uses this to decide whether
+  // a row can open the network drill-down panel (see DeviceDrilldownTrigger).
+  Ip: string | null;
 }
 
 // MikroTik warnings/errors (login failures, ARP/IP conflicts) plus current DHCP conflicts,
@@ -12,14 +17,16 @@ export interface AlertRow {
 export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
   const db = await getDb();
   const result = await db.query<AlertRow>(`
-    SELECT TOP ${Number(limit) || 10} EventTime, Severity, Detail FROM (
+    SELECT TOP ${Number(limit) || 10} EventTime, Severity, Detail, Ip FROM (
       SELECT UpdatedAt AS EventTime, 'warning' AS Severity,
-        'IP conflict on ' + IpAddress + ' (' + ISNULL(MacAddress, 'unknown MAC') + ')' AS Detail
+        'IP conflict on ' + IpAddress + ' (' + ISNULL(MacAddress, 'unknown MAC') + ')' AS Detail,
+        IpAddress AS Ip
       FROM RouterClients
       WHERE Status = 'conflict'
       UNION ALL
       SELECT da.TriggeredAt AS EventTime, da.Severity,
-        d.Hostname + ': ' + da.Message AS Detail
+        d.Hostname + ': ' + da.Message AS Detail,
+        COALESCE(d.StaticIpAddress, d.LastIp) AS Ip
       FROM DeviceAlerts da
       JOIN Devices d ON d.DeviceId = da.DeviceId
       WHERE da.ResolvedAt IS NULL
@@ -30,7 +37,8 @@ export async function getRecentAlerts(limit = 10): Promise<AlertRow[]> {
         OR (da.AlertType IN ('usb_insert', 'usb_removal') AND da.TriggeredAt >= DATEADD(HOUR, -24, SYSUTCDATETIME()))
       UNION ALL
       SELECT wpa.TriggeredAt AS EventTime, wpa.Severity,
-        w.Name + ': ' + wpa.Detail AS Detail
+        w.Name + ': ' + wpa.Detail AS Detail,
+        NULL AS Ip
       FROM WebsitePerformanceAlerts wpa
       JOIN Websites w ON w.Id = wpa.WebsiteId
       WHERE wpa.ResolvedAt IS NULL

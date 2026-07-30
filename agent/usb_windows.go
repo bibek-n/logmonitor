@@ -29,6 +29,7 @@ type winUsbScanResult struct {
 
 var (
 	vidRe         = regexp.MustCompile(`VID_([0-9A-Fa-f]{4})`)
+	pidRe         = regexp.MustCompile(`PID_([0-9A-Fa-f]{4})`)
 	massStorageRe = regexp.MustCompile(`(?i)mass storage`)
 )
 
@@ -190,6 +191,10 @@ if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
 		if m := vidRe.FindStringSubmatch(r.DeviceID); len(m) == 2 {
 			vendorID = strings.ToLower(m[1])
 		}
+		productID := ""
+		if m := pidRe.FindStringSubmatch(r.DeviceID); len(m) == 2 {
+			productID = strings.ToLower(m[1])
+		}
 		vendorName := usbVendorNames[vendorID]
 		if vendorName == "" {
 			vendorName = cleanManufacturer(r.Manufacturer)
@@ -212,6 +217,7 @@ if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
 			ID:           r.DeviceID,
 			Name:         name,
 			VendorID:     vendorID,
+			ProductID:    productID,
 			VendorName:   vendorName,
 			SerialNumber: serial,
 			CapacityGB:   capacityGB,

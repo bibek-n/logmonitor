@@ -6,8 +6,10 @@ import { parseRouterDurationToSeconds } from "@/lib/mikrotikParser";
 import { classifyDevice } from "@/lib/deviceType";
 import { formatDuration } from "@/lib/staffStatus";
 import { parseJsonArray } from "@/lib/parseJsonArray";
+import { getBrowserActivitySession } from "@/lib/requireBrowserActivityPermission";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeviceReportToggle } from "@/components/staff/DeviceReportToggle";
+import { CategoryDonutChart, type CategoryDatum } from "@/components/staff/CategoryDonutChart";
 import type {
   HardwareInfo,
   DiskRow,
@@ -82,6 +84,7 @@ interface WebFilterRow {
   Domain: string | null;
   Url: string | null;
   Category: string | null;
+  Application: string | null;
   Action: string | null;
 }
 
@@ -295,29 +298,120 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   }
   const allIps = [...new Set(historicalIps.map((h) => h.IpAddress))];
 
+  const CHART_WINDOW_DAYS = 30;
+  const chartWindowStart = new Date(Date.now() - CHART_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
   let webFilterRows: WebFilterRow[] = [];
   let routerWebRows: RouterWebRow[] = [];
+  let categoryBreakdown: CategoryDatum[] = [];
+  let applicationBreakdown: CategoryDatum[] = [];
+  let destinationBreakdown: CategoryDatum[] = [];
+  let bandwidthMB = 0;
   if (allIps.length > 0) {
     const ipList = allIps.map((_, i) => `@ip${i}`).join(", ");
     const wfRequest = db.request();
     const rwRequest = db.request();
+    const wfCategoryRequest = db.request();
+    const wfApplicationRequest = db.request();
+    const rwDestinationRequest = db.request();
+    const wfBandwidthRequest = db.request();
     allIps.forEach((ip, i) => {
       wfRequest.input(`ip${i}`, sql.VarChar, ip);
       rwRequest.input(`ip${i}`, sql.VarChar, ip);
+      wfCategoryRequest.input(`ip${i}`, sql.VarChar, ip);
+      wfApplicationRequest.input(`ip${i}`, sql.VarChar, ip);
+      rwDestinationRequest.input(`ip${i}`, sql.VarChar, ip);
+      wfBandwidthRequest.input(`ip${i}`, sql.VarChar, ip);
     });
 
-    const [webFilterResult, routerWebResult] = await Promise.all([
+    const [webFilterResult, routerWebResult, categoryResult, applicationResult, destinationResult, bandwidthResult] = await Promise.all([
       wfRequest.query<WebFilterRow>(`
-        SELECT TOP 50 Id, ReceivedAt, SrcIp, Domain, Url, Category, Action
+        SELECT TOP 50 Id, ReceivedAt, SrcIp, Domain, Url, Category, Application, Action
         FROM WebFilterLogs WHERE SrcIp IN (${ipList}) ORDER BY ReceivedAt DESC
       `),
       rwRequest.query<RouterWebRow>(`
         SELECT TOP 50 Id, ReceivedAt, SrcIp, DstIp, DstPort, ReverseDns
         FROM RouterWebLogs WHERE SrcIp IN (${ipList}) ORDER BY ReceivedAt DESC
       `),
+      // Scoped to the last CHART_WINDOW_DAYS, not full history like the IP-history/table
+      // queries elsewhere on this page - these tables go back years, so an all-time breakdown
+      // never reflects what an employee is doing lately (an old backlog of tens of millions of
+      // rows would permanently dominate the chart over any recent activity, and would also
+      // never stop showing "Uncategorized"/"Unclassified" if Category/Application ever went
+      // back to being unparsed for a stretch of time - a rolling window self-heals from that,
+      // an all-time aggregate never does).
+      wfCategoryRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Category: string; Cnt: number }>(`
+        SELECT COALESCE(NULLIF(Category, ''), 'Uncategorized') AS Category, COUNT(*) AS Cnt
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+        GROUP BY COALESCE(NULLIF(Category, ''), 'Uncategorized')
+      `),
+      // Application (Sophos App Control's app_name) is only populated once that engine has
+      // classified the flow - many short-lived connections never get one, so those are folded
+      // into "Unclassified" rather than silently dropped from the chart's total.
+      wfApplicationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Application: string; Cnt: number }>(`
+        SELECT COALESCE(NULLIF(Application, ''), 'Unclassified') AS Application, COUNT(*) AS Cnt
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+        GROUP BY COALESCE(NULLIF(Application, ''), 'Unclassified')
+      `),
+      rwDestinationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Destination: string; Cnt: number }>(`
+        SELECT COALESCE(NULLIF(ReverseDns, ''), NULLIF(DstIp, ''), 'Unknown') AS Destination, COUNT(*) AS Cnt
+        FROM RouterWebLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+        GROUP BY COALESCE(NULLIF(ReverseDns, ''), NULLIF(DstIp, ''), 'Unknown')
+      `),
+      // Bandwidth is Sophos-only - Mikrotik's WEBCONN log lines never carry a byte count, only
+      // connection tuples (see RouterWebLogs' schema), so this can't be totaled across both
+      // sources the way the category/destination breakdowns are.
+      wfBandwidthRequest.input("since", sql.DateTime2, chartWindowStart).query<{ TotalBytes: number | null }>(`
+        SELECT SUM(CAST(ISNULL(BytesSent, 0) AS BIGINT) + CAST(ISNULL(BytesReceived, 0) AS BIGINT)) AS TotalBytes
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+      `),
     ]);
     webFilterRows = webFilterResult.recordset;
     routerWebRows = routerWebResult.recordset;
+    categoryBreakdown = categoryResult.recordset.map((r) => ({ name: r.Category, value: r.Cnt }));
+    applicationBreakdown = applicationResult.recordset.map((r) => ({ name: r.Application, value: r.Cnt }));
+    destinationBreakdown = destinationResult.recordset.map((r) => ({ name: r.Destination, value: r.Cnt }));
+    bandwidthMB = (bandwidthResult.recordset[0]?.TotalBytes ?? 0) / (1024 * 1024);
+  }
+
+  // Browser Activity (Agent) - a separate, richer source from the WebFilterLogs panel above:
+  // this comes from the endpoint agent reading local browser history directly (page titles,
+  // real per-domain dwell estimates), not from Sophos/Mikrotik observing network traffic.
+  // Deliberately keyed by Devices.StaffId (not IP/MAC like the panel above) and never merged
+  // into the same table - the two have different guarantees and shouldn't be presented as one
+  // dataset. Only ever populated for devices where an admin has explicitly enabled the
+  // collector (see BrowserActivityIntervalMinutes), so an empty result here is normal, not a
+  // sign anything is broken.
+  const canViewBrowserActivity = (await getBrowserActivitySession("ba_view")) !== null;
+  let browserActivityRows: { Id: number; VisitedAt: string; Domain: string; PageTitle: string | null; Browser: string; CategoryName: string | null }[] = [];
+  let browserActivityCategoryBreakdown: CategoryDatum[] = [];
+  if (canViewBrowserActivity) {
+    const canViewPageTitles = (await getBrowserActivitySession("ba_view_page_titles")) !== null;
+    const [rowsResult, categoryResult] = await Promise.all([
+      db.request().input("staffId", sql.Int, staffMember.Id).query<{
+        Id: number;
+        VisitedAt: string;
+        Domain: string;
+        PageTitle: string | null;
+        Browser: string;
+        CategoryName: string | null;
+      }>(`
+        SELECT TOP 50 e.Id, e.VisitedAt, e.Domain, e.PageTitle, e.Browser, c.Name AS CategoryName
+        FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
+        WHERE e.StaffId = @staffId ORDER BY e.VisitedAt DESC
+      `),
+      db.request().input("staffId", sql.Int, staffMember.Id).input("since", sql.DateTime2, chartWindowStart).query<{ CategoryName: string; Cnt: number }>(`
+        SELECT ISNULL(c.Name, 'Uncategorized') AS CategoryName, COUNT(*) AS Cnt
+        FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
+        WHERE e.StaffId = @staffId AND e.VisitedAt >= @since
+        GROUP BY c.Name
+      `),
+    ]);
+    browserActivityRows = rowsResult.recordset.map((r) => ({
+      ...r,
+      PageTitle: canViewPageTitles ? r.PageTitle : r.PageTitle ? "•••" : null,
+    }));
+    browserActivityCategoryBreakdown = categoryResult.recordset.map((r) => ({ name: r.CategoryName, value: r.Cnt }));
   }
 
   return (
@@ -476,6 +570,24 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
               {t("activityReportSub")}
             </p>
+            <p style={{ fontSize: "0.85rem", margin: "0 0 1rem" }}>
+              <span style={{ color: "var(--ink-muted)" }}>{t("bandwidthLabel")}</span>{" "}
+              <strong>{bandwidthMB >= 1024 ? `${(bandwidthMB / 1024).toFixed(2)} GB` : `${bandwidthMB.toFixed(1)} MB`}</strong>
+            </p>
+            {(categoryBreakdown.length > 0 || applicationBreakdown.length > 0) && (
+              <div className="flex flex-wrap gap-4" style={{ marginBottom: "1rem" }}>
+                {categoryBreakdown.length > 0 && (
+                  <div style={{ flex: "1 1 320px", maxWidth: 420 }}>
+                    <CategoryDonutChart title={t("categoryChartTitle")} data={categoryBreakdown} emptyMessage={t("noWebFilterEvents")} />
+                  </div>
+                )}
+                {applicationBreakdown.length > 0 && (
+                  <div style={{ flex: "1 1 320px", maxWidth: 420 }}>
+                    <CategoryDonutChart title={t("applicationChartTitle")} data={applicationBreakdown} emptyMessage={t("noWebFilterEvents")} />
+                  </div>
+                )}
+              </div>
+            )}
             {webFilterRows.length === 0 ? (
               <p style={{ color: "var(--ink-muted)" }}>{t("noWebFilterEvents")}</p>
             ) : (
@@ -486,6 +598,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                     <th style={{ padding: "0.4rem" }}>{t("ipColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("domainColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("categoryColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("applicationColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("actionColumn")}</th>
                   </tr>
                 </thead>
@@ -502,6 +615,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                       </td>
                       <td style={{ padding: "0.4rem" }}>{r.Domain ?? r.Url ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.Category ?? "-"}</td>
+                      <td style={{ padding: "0.4rem" }}>{r.Application ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.Action ?? "-"}</td>
                     </tr>
                   ))}
@@ -510,13 +624,61 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             )}
           </div>
 
-          <div className="dash-panel">
+          {canViewBrowserActivity && (
+            <div className="dash-panel">
+              <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>
+                Browser Activity (Agent)
+              </h2>
+              <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+                From the endpoint agent reading local browser history directly - higher fidelity than the network-observed
+                Web Filter report above, but only populated for devices where an admin has enabled it.
+              </p>
+              {browserActivityCategoryBreakdown.length > 0 && (
+                <div style={{ marginBottom: "1rem", maxWidth: 420 }}>
+                  <CategoryDonutChart title="By Category" data={browserActivityCategoryBreakdown} emptyMessage="No browser activity recorded." />
+                </div>
+              )}
+              {browserActivityRows.length === 0 ? (
+                <p style={{ color: "var(--ink-muted)" }}>No browser activity recorded for this employee&apos;s device(s).</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                      <th style={{ padding: "0.4rem" }}>Visited At</th>
+                      <th style={{ padding: "0.4rem" }}>Domain</th>
+                      <th style={{ padding: "0.4rem" }}>Page Title</th>
+                      <th style={{ padding: "0.4rem" }}>Browser</th>
+                      <th style={{ padding: "0.4rem" }}>Category</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {browserActivityRows.map((r) => (
+                      <tr key={r.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
+                        <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(r.VisitedAt).toLocaleString()}</td>
+                        <td style={{ padding: "0.4rem" }}>{r.Domain}</td>
+                        <td style={{ padding: "0.4rem" }}>{r.PageTitle ?? "—"}</td>
+                        <td style={{ padding: "0.4rem", textTransform: "capitalize" }}>{r.Browser}</td>
+                        <td style={{ padding: "0.4rem" }}>{r.CategoryName ?? "Uncategorized"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          <div id="router-web" className="dash-panel">
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>
               {t("routerWebReportTitle")}
             </h2>
             <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
               {t("activityReportSub")}
             </p>
+            {destinationBreakdown.length > 0 && (
+              <div style={{ marginBottom: "1rem", maxWidth: 420 }}>
+                <CategoryDonutChart title={t("destinationChartTitle")} data={destinationBreakdown} emptyMessage={t("noRouterWebConnections")} />
+              </div>
+            )}
             {routerWebRows.length === 0 ? (
               <p style={{ color: "var(--ink-muted)" }}>{t("noRouterWebConnections")}</p>
             ) : (

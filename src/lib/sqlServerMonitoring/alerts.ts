@@ -1,8 +1,7 @@
 import { sql } from "@/lib/db";
 import type { ConnectionPool } from "mssql";
 import { sendNotificationEmail } from "@/lib/notifyEmail";
-
-const ALERT_RECIPIENT = "bibek@tulipstechnologies.com";
+import { getModuleRecipients } from "@/lib/notificationRecipients";
 
 // Once an instance is known down, don't re-send on every 5-minute collection pass - only the
 // first failure and then a periodic reminder if it's still down an hour later.
@@ -23,8 +22,11 @@ export async function notifyInstanceDown(
   const cooldownExpired = !lastDownAlertAt || Date.now() - new Date(lastDownAlertAt).getTime() > DOWN_ALERT_COOLDOWN_MS;
   if (wasAlreadyDown && !cooldownExpired) return;
 
+  const recipients = await getModuleRecipients("sql-monitoring", "instance-down");
+  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
+
   const result = await sendNotificationEmail({
-    to: ALERT_RECIPIENT,
+    to: recipients,
     subject: `Database Alert: "${instanceName}" is unreachable`,
     body: [
       `The SQL Server Monitoring collector could not reach "${instanceName}" (${hostLabel}).`,
@@ -51,8 +53,11 @@ export async function notifyInstanceDown(
 export async function notifyInstanceRecovered(db: ConnectionPool, instanceId: number, instanceName: string, hostLabel: string, previousStatus: string | null): Promise<void> {
   if (previousStatus !== "Failed") return;
 
+  const recipients = await getModuleRecipients("sql-monitoring", "instance-recovered");
+  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
+
   const result = await sendNotificationEmail({
-    to: ALERT_RECIPIENT,
+    to: recipients,
     subject: `Database Recovered: "${instanceName}" is back online`,
     body: [`"${instanceName}" (${hostLabel}) is reachable again as of ${new Date().toISOString()}.`, "", "This is an automated alert from LogMonitor."].join("\n"),
   });

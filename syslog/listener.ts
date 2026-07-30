@@ -45,16 +45,22 @@ async function handleWebFilter(raw: string, p: ReturnType<typeof parseSophosLog>
     .input("logType", sql.NVarChar, p.logType)
     .input("logComponent", sql.NVarChar, p.logComponent)
     .input("logSubtype", sql.NVarChar, p.logSubtype)
+    .input("application", sql.NVarChar, p.application)
+    .input("applicationCategory", sql.NVarChar, p.applicationCategory)
+    .input("bytesSent", sql.BigInt, p.bytesSent)
+    .input("bytesReceived", sql.BigInt, p.bytesReceived)
     .input("rawMessage", sql.NVarChar, raw)
     .query(`
       INSERT INTO WebFilterLogs
         (LogDate, LogTime, DeviceName, SrcIp, DstIp, SrcPort, DstPort, Protocol,
          HttpMethod, Url, Domain, Category, CategoryType, Action, UserName,
-         LogType, LogComponent, LogSubtype, RawMessage)
+         LogType, LogComponent, LogSubtype, Application, ApplicationCategory,
+         BytesSent, BytesReceived, RawMessage)
       VALUES
         (@logDate, @logTime, @deviceName, @srcIp, @dstIp, @srcPort, @dstPort, @protocol,
          @httpMethod, @url, @domain, @category, @categoryType, @action, @userName,
-         @logType, @logComponent, @logSubtype, @rawMessage)
+         @logType, @logComponent, @logSubtype, @application, @applicationCategory,
+         @bytesSent, @bytesReceived, @rawMessage)
     `);
 }
 

@@ -1,12 +1,8 @@
 import { getDb, sql } from "@/lib/db";
 import { sendNotificationEmail } from "@/lib/notifyEmail";
+import { getModuleRecipients } from "@/lib/notificationRecipients";
 import { loadScanDetail, type ScanDetail } from "./scanDetail";
 import { getOrGenerateAuditPdf } from "./generatePdf";
-
-// Documented default recipients per the feature spec — the real env var is set on the
-// server only (this repo is public; see project_logmonitor_public_repo memory).
-const DEFAULT_RECIPIENTS = "bibek@tulipstechnologies.com, support@websearchpro.net";
-const RECIPIENTS = process.env.WEBSITE_AUDIT_REPORT_RECIPIENTS || DEFAULT_RECIPIENTS;
 
 function severityCounts(detail: ScanDetail): Record<string, number> {
   const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -51,9 +47,9 @@ function buildEmailBody(detail: ScanDetail): string {
   return lines.join("\n");
 }
 
-async function logEmailAttempt(scanId: number, subject: string, success: boolean, errorMessage?: string): Promise<void> {
+async function logEmailAttempt(scanId: number, recipients: string, subject: string, success: boolean, errorMessage?: string): Promise<void> {
   const db = await getDb();
-  for (const recipient of RECIPIENTS.split(",").map((r) => r.trim()).filter(Boolean)) {
+  for (const recipient of recipients.split(",").map((r) => r.trim()).filter(Boolean)) {
     await db
       .request()
       .input("scanId", sql.Int, scanId)
@@ -76,20 +72,23 @@ export async function sendScanReportEmail(scanId: number, subjectPrefix: string)
   const detail = await loadScanDetail(scanId);
   if (!detail || detail.status !== "Completed") return;
 
+  const recipients = await getModuleRecipients("website-audit", "scan-complete");
+  if (!recipients) return; // Not configured/disabled in Settings > Notifications - nothing to send.
+
   try {
     const { buffer: pdfBuffer, filename } = await getOrGenerateAuditPdf(scanId, detail);
     const subject = `${subjectPrefix} – ${detail.websiteName} – ${detail.scanDate}`;
     const body = buildEmailBody(detail);
 
     const sendResult = await sendNotificationEmail({
-      to: RECIPIENTS,
+      to: recipients,
       subject,
       body,
       attachments: [{ filename, content: pdfBuffer, contentType: "application/pdf" }],
     });
-    await logEmailAttempt(scanId, subject, sendResult.success, sendResult.error);
+    await logEmailAttempt(scanId, recipients, subject, sendResult.success, sendResult.error);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await logEmailAttempt(scanId, `${subjectPrefix} – ${detail.websiteName} – ${detail.scanDate}`, false, message);
+    await logEmailAttempt(scanId, recipients, `${subjectPrefix} – ${detail.websiteName} – ${detail.scanDate}`, false, message);
   }
 }

@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { NO_FLASH_THEME_SCRIPT, DEFAULT_THEME, THEME_STORAGE_KEY, isValidTheme } from "@/lib/themes";
 import { routing } from "@/i18n/routing";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// Poppins is a static (non-variable) Google font, unlike Inter - next/font/google requires
+// an explicit weight list for it rather than inferring the full variable axis.
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "Tulips Unified Admin Center",
@@ -38,7 +40,7 @@ export default async function RootLayout({
   const initialTheme = isValidTheme(cookieTheme) ? cookieTheme : DEFAULT_THEME;
 
   return (
-    <html lang={lang} data-theme={initialTheme} className={inter.variable} suppressHydrationWarning>
+    <html lang={lang} data-theme={initialTheme} className={poppins.variable} suppressHydrationWarning>
       <head>
         {/* Fallback only, for a theme saved before this cookie-based approach shipped
             (localStorage still has it, no cookie yet) — migrates it into the cookie/DOM
@@ -46,7 +48,7 @@ export default async function RootLayout({
             server via the cookie above, no client JS involved. */}
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>
-      <body style={{ fontFamily: "var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <body style={{ fontFamily: "var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif" }}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

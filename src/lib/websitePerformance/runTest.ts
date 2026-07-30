@@ -1,14 +1,10 @@
 import { getDb, sql } from "../db";
 import { sendNotificationEmail } from "../notifyEmail";
+import { getModuleRecipients } from "../notificationRecipients";
 import { measureConnectionTiming, ConnectionTimingError } from "./connectionTiming";
 import { runPageSpeedTest } from "./pagespeed";
 import { computeSubScores, deriveOverallScoreFallback } from "./scoring";
 import { performanceStatusFor, type WebsitePerformanceConfigRow } from "./shared";
-
-// Same default recipient list already used by websiteSecurityAudit/emailReport.ts - one
-// notification system, not a second one, per the spec's explicit instruction.
-const DEFAULT_RECIPIENTS = "bibek@tulipstechnologies.com, support@websearchpro.net";
-const RECIPIENTS = process.env.WEBSITE_PERFORMANCE_ALERT_RECIPIENTS || DEFAULT_RECIPIENTS;
 
 export interface RunTestOptions {
   websiteId: number;
@@ -294,15 +290,18 @@ async function runOneDevice(websiteId: number, url: string, device: "Mobile" | "
       totalRequests: psi.resources.totalRequests,
     });
     if (alertLines.length > 0) {
-      const websiteRow = await db.request().input("id", sql.Int, websiteId).query<{ Name: string; Url: string }>(
-        "SELECT Name, Url FROM Websites WHERE Id = @id"
-      );
-      const site = websiteRow.recordset[0];
-      await sendNotificationEmail({
-        to: RECIPIENTS,
-        subject: `Performance alert: ${site?.Name ?? url} (${device})`,
-        body: `Performance monitoring detected ${alertLines.length} threshold breach(es) for ${site?.Name ?? url} (${site?.Url ?? url}):\n\n${alertLines.map((l) => `- ${l}`).join("\n")}\n\nView details in LogMonitor under Audit > Website Speed & Performance.`,
-      });
+      const recipients = await getModuleRecipients("website-performance", "threshold-breach");
+      if (recipients) {
+        const websiteRow = await db.request().input("id", sql.Int, websiteId).query<{ Name: string; Url: string }>(
+          "SELECT Name, Url FROM Websites WHERE Id = @id"
+        );
+        const site = websiteRow.recordset[0];
+        await sendNotificationEmail({
+          to: recipients,
+          subject: `Performance alert: ${site?.Name ?? url} (${device})`,
+          body: `Performance monitoring detected ${alertLines.length} threshold breach(es) for ${site?.Name ?? url} (${site?.Url ?? url}):\n\n${alertLines.map((l) => `- ${l}`).join("\n")}\n\nView details in LogMonitor under Audit > Website Speed & Performance.`,
+        });
+      }
     }
 
     return { device, scanId, status: "Completed", overallScore };

@@ -2,7 +2,12 @@
 
 Reports system metrics (CPU/RAM/disk/network/uptime) every 30 seconds and, only when
 explicitly enabled per-device by an admin, captures screenshots — either on a configured
-interval or on-demand via the "Screenshot now" button in the dashboard.
+interval or on-demand via the "Screenshot now" button in the dashboard. Also supports an
+optional Browser Activity Audit collector, likewise off by default and enabled per device by
+an admin: it reads the local Chrome/Edge/Firefox history file directly (no browser extension)
+and reports domain, page title, visit time, and an estimated dwell time — never a full URL,
+form data, or anything from an excluded (e.g. medical/banking/legal) domain, which is filtered
+out on-device before anything is sent.
 
 Monitoring only starts after local consent is given (a native dialog on Windows during
 `install`, an interactive terminal prompt on Linux during `install.sh`). This agent must

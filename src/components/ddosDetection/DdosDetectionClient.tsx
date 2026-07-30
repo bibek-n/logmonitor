@@ -24,6 +24,14 @@ interface RequestBucket {
   bucket: string;
   count: number;
 }
+interface PerServerRequestRate {
+  deviceId: string;
+  deviceName: string | null;
+  hostname: string;
+  requestsPerSec: number | null;
+  connections: number | null;
+  receivedAt: string;
+}
 interface TopAttacker {
   ip: string;
   alertCount: number;
@@ -53,6 +61,7 @@ interface TimelineBlockEntry {
 type TimelineEntry = TimelineAlertEntry | TimelineBlockEntry;
 interface SummaryData {
   requestBuckets: RequestBucket[];
+  perServerRequestRates: PerServerRequestRate[];
   topAttackers: TopAttacker[];
   timeline: TimelineEntry[];
 }
@@ -188,7 +197,7 @@ function DdosDetectionInner() {
         {loading && tab !== "blocked" ? (
           <p style={{ color: "var(--ink-muted)" }}>Loading...</p>
         ) : tab === "requests" ? (
-          <RequestsPerSecTab buckets={data?.requestBuckets ?? []} hours={hours} />
+          <RequestsPerSecTab buckets={data?.requestBuckets ?? []} perServer={data?.perServerRequestRates ?? []} hours={hours} />
         ) : tab === "attackers" ? (
           <TopAttackersTab attackers={data?.topAttackers ?? []} isBlocked={isBlocked} blockingIp={blockingIp} onBlock={blockIp} />
         ) : tab === "blocked" ? (
@@ -201,31 +210,90 @@ function DdosDetectionInner() {
   );
 }
 
-function RequestsPerSecTab({ buckets, hours }: { buckets: RequestBucket[]; hours: number }) {
-  if (buckets.length === 0) return <Empty text="No request activity recorded in this window." />;
+function RequestsPerSecTab({ buckets, perServer, hours }: { buckets: RequestBucket[]; perServer: PerServerRequestRate[]; hours: number }) {
   const bucketSeconds = hours <= 4 ? 60 : 3600;
-  const max = Math.max(...buckets.map((b) => b.count));
+  const max = buckets.length > 0 ? Math.max(...buckets.map((b) => b.count)) : 1;
 
   return (
-    <div>
-      <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0, marginBottom: "0.75rem" }}>
-        Total monitored requests per {hours <= 4 ? "minute" : "hour"}, shown as an average requests/sec for that bucket.
-      </p>
-      <div className="flex flex-col gap-1">
-        {buckets.map((b) => (
-          <div key={b.bucket} className="flex items-center gap-2" style={{ fontSize: "0.78rem" }}>
-            <span style={{ width: 130, flexShrink: 0, color: "var(--ink-muted)", fontFamily: "monospace" }}>{b.bucket.replace("T", " ")}</span>
-            <div style={{ flex: 1, background: "var(--surface-2)", borderRadius: 4, height: 14, overflow: "hidden" }}>
-              <div style={{ width: `${(b.count / max) * 100}%`, background: "var(--primary)", height: "100%" }} />
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 style={{ fontSize: "0.85rem", margin: "0 0 0.4rem" }}>All Servers - Live Request Rate</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0, marginBottom: "0.75rem" }}>
+          Latest requests/sec reported directly by each IIS-detected server&apos;s own endpoint agent - covers every
+          monitored server, independent of which sites have detailed request-log ingestion configured below.
+        </p>
+        {perServer.length === 0 ? (
+          <Empty text="No server has reported IIS performance data in this window." />
+        ) : (
+          <>
+            <div className="flex flex-col gap-2 md:hidden">
+              {perServer.map((s) => (
+                <div key={s.deviceId} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.6rem 0.75rem" }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span style={{ fontWeight: 600 }}>{s.deviceName || s.hostname}</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums" }}>{s.requestsPerSec?.toFixed(1) ?? "—"} req/s</span>
+                  </div>
+                  <p style={{ margin: "0.2rem 0 0", fontSize: "0.76rem", color: "var(--ink-muted)" }}>
+                    {s.connections ?? "—"} connections · as of {s.receivedAt}
+                  </p>
+                </div>
+              ))}
             </div>
-            <span style={{ width: 90, flexShrink: 0, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-              {(b.count / bucketSeconds).toFixed(2)} req/s
-            </span>
-            <span style={{ width: 70, flexShrink: 0, textAlign: "right", color: "var(--ink-muted)", fontVariantNumeric: "tabular-nums" }}>
-              ({b.count})
-            </span>
+            <div className="hidden md:block" style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                    {["Server", "Requests/sec", "Connections", "As Of"].map((h) => (
+                      <th key={h} style={{ padding: "0.5rem", color: "var(--ink-muted)", fontWeight: 500 }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {perServer.map((s) => (
+                    <tr key={s.deviceId} style={{ borderBottom: "1px solid var(--grid)" }}>
+                      <td style={{ padding: "0.5rem" }}>{s.deviceName || s.hostname}</td>
+                      <td style={{ padding: "0.5rem", fontVariantNumeric: "tabular-nums" }}>{s.requestsPerSec?.toFixed(1) ?? "—"}</td>
+                      <td style={{ padding: "0.5rem" }}>{s.connections ?? "—"}</td>
+                      <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{s.receivedAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: "0.85rem", margin: "0 0 0.4rem" }}>Monitored Request Log Volume</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0, marginBottom: "0.75rem" }}>
+          Total requests per {hours <= 4 ? "minute" : "hour"} from sites with detailed access-log ingestion configured
+          (Intrusion Detection &gt; log sources) - today that&apos;s only this app itself. Registering another
+          server&apos;s or website&apos;s access log here is what feeds Top Attackers, Blocked IPs, and the
+          Mitigation Timeline for it.
+        </p>
+        {buckets.length === 0 ? (
+          <Empty text="No request activity recorded in this window." />
+        ) : (
+          <div className="flex flex-col gap-1">
+            {buckets.map((b) => (
+              <div key={b.bucket} className="flex items-center gap-2" style={{ fontSize: "0.78rem" }}>
+                <span style={{ width: 130, flexShrink: 0, color: "var(--ink-muted)", fontFamily: "monospace" }}>{b.bucket.replace("T", " ")}</span>
+                <div style={{ flex: 1, background: "var(--surface-2)", borderRadius: 4, height: 14, overflow: "hidden" }}>
+                  <div style={{ width: `${(b.count / max) * 100}%`, background: "var(--primary)", height: "100%" }} />
+                </div>
+                <span style={{ width: 90, flexShrink: 0, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {(b.count / bucketSeconds).toFixed(2)} req/s
+                </span>
+                <span style={{ width: 70, flexShrink: 0, textAlign: "right", color: "var(--ink-muted)", fontVariantNumeric: "tabular-nums" }}>
+                  ({b.count})
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

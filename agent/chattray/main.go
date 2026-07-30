@@ -162,5 +162,6 @@ func main() {
 	if !hasDesktopSession() {
 		os.Exit(0)
 	}
+	go runRemoteSupportPoll(cfg)
 	runTray(cfg)
 }

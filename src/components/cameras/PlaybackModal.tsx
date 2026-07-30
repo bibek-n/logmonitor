@@ -195,7 +195,17 @@ export function PlaybackModal({ cameraId, channelName, onClose }: PlaybackModalP
       const video = videoRef.current;
       if (!video) return;
 
-      pc = new RTCPeerConnection();
+      // Matches BOTH ICE servers already configured in mediamtx.yml's webrtcICEServers2 on the
+      // server side - STUN alone only yields a server-reflexive candidate, which still depends
+      // on the viewer's own network allowing/hairpinning direct UDP; without the TURN relay too,
+      // a viewer on a network that blocks that (a locked-down office firewall, symmetric NAT)
+      // has no working candidate pair at all even though the server is happy to relay for them.
+      pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "turn:202.166.217.58:3478?transport=udp", username: "RQUKp1DR5X2u", credential: "7yvM274siKNYC8C4STfetx0W" },
+        ],
+      });
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.addTransceiver("audio", { direction: "recvonly" });
 

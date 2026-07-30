@@ -7,6 +7,12 @@ import { getDb } from "@/lib/db";
 import { getQaSession } from "@/lib/requireQaPermission";
 import { getCqSession } from "@/lib/requireCodeQualityPermission";
 import { getLsSession } from "@/lib/requireLaravelSecurityPermission";
+import { getMailSession } from "@/lib/requireMailPolicyPermission";
+import { getMonitoringSession } from "@/lib/requireMonitoringPermission";
+import { getAutomationSession } from "@/lib/requireAutomationPermission";
+import { getRemoteAccessSession } from "@/lib/requireRemoteAccessPermission";
+import { getItAssetSession } from "@/lib/requireItAssetPermission";
+import { getBrowserActivitySession } from "@/lib/requireBrowserActivityPermission";
 import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from "@/lib/dateFormat";
 import { resolveLocale } from "@/i18n/routing";
 import SidebarShell from "@/components/SidebarShell";
@@ -45,6 +51,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const qaAccess = await getQaSession("qa_view");
   const codeQualityAccess = await getCqSession("cq_view");
   const laravelSecurityAccess = await getLsSession("ls_view");
+  const mailSecurityAccess = await getMailSession("mail_view");
+  const monitoringAccess = await getMonitoringSession("mon_view");
+  const automationAccess = await getAutomationSession("auto_view");
+  const remoteAccessAccess = await getRemoteAccessSession("ra_view");
+  const itAssetLogsheetAccess = await getItAssetSession("ita_view");
+  const browserActivityAccess = await getBrowserActivitySession("ba_view");
   // Populates the request-scoped locale so every Server Component under this layout can
   // call getTranslations()/getMessages() with no args and still resolve correctly — the
   // dashboard has no [locale] URL segment, so requestLocale would otherwise never be set.
@@ -55,7 +67,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <NextIntlClientProvider locale={locale} messages={messages}>
       <DashShellClient>
         <IdleLogout />
-        <SidebarShell qaAccess={qaAccess !== null} codeQualityAccess={codeQualityAccess !== null} laravelSecurityAccess={laravelSecurityAccess !== null}>
+        <SidebarShell
+          qaAccess={qaAccess !== null}
+          codeQualityAccess={codeQualityAccess !== null}
+          laravelSecurityAccess={laravelSecurityAccess !== null}
+          mailSecurityAccess={mailSecurityAccess !== null}
+          monitoringAccess={monitoringAccess !== null}
+          automationAccess={automationAccess !== null}
+          remoteAccessAccess={remoteAccessAccess !== null}
+          itAssetLogsheetAccess={itAssetLogsheetAccess !== null}
+          browserActivityAccess={browserActivityAccess !== null}
+        >
           <div className="dash-user">
             <div className="name">
               {session.user?.name}

@@ -5,9 +5,11 @@ import { raisePointInTimeAlert } from "@/lib/deviceAlerts";
 
 const VALID_EVENT_TYPES = new Set(["insert", "removal"]);
 
-// Detection/audit only — there's no allow/block policy in this phase, so a USB event
-// never implies a device did something wrong. It still raises an admin-facing
-// notification (see raisePointInTimeAlert) purely as an FYI, not a violation.
+// This event is audit/history only - real-time Block enforcement is driven separately,
+// by the agent applying the current policy list it receives via /api/agent/heartbeat (see
+// agent/usbpolicy_windows.go), not by this route. A USB event recorded here doesn't itself
+// imply a device did anything wrong; it still raises an admin-facing notification (see
+// raisePointInTimeAlert) purely as an FYI.
 export async function POST(req: NextRequest) {
   const device = await authenticateDevice(req);
   if (!device) {
@@ -26,12 +28,13 @@ export async function POST(req: NextRequest) {
     .input("eventType", sql.VarChar, body.eventType)
     .input("deviceName", sql.NVarChar, body.deviceName ?? null)
     .input("vendorId", sql.VarChar, body.vendorId || null)
+    .input("productId", sql.VarChar, body.productId || null)
     .input("vendorName", sql.NVarChar, body.vendorName || null)
     .input("serialNumber", sql.NVarChar, body.serialNumber || null)
     .input("storageCapacityGB", sql.Float, body.storageCapacityGB ?? null)
     .query(`
-      INSERT INTO DeviceUsbEvents (DeviceId, EventType, DeviceName, VendorId, VendorName, SerialNumber, StorageCapacityGB)
-      VALUES (@deviceId, @eventType, @deviceName, @vendorId, @vendorName, @serialNumber, @storageCapacityGB)
+      INSERT INTO DeviceUsbEvents (DeviceId, EventType, DeviceName, VendorId, ProductId, VendorName, SerialNumber, StorageCapacityGB)
+      VALUES (@deviceId, @eventType, @deviceName, @vendorId, @productId, @vendorName, @serialNumber, @storageCapacityGB)
     `);
 
   const deviceLabel = [body.vendorName, body.deviceName].filter(Boolean).join(" ") || "Unknown device";

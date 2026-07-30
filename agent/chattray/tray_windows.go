@@ -3,11 +3,30 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/tadvi/systray"
 )
+
+// TEMPORARY diagnostic aid for the USB-block-notification pilot - same reasoning as the main
+// agent's debugLogUsbPolicy: this process has no console either, so trace to a file instead.
+// Remove once toast delivery is confirmed working.
+func debugLog(format string, args ...interface{}) {
+	dir := os.Getenv("ProgramData")
+	if dir == "" {
+		dir = `C:\ProgramData`
+	}
+	dir = filepath.Join(dir, "LogMonitorAgent")
+	_ = os.MkdirAll(dir, 0o755)
+	f, err := os.OpenFile(filepath.Join(dir, "chattray-debug.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "%s "+format+"\n", append([]interface{}{time.Now().Format(time.RFC3339)}, args...)...)
+}
 
 // Real tray icon on Windows via tadvi/systray (already an indirect dependency of the main
 // agent through beeep, so this adds no new dependency). Win32 message loops are
@@ -15,8 +34,10 @@ import (
 func runTray(cfg *chatConfig) {
 	runtime.LockOSThread()
 
+	debugLog("runTray starting")
 	tray, err := systray.New()
 	if err != nil {
+		debugLog("systray.New failed: %v", err)
 		return
 	}
 
@@ -35,8 +56,10 @@ func runTray(cfg *chatConfig) {
 	// build - see chat-icon.ico's neighboring rsrc_windows.syso). rsrc assigns the first (and
 	// here, only) icon group resource ID 1 when no manifest resource precedes it.
 	if err := tray.Show(1, "LogMonitor Chat"); err != nil {
+		debugLog("tray.Show failed: %v", err)
 		return
 	}
+	debugLog("tray.Show succeeded, entering poll loop")
 
 	go func() {
 		lastUnread := 0
@@ -53,9 +76,16 @@ func runTray(cfg *chatConfig) {
 				}
 				lastUnread = resp.UnreadCount
 			}
-			if nresp, err := pollNotifications(cfg); err == nil && nresp.OK {
+			nresp, err := pollNotifications(cfg)
+			if err != nil {
+				debugLog("pollNotifications error: %v", err)
+			} else if !nresp.OK {
+				debugLog("pollNotifications returned ok=false")
+			} else if len(nresp.Notifications) > 0 {
+				debugLog("pollNotifications returned %d notification(s)", len(nresp.Notifications))
 				for _, n := range nresp.Notifications {
-					_ = tray.ShowMessage("Notification from Admin", n.Message, false)
+					showErr := tray.ShowMessage("Notification from Admin", n.Message, false)
+					debugLog("ShowMessage(%q) returned err=%v", n.Message, showErr)
 				}
 			}
 			time.Sleep(pollInterval)

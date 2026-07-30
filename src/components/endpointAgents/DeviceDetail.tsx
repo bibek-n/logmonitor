@@ -142,6 +142,7 @@ export interface DeviceDetailData {
   macAddress: string | null;
   online: boolean;
   screenshotIntervalMinutes: number | null;
+  browserActivityIntervalMinutes: number | null;
   privacyMode: boolean;
   enrolledAt: string;
   consentAcceptedAt: string | null;
@@ -190,6 +191,18 @@ const INTERVAL_OPTIONS = [
   { value: "30", label: "Every 30 min" },
 ];
 
+// Matches ALLOWED_BROWSER_ACTIVITY_INTERVALS in the settings API route - deliberately no
+// 1-minute option here (unlike screenshots above): reading several browsers' history DBs on
+// every heartbeat is heavier than a screenshot capture, and there's no real-time value to
+// polling browser history that fast.
+const BROWSER_ACTIVITY_INTERVAL_OPTIONS = [
+  { value: "", label: "Disabled" },
+  { value: "5", label: "Every 5 min" },
+  { value: "15", label: "Every 15 min" },
+  { value: "30", label: "Every 30 min" },
+  { value: "60", label: "Every 60 min" },
+];
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -199,29 +212,45 @@ function formatBytes(bytes: number): string {
 function SettingsPanel({ device, staffOptions }: { device: DeviceDetailData; staffOptions: { id: number; name: string }[] }) {
   const router = useRouter();
   const [interval, setInterval_] = useState(device.screenshotIntervalMinutes?.toString() ?? "");
+  const [browserActivityInterval, setBrowserActivityInterval] = useState(device.browserActivityIntervalMinutes?.toString() ?? "");
+  const [reconsentConfirmed, setReconsentConfirmed] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(device.privacyMode);
   const [department, setDepartment] = useState(device.department ?? "");
   const [staffId, setStaffId] = useState(device.staffId?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Turning browser activity ON for a device that wasn't already collecting it requires the
+  // admin to confirm the employee has been (re-)notified before the request goes through -
+  // see the settings API route's browserActivityReconsentConfirmed check, which exists so
+  // enabling this can't happen as a silent side effect of an unrelated settings save.
+  const enablingBrowserActivity = browserActivityInterval !== "" && browserActivityInterval !== (device.browserActivityIntervalMinutes?.toString() ?? "");
 
   async function save() {
     setSaving(true);
     setSaved(false);
+    setError(null);
     try {
       const res = await fetch(`/api/admin/devices/${device.deviceId}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           screenshotIntervalMinutes: interval === "" ? null : Number(interval),
+          browserActivityIntervalMinutes: browserActivityInterval === "" ? null : Number(browserActivityInterval),
+          browserActivityReconsentConfirmed: reconsentConfirmed,
           privacyMode,
           department: department === "" ? null : department,
           staffId: staffId === "" ? null : Number(staffId),
         }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
         setSaved(true);
+        setReconsentConfirmed(false);
         router.refresh();
+      } else {
+        setError(data?.error ?? "Save failed.");
       }
     } finally {
       setSaving(false);
@@ -260,9 +289,29 @@ function SettingsPanel({ device, staffOptions }: { device: DeviceDetailData; sta
           ))}
         </select>
       </div>
+      <div className="flex flex-col gap-1">
+        <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Browser activity monitoring interval</label>
+        <select
+          value={browserActivityInterval}
+          onChange={(e) => setBrowserActivityInterval(e.target.value)}
+          style={{ padding: "0.5rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)" }}
+        >
+          {BROWSER_ACTIVITY_INTERVAL_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {enablingBrowserActivity && (
+        <label className="flex items-center gap-2" style={{ fontSize: "0.8rem", color: "var(--ink-secondary)" }}>
+          <input type="checkbox" checked={reconsentConfirmed} onChange={(e) => setReconsentConfirmed(e.target.checked)} />
+          I confirm the employee using this device has been notified that browser activity monitoring is being enabled.
+        </label>
+      )}
       <label className="flex items-center gap-2" style={{ fontSize: "0.85rem" }}>
         <input type="checkbox" checked={privacyMode} onChange={(e) => setPrivacyMode(e.target.checked)} />
-        Privacy mode (disables screenshot capture entirely, overrides interval)
+        Privacy mode (disables screenshot capture and browser activity monitoring, overrides interval)
       </label>
       <div className="flex flex-col gap-1">
         <label style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Department</label>
@@ -274,6 +323,7 @@ function SettingsPanel({ device, staffOptions }: { device: DeviceDetailData; sta
           style={{ padding: "0.5rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--ink)" }}
         />
       </div>
+      {error && <p style={{ color: "var(--danger)", fontSize: "0.78rem", margin: 0 }}>{error}</p>}
       <Button size="sm" onClick={save} disabled={saving}>
         {saving ? "Saving..." : saved ? "Saved" : "Save settings"}
       </Button>

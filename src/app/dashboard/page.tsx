@@ -15,6 +15,10 @@ import { ActivityTimeline, type TimelineEvent } from "@/components/dashboard/Act
 import { RightRail } from "@/components/dashboard/RightRail";
 import { TopOverviewBar } from "@/components/dashboard/TopOverviewBar";
 import { NepaliCalendarCard } from "@/components/dashboard/NepaliCalendarCard";
+import { DashboardWidgetGrid, type DashboardWidget } from "@/components/dashboard/DashboardWidgetGrid";
+import { OfflineDevicesCard, ExpiringSslCard, MalwareFindingsCard, TopBandwidthConsumersCard } from "@/components/dashboard/ExtraWidgets";
+import { getOfflineDevices, getExpiringSslCertificates } from "@/lib/aiAssistant/tools";
+import { getTopIps } from "@/lib/topConsumers";
 import { Cpu, MemoryStick, HardDrive, Globe, Wifi, Laptop, Router } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -92,6 +96,10 @@ export default async function DashboardHome() {
     weather,
     nepalCitiesWeather,
     swedenWeather,
+    offlineDevices,
+    expiringSslCerts,
+    malwareFindingsRes,
+    topBandwidthIps,
   ] = await Promise.all([
     db.query<{ Fields: string | null; ReceivedAt: string }>(
       `SELECT TOP 20 Fields, ReceivedAt FROM SystemHealthLogs WHERE LogComponent = 'CPU' ORDER BY ReceivedAt DESC`
@@ -198,6 +206,18 @@ export default async function DashboardHome() {
     getWeatherSummary().catch((): WeatherSummary | null => null),
     getNepalCitiesWeather().catch((): WeatherSummary[] => []),
     getSwedenWeather().catch((): WeatherSummary | null => null),
+    getOfflineDevices({ withinDays: 7 }).catch(() => []),
+    getExpiringSslCertificates({ withinDays: 30 }).catch(() => []),
+    db
+      .query<{ CheckType: string; Severity: string; FilePath: string; DeviceName: string | null; Hostname: string | null }>(`
+        SELECT TOP 20 f.CheckType, f.Severity, f.FilePath, d.DeviceName, d.Hostname
+        FROM MalwareFindings f
+        JOIN Devices d ON d.DeviceId = f.DeviceId
+        WHERE f.Status = 'Open'
+        ORDER BY CASE f.Severity WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END, f.FirstDetectedAt DESC
+      `)
+      .catch(() => ({ recordset: [] })),
+    getTopIps(24, 5).catch(() => []),
   ]);
 
   const staffOnline = staff.filter((s) => s.isOnline).length;
@@ -351,85 +371,120 @@ export default async function DashboardHome() {
   const intranetKpi = interfaceKpi("Port1", t("intranetLabel"), Router);
   const wlanKpi = interfaceKpi("Port2", t("wlanLabel"), Wifi);
 
-  return (
-    <div className="mx-auto" style={{ width: "100%" }}>
-      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
-      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
-        {t("subtitle")}
-      </p>
+  const malwareFindings = malwareFindingsRes.recordset.map((f) => ({
+    checkType: f.CheckType,
+    severity: f.Severity,
+    target: f.DeviceName ?? f.Hostname ?? f.FilePath,
+  }));
 
-      <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 mb-6">
-        <NepaliCalendarCard />
-        <TopOverviewBar weather={weather} nepalCitiesWeather={nepalCitiesWeather} swedenWeather={swedenWeather} />
-      </div>
-
-      <div className="grid gap-6 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-        <KpiCard
-          icon={Cpu}
-          title={t("cpuUsage")}
-          value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : t("noData")}
-          sub={latestCpuFields.system ? t("systemUserSub", { system: latestCpuFields.system, user: latestCpuFields.user }) : undefined}
-          status={cpuStatus}
-          trendPct={trendPct(cpuUsage, cpuPrev)}
-          sparkline={cpuHistory.map((value) => ({ value }))}
-        />
-        <KpiCard
-          icon={MemoryStick}
-          title={t("memoryUsage")}
-          value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : t("noData")}
-          sub={memPct !== null ? t("pctUsed", { pct: memPct.toFixed(1) }) : undefined}
-          status={memStatus}
-          trendPct={trendPct(memPct, memPrev)}
-          sparkline={memHistory.map((value) => ({ value }))}
-        />
-        <KpiCard
-          icon={HardDrive}
-          title={t("diskUsage")}
-          value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : t("noData")}
-          sub={worstDiskEntry?.name}
-          status={diskStatus}
-          trendPct={trendPct(worstDiskPctNow, diskPrev)}
-          sparkline={diskHistory.map((value) => ({ value }))}
-        />
-        <KpiCard
-          icon={wlanKpi.icon}
-          title={t("usageTitle", { label: wlanKpi.label })}
-          value={wlanKpi.value}
-          sub={wlanKpi.sub}
-          status={wlanKpi.status}
-          sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
-        />
-        <KpiCard
-          icon={intranetKpi.icon}
-          title={t("usageTitle", { label: intranetKpi.label })}
-          value={intranetKpi.value}
-          sub={intranetKpi.sub}
-          status={intranetKpi.status}
-          sparkline={intranetSparkline}
-        />
-        <KpiCard
-          icon={Laptop}
-          title={t("connectedDevices")}
-          value={`${routerClientsStats?.ConnectedNow ?? 0}`}
-          sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
-          status="good"
-        />
-      </div>
-
-      <div className="mb-6">
-        <BandwidthPanel data={bandwidthData} sparseRanges={["7D", "30D"]} />
-      </div>
-
-      <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>{t("deviceStatusTitle")}</h2>
-      <div className="mb-6">
-        <DeviceStatusRow total={staff.length} online={staffOnline} offline={staffOffline} attention={attentionCount} />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
-        <div className="flex flex-col gap-6" style={{ minWidth: 0 }}>
+  // Every top-level section is an independently show/hide-able, reorderable widget (see
+  // DashboardWidgetGrid) - all data fetching above is unchanged, this just tags the already-
+  // computed JSX with a stable id/title so the customize UI has something to label and persist
+  // an order for. "wide" widgets get their own full-width row; everything else shares an
+  // auto-fit grid row with whatever other non-wide widgets are adjacent in the user's order.
+  const widgets: DashboardWidget[] = [
+    {
+      id: "calendarWeather",
+      title: t("widgetCalendarWeather"),
+      wide: true,
+      node: (
+        <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
+          <NepaliCalendarCard />
+          <TopOverviewBar weather={weather} nepalCitiesWeather={nepalCitiesWeather} swedenWeather={swedenWeather} />
+        </div>
+      ),
+    },
+    {
+      id: "kpis",
+      title: t("widgetKpis"),
+      wide: true,
+      node: (
+        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          <KpiCard
+            icon={Cpu}
+            title={t("cpuUsage")}
+            value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : t("noData")}
+            sub={latestCpuFields.system ? t("systemUserSub", { system: latestCpuFields.system, user: latestCpuFields.user }) : undefined}
+            status={cpuStatus}
+            trendPct={trendPct(cpuUsage, cpuPrev)}
+            sparkline={cpuHistory.map((value) => ({ value }))}
+          />
+          <KpiCard
+            icon={MemoryStick}
+            title={t("memoryUsage")}
+            value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : t("noData")}
+            sub={memPct !== null ? t("pctUsed", { pct: memPct.toFixed(1) }) : undefined}
+            status={memStatus}
+            trendPct={trendPct(memPct, memPrev)}
+            sparkline={memHistory.map((value) => ({ value }))}
+          />
+          <KpiCard
+            icon={HardDrive}
+            title={t("diskUsage")}
+            value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : t("noData")}
+            sub={worstDiskEntry?.name}
+            status={diskStatus}
+            trendPct={trendPct(worstDiskPctNow, diskPrev)}
+            sparkline={diskHistory.map((value) => ({ value }))}
+          />
+          <KpiCard
+            icon={wlanKpi.icon}
+            title={t("usageTitle", { label: wlanKpi.label })}
+            value={wlanKpi.value}
+            sub={wlanKpi.sub}
+            status={wlanKpi.status}
+            sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
+          />
+          <KpiCard
+            icon={intranetKpi.icon}
+            title={t("usageTitle", { label: intranetKpi.label })}
+            value={intranetKpi.value}
+            sub={intranetKpi.sub}
+            status={intranetKpi.status}
+            sparkline={intranetSparkline}
+          />
+          <KpiCard
+            icon={Laptop}
+            title={t("connectedDevices")}
+            value={`${routerClientsStats?.ConnectedNow ?? 0}`}
+            sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
+            status="good"
+          />
+        </div>
+      ),
+    },
+    {
+      id: "bandwidth",
+      title: t("widgetBandwidth"),
+      wide: true,
+      node: <BandwidthPanel data={bandwidthData} sparseRanges={["7D", "30D"]} />,
+    },
+    {
+      id: "deviceStatus",
+      title: t("widgetDeviceStatus"),
+      wide: true,
+      node: (
+        <div>
+          <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>{t("deviceStatusTitle")}</h2>
+          <DeviceStatusRow total={staff.length} online={staffOnline} offline={staffOffline} attention={attentionCount} />
+        </div>
+      ),
+    },
+    {
+      id: "alertsTimeline",
+      title: t("widgetAlertsTimeline"),
+      wide: true,
+      node: (
+        <div className="flex flex-col gap-6">
           <AlertsTable alerts={alerts} />
           <ActivityTimeline events={timelineEvents} />
         </div>
+      ),
+    },
+    {
+      id: "rightRail",
+      title: t("widgetRightRail"),
+      node: (
         <RightRail
           healthScore={healthScore}
           ip={myIp}
@@ -440,7 +495,22 @@ export default async function DashboardHome() {
           trafficByCountry={trafficByCountry}
           threatSummary={threatSummary}
         />
-      </div>
+      ),
+    },
+    { id: "offlineDevices", title: t("widgetOfflineDevices"), node: <OfflineDevicesCard devices={offlineDevices} /> },
+    { id: "expiringSsl", title: t("widgetExpiringSsl"), node: <ExpiringSslCard certs={expiringSslCerts} /> },
+    { id: "malwareFindings", title: t("widgetMalwareFindings"), node: <MalwareFindingsCard findings={malwareFindings} /> },
+    { id: "topBandwidthConsumers", title: t("widgetTopBandwidthConsumers"), node: <TopBandwidthConsumersCard ips={topBandwidthIps} /> },
+  ];
+
+  return (
+    <div className="mx-auto" style={{ width: "100%" }}>
+      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
+        {t("subtitle")}
+      </p>
+
+      <DashboardWidgetGrid widgets={widgets} customizeLabel={t("customizeDashboard")} doneLabel={t("doneCustomizing")} />
     </div>
   );
 }

@@ -66,11 +66,12 @@ export default async function ServerLogsPage({
   const offset = (page - 1) * PAGE_SIZE;
 
   const db = await getDb();
-  const deviceResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ DeviceName: string | null; Hostname: string }>(
-    "SELECT DeviceName, Hostname FROM Devices WHERE DeviceId = @deviceId AND DeviceType = 'Server'"
+  const deviceResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ DeviceName: string | null; Hostname: string; OS: string | null }>(
+    "SELECT DeviceName, Hostname, OS FROM Devices WHERE DeviceId = @deviceId AND DeviceType = 'Server'"
   );
   const device = deviceResult.recordset[0];
   if (!device) notFound();
+  const isLinux = device.OS?.toLowerCase() === "linux";
 
   const sourceFilter = source && SOURCE_LABELS[source] ? source : null;
   const siteFilter = site && site.trim() ? site.trim() : null;
@@ -122,6 +123,19 @@ export default async function ServerLogsPage({
     "SELECT DISTINCT SiteName FROM ServerLogEntries WHERE DeviceId = @deviceId AND SiteName IS NOT NULL ORDER BY SiteName ASC"
   );
 
+  // Which sources this specific device actually has entries for - SOURCE_LABELS lists every
+  // source this app knows about across every OS/stack (Windows Event Viewer, MSSQL, Apache,
+  // Nginx, ...), but any one server only ever produces a handful of them. Showing a pill for
+  // every possible source unconditionally made every server's Logs page look mostly broken -
+  // e.g. "Event Viewer" and "MSSQL Error Log" pills always present (and always empty) on a
+  // Linux/MySQL box, easy to mistake for the feature not working rather than "not applicable
+  // to this server."
+  const sourceCountsResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ LogSource: string; Cnt: number }>(
+    "SELECT LogSource, COUNT(*) AS Cnt FROM ServerLogEntries WHERE DeviceId = @deviceId GROUP BY LogSource"
+  );
+  const sourceCounts = new Map(sourceCountsResult.recordset.map((r) => [r.LogSource, r.Cnt]));
+  const availableSources = Object.entries(SOURCE_LABELS).filter(([key]) => (sourceCounts.get(key) ?? 0) > 0);
+
   const baseHref = `/dashboard/servers/${deviceId}/logs`;
   // Switching the Source pill keeps whatever Site filter is set (a vhost name is meaningful
   // regardless of whether "Nginx Access" or "Nginx Error" is selected); the Site dropdown's own
@@ -150,7 +164,7 @@ export default async function ServerLogsPage({
         {total} {total === unfilteredTotal ? "total" : `of ${unfilteredTotal}`} entries
       </p>
 
-      <ServerDetailTabs deviceId={deviceId} active="logs" logCount={unfilteredTotal} mssqlLogCount={mssqlLogCount} />
+      <ServerDetailTabs deviceId={deviceId} active="logs" logCount={unfilteredTotal} mssqlLogCount={mssqlLogCount} showPhpTab={isLinux} />
 
       <div className="flex flex-wrap gap-2 mb-4" style={{ fontSize: "0.8rem" }}>
         <Link
@@ -165,7 +179,7 @@ export default async function ServerLogsPage({
         >
           All
         </Link>
-        {Object.entries(SOURCE_LABELS).map(([key, label]) => (
+        {availableSources.map(([key, label]) => (
           <Link
             key={key}
             href={withSource(key)}
@@ -177,7 +191,7 @@ export default async function ServerLogsPage({
               color: sourceFilter === key ? "#fff" : "var(--ink)",
             }}
           >
-            {label}
+            {label} ({sourceCounts.get(key)})
           </Link>
         ))}
       </div>

@@ -213,7 +213,7 @@ export default async function ServerDetailPage({ params }: { params: Promise<{ d
         {device.Hostname || "Pending enrollment"} · {device.ServerRole ?? "No role set"}
       </p>
 
-      <ServerDetailTabs deviceId={deviceId} active="overview" logCount={logCount} mssqlLogCount={mssqlLogCount} />
+      <ServerDetailTabs deviceId={deviceId} active="overview" logCount={logCount} mssqlLogCount={mssqlLogCount} showPhpTab={isLinux} />
 
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
         <Card className="flex flex-col gap-2">

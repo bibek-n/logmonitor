@@ -70,12 +70,17 @@ func Enroll(serverURL, token, hostname, osVersion string) (*EnrollResponse, erro
 }
 
 type HeartbeatResponse struct {
-	OK                        bool            `json:"ok"`
-	ScreenshotIntervalMinutes *int            `json:"screenshotIntervalMinutes"`
-	PrivacyMode               bool            `json:"privacyMode"`
-	PendingScreenshotRequest  bool            `json:"pendingScreenshotRequest"`
-	PendingMalwareScanRequest bool            `json:"pendingMalwareScanRequest"`
-	PendingPhpLogRequests     []PhpLogRequest `json:"pendingPhpLogRequests"`
+	OK                             bool                   `json:"ok"`
+	ScreenshotIntervalMinutes      *int                   `json:"screenshotIntervalMinutes"`
+	BrowserActivityIntervalMinutes *int                   `json:"browserActivityIntervalMinutes"`
+	ExcludedDomainSuffixes         []string               `json:"excludedDomainSuffixes"`
+	PrivacyMode                    bool                   `json:"privacyMode"`
+	PendingScreenshotRequest       bool                   `json:"pendingScreenshotRequest"`
+	PendingMalwareScanRequest      bool                   `json:"pendingMalwareScanRequest"`
+	PendingPhpLogRequests          []PhpLogRequest        `json:"pendingPhpLogRequests"`
+	PendingAutomationJobs          []PendingAutomationJob `json:"pendingAutomationJobs"`
+	UsbBlockList                   []UsbPolicyEntry       `json:"usbBlockList"`
+	WatchedFiles                   []string               `json:"watchedFiles"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {
@@ -231,8 +236,62 @@ func (c *Client) PostLogs(entries []LogEntry) error {
 	return c.postJSON("/api/agent/logs", map[string]interface{}{"entries": entries})
 }
 
+// weblogEvent is the wire shape for a single forwarded web-server access log line - defined
+// here (not in weblog_windows.go) since a future Linux nginx/apache tailer would produce the
+// exact same shape, and this file builds on every platform while weblog_windows.go is
+// Windows-only.
+type weblogEvent struct {
+	EventTime      string `json:"eventTime"`
+	SourceIP       string `json:"sourceIp"`
+	RequestMethod  string `json:"requestMethod"`
+	RequestPath    string `json:"requestPath"`
+	ResponseStatus *int   `json:"responseStatus"`
+	UserAgent      string `json:"userAgent"`
+	UserAccount    string `json:"userAccount"`
+	TimeTakenMs    *int   `json:"timeTakenMs"`
+}
+
+func (c *Client) PostWeblogEvents(siteName string, events []weblogEvent) error {
+	return c.postJSON("/api/agent/weblog-events", map[string]interface{}{"siteName": siteName, "events": events})
+}
+
 func (c *Client) PostMalwareScan(s MalwareScanResult) error {
 	return c.postJSON("/api/agent/malware-scan", s)
+}
+
+func (c *Client) PostAutomationResult(r automationResultPayload) error {
+	return c.postJSON("/api/agent/automation-result", r)
+}
+
+// PostBrowserActivity ships one poll's worth of browser history events (see
+// CollectBrowserHistory in browserhistory.go) to the ingest route. Never called unless the
+// heartbeat's BrowserActivityIntervalMinutes was non-nil for this device.
+func (c *Client) PostBrowserActivity(events []browserActivityEventPayload) error {
+	return c.postJSON("/api/agent/browser-activity", map[string]interface{}{"events": events})
+}
+
+// PostUsbBlockNotify asks the server to queue a one-off notification for the employee linked
+// to this device (delivered next time their chattray companion polls /api/agent/notifications -
+// see that route's comment for why this indirection is needed instead of a local OS toast).
+// Best-effort by design: a failure here just means the person doesn't see a popup, it must
+// never affect whether the device actually gets blocked.
+func (c *Client) PostUsbBlockNotify(message string) error {
+	return c.postJSON("/api/agent/usb-block-notify", map[string]interface{}{"message": message})
+}
+
+// PostFileIntegrityEvent reports one detected watched-file change (or its initial baseline
+// capture, or its deletion) to the server - see FileIntegrityChange (fileintegrity.go) and
+// /api/agent/file-integrity-event/route.ts.
+func (c *Client) PostFileIntegrityEvent(ch FileIntegrityChange) error {
+	return c.postJSON("/api/agent/file-integrity-event", map[string]interface{}{
+		"filePath":   ch.FilePath,
+		"changeType": ch.ChangeType,
+		"modifiedBy": ch.ModifiedBy,
+		"oldHash":    ch.OldHash,
+		"newHash":    ch.NewHash,
+		"oldValue":   ch.OldValue,
+		"newValue":   ch.NewValue,
+	})
 }
 
 func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {
@@ -240,6 +299,7 @@ func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {
 		"eventType":         eventType,
 		"deviceName":        d.Name,
 		"vendorId":          d.VendorID,
+		"productId":         d.ProductID,
 		"vendorName":        d.VendorName,
 		"serialNumber":      d.SerialNumber,
 		"storageCapacityGB": d.CapacityGB,
@@ -266,23 +326,4 @@ func (c *Client) UploadScreenshot(pngBytes []byte, capturedBy string) error {
 		return fmt.Errorf("screenshot upload failed: HTTP %d", resp.StatusCode)
 	}
 	return nil
-}
-
-// weblogEvent is the wire shape for a single forwarded web-server access log line - defined
-// here (not in weblog_windows.go) since a future Linux nginx/apache tailer would produce the
-// exact same shape, and this file builds on every platform while weblog_windows.go is
-// Windows-only.
-type weblogEvent struct {
-	EventTime      string `json:"eventTime"`
-	SourceIP       string `json:"sourceIp"`
-	RequestMethod  string `json:"requestMethod"`
-	RequestPath    string `json:"requestPath"`
-	ResponseStatus *int   `json:"responseStatus"`
-	UserAgent      string `json:"userAgent"`
-	UserAccount    string `json:"userAccount"`
-	TimeTakenMs    *int   `json:"timeTakenMs"`
-}
-
-func (c *Client) PostWeblogEvents(siteName string, events []weblogEvent) error {
-	return c.postJSON("/api/agent/weblog-events", map[string]interface{}{"siteName": siteName, "events": events})
 }

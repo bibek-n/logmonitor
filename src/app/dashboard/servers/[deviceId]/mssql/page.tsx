@@ -48,11 +48,12 @@ export default async function ServerMssqlPage({
   const offset = (page - 1) * PAGE_SIZE;
 
   const db = await getDb();
-  const deviceResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ DeviceName: string | null; Hostname: string }>(
-    "SELECT DeviceName, Hostname FROM Devices WHERE DeviceId = @deviceId AND DeviceType = 'Server'"
+  const deviceResult = await db.request().input("deviceId", sql.VarChar, deviceId).query<{ DeviceName: string | null; Hostname: string; OS: string | null }>(
+    "SELECT DeviceName, Hostname, OS FROM Devices WHERE DeviceId = @deviceId AND DeviceType = 'Server'"
   );
   const device = deviceResult.recordset[0];
   if (!device) notFound();
+  const isLinux = device.OS?.toLowerCase() === "linux";
 
   // "slow" shows only the I/O-latency warnings SQL Server itself flags (LogSource
   // 'mssql_slow' - see agent/mssqllog.go's mssqlSlowPattern); "all" (default) shows the full
@@ -112,7 +113,7 @@ export default async function ServerMssqlPage({
         Tailed directly from this server&apos;s SQL Server ERRORLOG file. {slowCount} slow I/O warning(s) of {mssqlLogCount} total entries.
       </p>
 
-      <ServerDetailTabs deviceId={deviceId} active="mssql" logCount={0} mssqlLogCount={mssqlLogCount} />
+      <ServerDetailTabs deviceId={deviceId} active="mssql" logCount={0} mssqlLogCount={mssqlLogCount} showPhpTab={isLinux} />
 
       <div className="flex flex-wrap gap-2 mb-4" style={{ fontSize: "0.8rem" }}>
         <Link

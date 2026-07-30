@@ -59,13 +59,33 @@ export async function GET(req: NextRequest) {
   // sense for the 4h window, per-hour (VARCHAR(13), "yyyy-mm-ddThh") for 24h/7d.
   const bucketExpr = hours <= 4 ? "CONVERT(VARCHAR(16), EventTime, 126)" : "CONVERT(VARCHAR(13), EventTime, 126)";
 
-  const [requestBuckets, topAttackers, alertTimeline, blockTimeline] = await Promise.all([
+  const [requestBuckets, perServerRequestRates, topAttackers, alertTimeline, blockTimeline] = await Promise.all([
     db.query<RequestBucket>(`
       SELECT ${bucketExpr} AS bucket, COUNT(*) AS count
       FROM SecurityEvents
       WHERE EventTime >= DATEADD(HOUR, -${hours}, SYSUTCDATETIME())
       GROUP BY ${bucketExpr}
       ORDER BY bucket ASC
+    `),
+    // SecurityEvents only ever reflects whatever log sources are actually configured (today,
+    // just this app's own IIS logs - see the module's page copy for why per-website/per-server
+    // log ingestion isn't wired up yet). Every IIS-detected server's endpoint agent already
+    // reports its own request rate independently of that pipeline, so this gives genuine
+    // per-server "requests/sec" coverage today without needing new collection infrastructure.
+    db.query<{ deviceId: string; deviceName: string | null; hostname: string; requestsPerSec: number | null; connections: number | null; receivedAt: string }>(`
+      WITH Latest AS (
+        SELECT p.DeviceId, p.WebServiceRequestsPerSec, p.CurrentConnections, p.ReceivedAt,
+          ROW_NUMBER() OVER (PARTITION BY p.DeviceId ORDER BY p.ReceivedAt DESC) AS rn
+        FROM IisPerfSnapshots p
+        WHERE p.ReceivedAt >= DATEADD(HOUR, -${hours}, SYSUTCDATETIME())
+      )
+      SELECT d.DeviceId AS deviceId, d.DeviceName AS deviceName, d.Hostname AS hostname,
+        l.WebServiceRequestsPerSec AS requestsPerSec, l.CurrentConnections AS connections,
+        CONVERT(VARCHAR(19), l.ReceivedAt, 126) AS receivedAt
+      FROM Latest l
+      JOIN Devices d ON d.DeviceId = l.DeviceId
+      WHERE l.rn = 1
+      ORDER BY l.WebServiceRequestsPerSec DESC
     `),
     db.query<TopAttacker>(`
       SELECT TOP 20 SourceIp AS ip, COUNT(*) AS alertCount, SUM(OccurrenceCount) AS totalOccurrences,
@@ -111,6 +131,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     data: {
       requestBuckets: requestBuckets.recordset,
+      perServerRequestRates: perServerRequestRates.recordset,
       topAttackers: topAttackers.recordset,
       timeline: timeline.slice(0, 50),
     },

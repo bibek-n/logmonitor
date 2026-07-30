@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getDb, sql } from "@/lib/db";
-import { validateUserCredentials } from "@/lib/authCore";
+import { validateUserCredentials, issueCommitToken } from "@/lib/authCore";
 import { logLoginAttempt } from "@/lib/loginActivity";
 import { generateOtpCode, sendOtpCodeEmail, OTP_EXPIRY_MINUTES } from "@/lib/loginOtp";
 
@@ -23,12 +23,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { user } = validation;
+  // Single-use, short-lived proof that the password bcrypt check above just passed — see
+  // issueCommitToken's own comment. Issued for both branches below so authorize() in
+  // authOptions.ts never has to repeat that same expensive compare on a successful login.
+  const commitToken = await issueCommitToken(user.Id);
 
   // A user who has enrolled an authenticator app uses that instead of the emailed code —
   // no email round-trip needed, and no "no email on file" block either, since the app itself
   // is the second factor. See src/lib/authOptions.ts's authorize() for the matching branch.
   if (user.TotpEnabled) {
-    return NextResponse.json({ ok: true, method: "totp" });
+    return NextResponse.json({ ok: true, method: "totp", commitToken });
   }
 
   if (!user.Email) {
@@ -58,5 +62,5 @@ export async function POST(req: NextRequest) {
   // weight to every single login attempt for no functional benefit.
   void sendOtpCodeEmail(user.Email, code);
 
-  return NextResponse.json({ ok: true, method: "email" });
+  return NextResponse.json({ ok: true, method: "email", commitToken });
 }

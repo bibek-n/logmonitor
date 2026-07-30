@@ -17,6 +17,7 @@ function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [commitToken, setCommitToken] = useState<string | null>(null);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -107,6 +108,7 @@ function LoginForm() {
     setOtp("");
     setError(null);
     setUseRecoveryCode(false);
+    setCommitToken(typeof data.commitToken === "string" ? data.commitToken : null);
 
     if (data.method === "totp") {
       // Authenticator-app users skip the emailed-code step entirely — no email was sent,
@@ -136,35 +138,45 @@ function LoginForm() {
 
     const mode = stage === "totp" && useRecoveryCode ? "recovery" : "totp";
 
-    // Fast path: try the real sign-in immediately — one round trip, and it's what succeeds
-    // on the overwhelming majority of attempts (a correct code). We only fall back to
-    // verify-otp's dry-check *after* a failure, purely to recover a specific error message:
-    // this app's IIS front end replaces any non-2xx response body with a generic error page,
-    // which would otherwise swallow next-auth's real error detail. Previously this dry-check
-    // ran unconditionally before every sign-in, doubling the round trips (and the perceived
-    // lag) on every single successful login just to cover the failure case.
-    const result = await signIn("credentials", {
-      username, password, otp: codeToSubmit,
-      totpMode: stage === "totp" ? mode : undefined,
-      redirect: false,
-    });
+    try {
+      // Fast path: try the real sign-in immediately — one round trip, and it's what succeeds
+      // on the overwhelming majority of attempts (a correct code). We only fall back to
+      // verify-otp's dry-check *after* a failure, purely to recover a specific error message:
+      // this app's IIS front end replaces any non-2xx response body with a generic error page,
+      // which would otherwise swallow next-auth's real error detail. Previously this dry-check
+      // ran unconditionally before every sign-in, doubling the round trips (and the perceived
+      // lag) on every single successful login just to cover the failure case.
+      const result = await signIn("credentials", {
+        username, password, otp: codeToSubmit,
+        totpMode: stage === "totp" ? mode : undefined,
+        commitToken: commitToken ?? undefined,
+        redirect: false,
+      });
 
-    if (!result?.error) {
+      if (!result?.error) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      const verifyRes = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, otp: codeToSubmit, mode }),
+      });
+      const verifyData = await verifyRes.json().catch(() => ({ ok: false, error: t("errors.generic") }));
+
+      setError(verifyData.ok ? t("errors.finalizeError") : otpErrorMessage(verifyData.error ?? t("errors.generic")));
+    } catch {
+      // signIn()/fetch() above can throw outright — a network blip, or (per the comment
+      // above) a non-2xx response whose JSON body got replaced by IIS's generic HTML error
+      // page, which breaks next-auth's/our own response.json() parsing. Without this catch,
+      // the thrown rejection left `loading` stuck true forever: the button just showed
+      // "Verifying..." with no error and no way to retry short of reloading the page.
+      setError(t("errors.generic"));
+    } finally {
       setLoading(false);
-      router.push("/dashboard");
-      router.refresh();
-      return;
     }
-
-    const verifyRes = await fetch("/api/auth/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, otp: codeToSubmit, mode }),
-    });
-    const verifyData = await verifyRes.json().catch(() => ({ ok: false, error: t("errors.generic") }));
-
-    setLoading(false);
-    setError(verifyData.ok ? t("errors.finalizeError") : otpErrorMessage(verifyData.error ?? t("errors.generic")));
   }
 
   function handleOtpSubmit(e: FormEvent) {

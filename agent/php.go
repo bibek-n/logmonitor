@@ -74,7 +74,12 @@ func defaultPhpVersion() string {
 	return m[1]
 }
 
-var iniErrorLogRe = regexp.MustCompile(`(?m)^\s*error_log\s*=\s*"?([^";\s][^";]*)"?\s*(;.*)?$`)
+// The value group deliberately excludes \n (not just " and ;) - without that, an error_log
+// line with no same-line terminator (no trailing "; comment" and no closing quote) let the
+// match run on past the end of the line and swallow subsequent directives into the captured
+// path, e.g. "/var/log/php7.4-fpm-x.log\nphp_admin_flag[log_errors] = on" - confirmed live
+// against several real pool.d configs that have exactly this unterminated-value shape.
+var iniErrorLogRe = regexp.MustCompile(`(?m)^[ \t]*error_log[ \t]*=[ \t]*"?([^";\s][^";\n]*)"?[ \t]*(;.*)?$`)
 
 // readIniErrorLog greps a single `error_log = ...` directive out of a php.ini-style file - not
 // a full INI parser (overkill here), just the one directive this feature actually needs. An
@@ -92,7 +97,8 @@ func readIniErrorLog(path string) string {
 	return strings.TrimSpace(m[1])
 }
 
-var poolErrorLogRe = regexp.MustCompile(`(?m)^\s*(php_admin_value\[error_log\]|error_log)\s*=\s*"?([^";\s][^";]*)"?\s*(;.*)?$`)
+// Same \n-exclusion fix as iniErrorLogRe above, and for the same confirmed-live reason.
+var poolErrorLogRe = regexp.MustCompile(`(?m)^[ \t]*(php_admin_value\[error_log\]|error_log)[ \t]*=[ \t]*"?([^";\s][^";\n]*)"?[ \t]*(;.*)?$`)
 
 // fpmErrorLogFor prefers a pool-level override (php_admin_value[error_log] in pool.d/*.conf -
 // the common way a site-specific FPM pool redirects its own errors) over the FPM master

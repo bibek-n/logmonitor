@@ -103,364 +103,383 @@ import {
   Files,
   MailX,
   Flame,
+  LayoutGrid,
+  Bot,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 
 // `key` is the translation lookup (see messages/<locale>.json under "sidebar") — `label`
 // stays as the English fallback/default and is what non-i18n-aware code (SEARCH_INDEX
 // consumers building it without translations available) falls back to.
-export interface NavItem {
+//
+// Three-level nav model: NAV_CATEGORIES (fixed, curated groupings by function - not
+// user-reorderable, that's the whole point of this reorganization) > NavEntry, which is
+// either a direct NavLink or a NavSubGroup (a collapsible module with its own NavLink[] -
+// what used to be a flat NAV_GROUPS entry, now nested one level deeper under its category).
+export interface NavLink {
+  type: "link";
   href: string;
   key: string;
   label: string;
   icon: LucideIcon;
 }
 
-export interface NavGroup {
+export interface NavSubGroup {
+  type: "group";
   key: string;
   label: string;
   icon: LucideIcon;
-  items: NavItem[];
+  items: NavLink[];
 }
 
-// Ordered in correlated clusters rather than build order: core/overview, then people &
-// communication (who's on the network and how to reach/see them), then the three standalone
-// threat-detection modules together, then website-facing tools, then admin/settings last.
-export const TOP_ITEMS: NavItem[] = [
-  { href: "/dashboard", key: "overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/ai-assistant", key: "aiAssistant", label: "AI Assistant", icon: Sparkles },
+export type NavEntry = NavLink | NavSubGroup;
 
-  { href: "/dashboard/staff", key: "staff", label: "Employees", icon: Users },
-  { href: "/dashboard/chat", key: "employeeChat", label: "Employee Chat", icon: MessageCircle },
-  { href: "/dashboard/cameras", key: "cameras", label: "Cameras", icon: Camera },
-  // Access itself is enforced per-request by requireRemoteSupportPermission.ts (remote_support_request
-  // + the caller's own MFA) - this entry is always visible, same as most other modules; the page
-  // shows an access-denied message rather than hiding the nav item for users without the grant.
-  { href: "/dashboard/remote-support", key: "remoteSupport", label: "Remote Support", icon: MonitorPlay },
+export interface NavCategory {
+  key: string;
+  label: string;
+  items: NavEntry[];
+}
 
-  { href: "/dashboard/security", key: "intrusionDetection", label: "Intrusion Detection", icon: Siren },
-  { href: "/dashboard/threat-scanner", key: "threatScanner", label: "Threat Scanner", icon: Biohazard },
-  { href: "/dashboard/malware-detection", key: "malwareDetection", label: "Malware Detection", icon: Bug },
+function link(href: string, key: string, label: string, icon: LucideIcon): NavLink {
+  return { type: "link", href, key, label, icon };
+}
 
-  { href: "/dashboard/audit/website-performance", key: "websitePerformance", label: "Website Speed & Performance", icon: Gauge },
-  { href: "/dashboard/seo-scanner", key: "seoScanner", label: "SEO Scanner", icon: SearchCheck },
+function group(key: string, label: string, icon: LucideIcon, items: NavLink[]): NavSubGroup {
+  return { type: "group", key, label, icon, items };
+}
 
-  { href: "/dashboard/notifications", key: "sendNotification", label: "Send Notification", icon: Bell },
-  { href: "/dashboard/settings", key: "companySettings", label: "Company Settings", icon: Settings },
-  { href: "/dashboard/settings/integrations/git", key: "gitConnections", label: "Integration", icon: GitBranch },
-];
-
-// Groups are ordered in correlated clusters, not build order: Security & Threat Detection
-// first (every module that watches for or responds to an attack/policy violation), then
-// Network Infrastructure & Monitoring, then Website & Web Presence, then Email, then
-// Dev/QA Tooling last. Within each cluster, groups that share the same underlying data
-// source or workflow sit next to each other (e.g. Sophos Firewall right next to DDoS
-// Detection, which is a focused view over the same Intrusion Detection event/alert data).
-export const NAV_GROUPS: NavGroup[] = [
-  // --- Security & Threat Detection ---------------------------------------------------------
+export const NAV_CATEGORIES: NavCategory[] = [
   {
-    key: "sophosFirewall",
-    label: "Sophos Firewall",
-    icon: ShieldCheck,
+    key: "dashboard",
+    label: "Dashboard",
     items: [
-      { href: "/dashboard/sophos-clients", key: "sophosClients", label: "Sophos Clients", icon: Wifi },
-      { href: "/dashboard/web-filter", key: "webFilter", label: "Sophos Web Filter", icon: Filter },
-      { href: "/dashboard/system-health", key: "systemHealth", label: "Sophos System Health", icon: Activity },
-      { href: "/dashboard/sophos-events", key: "sophosEvents", label: "Sophos Events", icon: ScrollText },
-      { href: "/dashboard/top-consumers", key: "topConsumers", label: "Top Consumers", icon: BarChart3 },
-    ],
-  },
-  // A focused view over Intrusion Detection's own SecurityEvents/SecurityAlerts data (the
-  // high_request_rate/bot_activity categories + SecurityIpBlocklist) rather than a separate
-  // collection pipeline - see the summary API route's own header comment for why.
-  {
-    key: "ddosDetection",
-    label: "DDoS Detection",
-    icon: Flame,
-    items: [{ href: "/dashboard/ddos-detection", key: "ddosDetectionDashboard", label: "DDoS Detection", icon: Flame }],
-  },
-  {
-    key: "usbDeviceControl",
-    label: "USB Device Control",
-    icon: Usb,
-    items: [
-      { href: "/dashboard/usb-control/connected", key: "usbConnected", label: "Connected USB", icon: Plug },
-      { href: "/dashboard/usb-control/history", key: "usbHistory", label: "History", icon: History },
-      { href: "/dashboard/usb-control/block", key: "usbBlock", label: "Block", icon: ShieldOff },
-      { href: "/dashboard/usb-control/allow", key: "usbAllow", label: "Allow", icon: ShieldCheck },
+      link("/dashboard", "overview", "Overview", LayoutDashboard),
+      link("/dashboard/ai-assistant", "aiAssistant", "AI Assistant", Sparkles),
+      group("aiModules", "AI Modules", Brain, [
+        link("/dashboard/root-cause-analysis", "rootCauseAnalysis", "Root Cause Analysis", Crosshair),
+        link("/dashboard/alert-correlation", "alertCorrelation", "Alert Correlation", GitMerge),
+        link("/dashboard/ai-incident-summary", "aiIncidentSummary", "AI Incident Summary", FileSearch),
+        link("/dashboard/ai-log-analyzer", "aiLogAnalyzer", "AI Log Analyzer", ListTree),
+        link("/dashboard/ai-configuration-review", "aiConfigurationReview", "AI Configuration Review", ShieldQuestion),
+        link("/dashboard/ai-threat-detection", "aiThreatDetection", "AI Threat Detection", Eye),
+      ]),
     ],
   },
   {
-    key: "fileIntegrityMonitoring",
-    label: "File Integrity Monitoring",
-    icon: FileClock,
+    key: "userManagement",
+    label: "User Management",
     items: [
-      { href: "/dashboard/file-integrity/watched-files", key: "watchedFiles", label: "Watched Files", icon: Files },
-      { href: "/dashboard/file-integrity/history", key: "fileIntegrityHistory", label: "Change History", icon: History },
-    ],
-  },
-  // Visibility of this group alone is gated by mail_view - see getMailAccess() in
-  // requireMailPolicyPermission.ts, same pattern qaAccess/codeQualityAccess/laravelSecurityAccess
-  // already established. Stage 1: policy engine + Test Policy simulator only, no live mail
-  // provider connected yet - see docs/mail-security.md if one gets written for Stage 2 context.
-  {
-    key: "mailProtection",
-    label: "Mail Protection",
-    icon: MailX,
-    items: [
-      { href: "/dashboard/mail-security/policies", key: "mailPolicies", label: "File Blocking Policies", icon: FileLock2 },
-      { href: "/dashboard/mail-security/exceptions", key: "mailExceptions", label: "Exceptions", icon: ShieldQuestion },
-      { href: "/dashboard/mail-security/incidents", key: "mailIncidents", label: "Incidents", icon: Siren },
-      { href: "/dashboard/mail-security/templates", key: "mailTemplates", label: "Notification Templates", icon: FileText },
-      { href: "/dashboard/mail-security/connectors", key: "mailConnectors", label: "Mail Connectors", icon: Plug },
-      { href: "/dashboard/mail-security/reports", key: "mailReports", label: "Reports", icon: BarChart2 },
-    ],
-  },
-  // Standalone module (own sidebar section, not a Code Quality category - see the user's
-  // explicit choice on this). Visibility gated by ls_view - see getLsAccess() in
-  // requireLaravelSecurityPermission.ts and the laravelSecurityAccess prop threaded through
-  // DashboardLayout -> SidebarShell -> Sidebar (same pattern codeQualityAccess established).
-  {
-    key: "laravelSecurity",
-    label: "Laravel Security",
-    icon: ShieldAlert,
-    items: [
-      { href: "/dashboard/laravel-security", key: "laravelSecurityDashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/laravel-security/projects", key: "laravelSecurityProjects", label: "Projects", icon: FolderKanban },
-      { href: "/dashboard/laravel-security/scans", key: "laravelSecurityScans", label: "Scans", icon: ScanLine },
-      { href: "/dashboard/laravel-security/issues", key: "laravelSecurityIssues", label: "Issues", icon: AlertCircle },
-      { href: "/dashboard/laravel-security/settings", key: "laravelSecurityRulesSettings", label: "Rules and Settings", icon: SlidersHorizontal },
+      link("/dashboard/staff", "staff", "Employees", Users),
+      link("/dashboard/chat", "employeeChat", "Employee Chat", MessageCircle),
+      link("/dashboard/notifications", "sendNotification", "Send Notification", Bell),
     ],
   },
   {
-    key: "compliance",
-    label: "Compliance",
-    icon: ShieldCheck,
+    key: "securityCenter",
+    label: "Security Center",
     items: [
-      { href: "/dashboard/compliance", key: "complianceDashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/compliance/iso27001", key: "complianceIso27001", label: "ISO 27001", icon: ClipboardCheck },
-      { href: "/dashboard/compliance/pcidss", key: "compliancePciDss", label: "PCI DSS", icon: ClipboardCheck },
-      { href: "/dashboard/compliance/hipaa", key: "complianceHipaa", label: "HIPAA", icon: ClipboardCheck },
-      { href: "/dashboard/compliance/nist", key: "complianceNist", label: "NIST", icon: ClipboardCheck },
-      { href: "/dashboard/compliance/soc2", key: "complianceSoc2", label: "SOC 2", icon: ClipboardCheck },
-    ],
-  },
-  // The AI-driven analysis layer sits last in this cluster - it reasons ACROSS the other
-  // security modules' data (intrusion alerts, Sophos threats, malware findings, etc.) rather
-  // than being its own data source, so it reads naturally as the capstone of the cluster.
-  {
-    key: "aiModules",
-    label: "AI Modules",
-    icon: Brain,
-    items: [
-      { href: "/dashboard/root-cause-analysis", key: "rootCauseAnalysis", label: "Root Cause Analysis", icon: Crosshair },
-      { href: "/dashboard/alert-correlation", key: "alertCorrelation", label: "Alert Correlation", icon: GitMerge },
-      { href: "/dashboard/ai-incident-summary", key: "aiIncidentSummary", label: "AI Incident Summary", icon: FileSearch },
-      { href: "/dashboard/ai-log-analyzer", key: "aiLogAnalyzer", label: "AI Log Analyzer", icon: ListTree },
-      { href: "/dashboard/ai-configuration-review", key: "aiConfigurationReview", label: "AI Configuration Review", icon: ShieldQuestion },
-      { href: "/dashboard/ai-threat-detection", key: "aiThreatDetection", label: "AI Threat Detection", icon: Eye },
-    ],
-  },
-
-  // --- Network Infrastructure & Monitoring -------------------------------------------------
-  {
-    key: "mikrotikRouter",
-    label: "Mikrotik Router",
-    icon: Router,
-    items: [
-      { href: "/dashboard/router-clients", key: "routerClients", label: "Router Clients", icon: Laptop2 },
-      { href: "/dashboard/router-health", key: "routerHealth", label: "Router Health", icon: HeartPulse },
-      { href: "/dashboard/router-web", key: "routerWeb", label: "Router Web Connections", icon: Globe },
-      { href: "/dashboard/staff/web-activity", key: "employeeWebActivity", label: "Employee Web Activity", icon: Activity },
+      link("/dashboard/security-center", "securityCenterDashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/security-center/vulnerability-scanner", "vulnerabilityScanner", "Vulnerability Scanner", Crosshair),
+      link("/dashboard/security-center/waf", "waf", "Web Application Firewall", Shield),
+      link("/dashboard/cameras", "cameras", "Cameras", Camera),
+      group("endpointAgents", "Endpoint Agents", Monitor, [
+        link("/dashboard/endpoint-agents", "agentDashboard", "Agent Dashboard", Monitor),
+        link("/dashboard/endpoint-agents/download", "downloadAgent", "Download Agent", Download),
+        link("/dashboard/endpoint-agents/enroll", "enrollDevice", "Enroll Device", KeyRound),
+        link("/dashboard/endpoint-agents/audit-log", "screenshotAuditLog", "Screenshot Audit Log", History),
+      ]),
+      link("/dashboard/security", "intrusionDetection", "Intrusion Detection", Siren),
+      link("/dashboard/ddos-detection", "ddosDetection", "DDos Detection", Flame),
+      link("/dashboard/threat-scanner", "threatScanner", "Threat Scanner", Biohazard),
+      link("/dashboard/malware-detection", "malwareDetection", "Malware Detection", Bug),
+      group("fileIntegrityMonitoring", "File Integrity Monitoring", FileClock, [
+        link("/dashboard/file-integrity/watched-files", "watchedFiles", "Watched Files", Files),
+        link("/dashboard/file-integrity/history", "fileIntegrityHistory", "Change History", History),
+      ]),
+      group("usbDeviceControl", "USB Device Control", Usb, [
+        link("/dashboard/usb-control/connected", "usbConnected", "Connected USB", Plug),
+        link("/dashboard/usb-control/history", "usbHistory", "History", History),
+        link("/dashboard/usb-control/block", "usbBlock", "Block", ShieldOff),
+        link("/dashboard/usb-control/allow", "usbAllow", "Allow", ShieldCheck),
+      ]),
+      group("compliance", "Compliance", ShieldCheck, [
+        link("/dashboard/compliance", "complianceDashboard", "Dashboard", LayoutDashboard),
+        link("/dashboard/compliance/iso27001", "complianceIso27001", "ISO 27001", ClipboardCheck),
+        link("/dashboard/compliance/pcidss", "compliancePciDss", "PCI DSS", ClipboardCheck),
+        link("/dashboard/compliance/hipaa", "complianceHipaa", "HIPAA", ClipboardCheck),
+        link("/dashboard/compliance/nist", "complianceNist", "NIST", ClipboardCheck),
+        link("/dashboard/compliance/soc2", "complianceSoc2", "SOC 2", ClipboardCheck),
+      ]),
     ],
   },
   {
-    key: "networkDiagram",
-    label: "Network Diagram",
-    icon: Workflow,
+    key: "networkManagement",
+    label: "Network Management",
     items: [
-      { href: "/dashboard/network-diagram/designs", key: "existingDiagrams", label: "Existing Diagrams", icon: Waypoints },
-      { href: "/dashboard/network-diagram/designs/new", key: "designNewDiagram", label: "Design New Diagram", icon: PlusCircle },
+      group("mikrotikRouter", "Mikrotik Router", Router, [
+        link("/dashboard/router-clients", "routerClients", "Router Clients", Laptop2),
+        link("/dashboard/router-health", "routerHealth", "Router Health", HeartPulse),
+        link("/dashboard/router-web", "routerWeb", "Router Web Connections", Globe),
+        link("/dashboard/staff/web-activity", "employeeWebActivity", "Employee Web Activity", Activity),
+      ]),
+      group("sophosFirewall", "Sophos Firewall", ShieldCheck, [
+        link("/dashboard/sophos-clients", "sophosClients", "Sophos Clients", Wifi),
+        link("/dashboard/web-filter", "webFilter", "Sophos Web Filter", Filter),
+        link("/dashboard/system-health", "systemHealth", "Sophos System Health", Activity),
+        link("/dashboard/sophos-events", "sophosEvents", "Sophos Events", ScrollText),
+        link("/dashboard/top-consumers", "topConsumers", "Top Consumers", BarChart3),
+      ]),
+      group("servers", "Servers", Server, [
+        link("/dashboard/servers", "serverList", "Server List", Server),
+        link("/dashboard/servers/add", "addServer", "Add Server", PlusCircle),
+        link("/dashboard/servers/download", "downloadAgent", "Download Agent", Download),
+      ]),
+      group("networkTools", "Network Tools", Wrench, [
+        link("/dashboard/network-tools/ping", "ping", "Ping", Radar),
+        link("/dashboard/network-tools/traceroute", "traceroute", "Traceroute", RouteIcon),
+        link("/dashboard/network-tools/host", "host", "Host", Server),
+        link("/dashboard/network-tools/dns-check", "dnsCheck", "DNS Check", Search),
+        link("/dashboard/network-tools/nslookup", "nslookup", "Nslookup", SearchCode),
+        link("/dashboard/network-tools/ntp-test", "ntpTest", "NTP Server Test", Clock),
+        link("/dashboard/network-tools/reverse-dns", "reverseDns", "Reverse DNS Tool", RotateCcw),
+        link("/dashboard/network-tools/dns-propagation", "dnsPropagation", "DNS Propagation Checker", Waypoints),
+        link("/dashboard/network-tools/mtr", "mtr", "MTR Tool", Activity),
+        link("/dashboard/network-tools/port-scanner", "portScanner", "Port Scanner", ScanLine),
+      ]),
+      group("networkDiagram", "Network Diagram", Workflow, [
+        link("/dashboard/network-diagram/designs", "existingDiagrams", "Existing Diagrams", Waypoints),
+        link("/dashboard/network-diagram/designs/new", "designNewDiagram", "Design New Diagram", PlusCircle),
+      ]),
+      link("/dashboard/sql-monitoring", "sqlServerMonitoring", "SQL Server Monitoring", Database),
+      link("/dashboard/remote-support", "remoteSupport", "Remote Support", MonitorPlay),
+      group("mailProtection", "Mail Protection", MailX, [
+        link("/dashboard/mail-security/policies", "mailPolicies", "File Blocking Policies", FileLock2),
+        link("/dashboard/mail-security/exceptions", "mailExceptions", "Exceptions", ShieldQuestion),
+        link("/dashboard/mail-security/incidents", "mailIncidents", "Incidents", Siren),
+        link("/dashboard/mail-security/templates", "mailTemplates", "Notification Templates", FileText),
+        link("/dashboard/mail-security/connectors", "mailConnectors", "Mail Connectors", Plug),
+        link("/dashboard/mail-security/reports", "mailReports", "Reports", BarChart2),
+      ]),
     ],
   },
   {
-    key: "networkTools",
-    label: "Network Tools",
-    icon: Wrench,
+    key: "remoteAccess",
+    label: "Remote Access",
     items: [
-      { href: "/dashboard/network-tools/ping", key: "ping", label: "Ping", icon: Radar },
-      { href: "/dashboard/network-tools/traceroute", key: "traceroute", label: "Traceroute", icon: RouteIcon },
-      { href: "/dashboard/network-tools/host", key: "host", label: "Host", icon: Server },
-      { href: "/dashboard/network-tools/dns-check", key: "dnsCheck", label: "DNS Check", icon: Search },
-      { href: "/dashboard/network-tools/nslookup", key: "nslookup", label: "Nslookup", icon: SearchCode },
-      { href: "/dashboard/network-tools/ntp-test", key: "ntpTest", label: "NTP Server Test", icon: Clock },
-      { href: "/dashboard/network-tools/reverse-dns", key: "reverseDns", label: "Reverse DNS Tool", icon: RotateCcw },
-      { href: "/dashboard/network-tools/dns-propagation", key: "dnsPropagation", label: "DNS Propagation Checker", icon: Waypoints },
-      { href: "/dashboard/network-tools/mtr", key: "mtr", label: "MTR Tool", icon: Activity },
-      { href: "/dashboard/network-tools/port-scanner", key: "portScanner", label: "Port Scanner", icon: ScanLine },
+      link("/dashboard/remote-access", "overview", "Overview", LayoutDashboard),
+      link("/dashboard/remote-access/connections", "connections", "Connections", Network),
+      link("/dashboard/remote-access/quick-connect", "quickConnect", "Quick Connect", Zap),
+      link("/dashboard/remote-access/sessions", "activeSessions", "Active Sessions", Activity),
+      link("/dashboard/remote-access/remote-desktop", "remoteDesktop", "Remote Desktop", MonitorPlay),
+      link("/dashboard/remote-access/terminal", "terminal", "Terminal", Code2),
+      link("/dashboard/remote-access/file-transfer", "fileTransfer", "File Transfer", FolderKanban),
+      link("/dashboard/remote-access/inventory", "serverInventory", "Server Inventory", Server),
+      link("/dashboard/remote-access/credentials", "credentialsVault", "Credentials Vault", Lock),
+      link("/dashboard/remote-access/ssh-keys", "sshKeys", "SSH Keys", KeySquare),
+      link("/dashboard/remote-access/port-forwarding", "portForwarding", "Port Forwarding", Waypoints),
+      link("/dashboard/remote-access/scripts", "scriptsAndCommands", "Scripts & Commands", Code2),
+      link("/dashboard/remote-access/logs", "connectionLogs", "Connection Logs", ScrollText),
+      link("/dashboard/remote-access/settings", "settings", "Settings", Settings),
     ],
   },
   {
-    key: "servers",
-    label: "Servers",
-    icon: Server,
+    key: "itAssetLogsheet",
+    label: "IT Asset Logsheet",
     items: [
-      { href: "/dashboard/servers", key: "serverList", label: "Server List", icon: Server },
-      { href: "/dashboard/servers/add", key: "addServer", label: "Add Server", icon: PlusCircle },
-      { href: "/dashboard/servers/download", key: "downloadAgent", label: "Download Agent", icon: Download },
+      link("/dashboard/it-assets", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/it-assets/assets", "assetRegister", "Asset Register", ClipboardList),
+      link("/dashboard/it-assets/password-changes", "passwordChanges", "Password Changes", KeyRound),
+      link("/dashboard/it-assets/patches", "patchesAndUpdates", "Patches and Updates", Wrench),
+      link("/dashboard/it-assets/software", "softwareInventory", "Software Inventory", Package),
+      link("/dashboard/it-assets/maintenance", "maintenanceLog", "Maintenance Log", Cog),
+      link("/dashboard/it-assets/reports", "reports", "Reports", BarChart3),
+      link("/dashboard/it-assets/alerts", "alerts", "Alerts", Bell),
+      link("/dashboard/it-assets/settings", "settings", "Settings", Settings),
+      link("/dashboard/it-assets/audit-log", "auditLog", "Audit Log", ScrollText),
     ],
   },
   {
-    key: "sqlServerMonitoring",
-    label: "SQL Server Monitoring",
-    icon: Database,
-    items: [{ href: "/dashboard/sql-monitoring", key: "sqlServerMonitoringList", label: "Instances", icon: Database }],
-  },
-  {
-    key: "endpointAgents",
-    label: "Endpoint Agents",
-    icon: Monitor,
+    key: "browserActivity",
+    label: "Browser Activity Audit",
     items: [
-      { href: "/dashboard/endpoint-agents", key: "agentDashboard", label: "Agent Dashboard", icon: Monitor },
-      { href: "/dashboard/endpoint-agents/download", key: "downloadAgent", label: "Download Agent", icon: Download },
-      { href: "/dashboard/endpoint-agents/enroll", key: "enrollDevice", label: "Enroll Device", icon: KeyRound },
-      { href: "/dashboard/endpoint-agents/audit-log", key: "screenshotAuditLog", label: "Screenshot Audit Log", icon: History },
-    ],
-  },
-
-  // --- Website & Web Presence --------------------------------------------------------------
-  {
-    key: "auditWebsites",
-    label: "Audit Websites & SSL Certificates",
-    icon: Globe2,
-    items: [
-      { href: "/dashboard/audit/websites", key: "websites", label: "Websites", icon: Globe },
-      { href: "/dashboard/audit/health-check", key: "healthCheck", label: "Website Health Check", icon: HeartPulse },
-      { href: "/dashboard/audit/ssl-checker", key: "sslChecker", label: "SSL/TLS Certificate Checker", icon: Lock },
-      { href: "/dashboard/audit/header-viewer", key: "headerViewer", label: "HTTP / HTTPS Response Header Viewer", icon: FileCode },
-      { href: "/dashboard/audit/security-headers", key: "securityHeaders", label: "Security Headers", icon: Shield },
-      { href: "/dashboard/audit/ga-tag-finder", key: "gaTagFinder", label: "GA Tag Finder", icon: BarChart3 },
-      { href: "/dashboard/audit/website-security", key: "websiteSecurityAudit", label: "Website Security Audit", icon: ShieldAlert },
-      { href: "/dashboard/audit/wordpress-scan", key: "wordpressScan", label: "WordPress Deep Scan", icon: Terminal },
+      link("/dashboard/browser-activity", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/browser-activity/events", "activityEvents", "Activity Events", Activity),
+      link("/dashboard/browser-activity/security-alerts", "securityAlerts", "Security Alerts", Siren),
+      link("/dashboard/browser-activity/categories", "domainCategories", "Domain Categories", Layers),
+      link("/dashboard/browser-activity/excluded-domains", "excludedDomains", "Excluded Domains", ShieldOff),
+      link("/dashboard/browser-activity/audit-log", "auditLog", "Audit Log", ScrollText),
+      link("/dashboard/browser-activity/settings", "settings", "Settings", Settings),
+      link("/dashboard/browser-activity/policy", "monitoringPolicy", "Monitoring Policy", ClipboardCheck),
     ],
   },
   {
-    key: "website",
-    label: "Website",
-    icon: Layers,
+    key: "websiteManagement",
+    label: "Website Management",
     items: [
-      { href: "/dashboard/website/slider", key: "sliderManagement", label: "Slider Management", icon: ImageIcon },
-      { href: "/dashboard/website/tickets", key: "supportTickets", label: "Support Tickets", icon: Ticket },
-      { href: "/dashboard/website/contact-messages", key: "contactMessages", label: "Contact Messages", icon: Inbox },
+      link("/dashboard/audit/websites", "websites", "Websites", Globe),
+      group("websiteSslAudit", "Website & SSL Audit", Globe2, [
+        link("/dashboard/audit/health-check", "healthCheck", "Website Health Check", HeartPulse),
+        link("/dashboard/audit/ssl-checker", "sslChecker", "SSL/TLS Certificate Checker", Lock),
+        link("/dashboard/audit/header-viewer", "headerViewer", "HTTP / HTTPS Response Header Viewer", FileCode),
+        link("/dashboard/audit/security-headers", "securityHeaders", "Security Headers", Shield),
+        link("/dashboard/audit/ga-tag-finder", "gaTagFinder", "GA Tag Finder", BarChart3),
+        link("/dashboard/audit/website-security", "websiteSecurityAudit", "Website Security Audit", ShieldAlert),
+        link("/dashboard/audit/wordpress-scan", "wordpressScan", "WordPress Deep Scan", Terminal),
+      ]),
+      group("laravelSecurity", "Laravel Security", ShieldAlert, [
+        link("/dashboard/laravel-security", "laravelSecurityDashboard", "Dashboard", LayoutDashboard),
+        link("/dashboard/laravel-security/projects", "laravelSecurityProjects", "Projects", FolderKanban),
+        link("/dashboard/laravel-security/scans", "laravelSecurityScans", "Scans", ScanLine),
+        link("/dashboard/laravel-security/issues", "laravelSecurityIssues", "Issues", AlertCircle),
+        link("/dashboard/laravel-security/settings", "laravelSecurityRulesSettings", "Rules and Settings", SlidersHorizontal),
+      ]),
+      group("codeQuality", "Code Quality", Code2, [
+        link("/dashboard/code-quality", "codeQualityDashboard", "Dashboard", LayoutDashboard),
+        link("/dashboard/code-quality/projects", "codeQualityProjects", "Projects", FolderKanban),
+        link("/dashboard/code-quality/scans", "codeQualityScans", "Scans", ScanLine),
+        link("/dashboard/code-quality/issues", "codeQualityIssues", "Issues", AlertCircle),
+        link("/dashboard/code-quality/settings", "codeQualityRulesSettings", "Rules and Settings", SlidersHorizontal),
+      ]),
+      link("/dashboard/audit/website-performance", "websitePerformance", "Website Speed & Performance", Gauge),
+      link("/dashboard/seo-scanner", "seoScanner", "SEO Scanner", SearchCheck),
+      group("qaTesting", "QA Testing", FlaskConical, [
+        link("/dashboard/qa", "qaDashboard", "QA Dashboard", ClipboardCheck),
+        link("/dashboard/qa/requirements", "requirements", "Requirements", FileText),
+        link("/dashboard/qa/test-suites", "testSuites", "Test Suites", FolderTree),
+        link("/dashboard/qa/test-cases", "testCases", "Test Cases", ListChecks),
+        link("/dashboard/qa/test-plans", "testPlans", "Test Plans", ClipboardList),
+        link("/dashboard/qa/milestones", "milestones", "Milestones", Flag),
+        link("/dashboard/qa/test-runs", "testRuns", "Test Runs", PlayCircle),
+        link("/dashboard/qa/execute", "executeTest", "Execute Test", Zap),
+        link("/dashboard/qa/bugs", "bugs", "Bugs", Bug),
+        link("/dashboard/qa/releases", "releases", "Releases", Rocket),
+        link("/dashboard/qa/environments", "environments", "Environments", Cloud),
+        link("/dashboard/qa/builds", "builds", "Builds", Package),
+        link("/dashboard/qa/reports", "reports", "QA Reports", BarChart2),
+      ]),
+      group("speedTest", "Speed Test", Gauge, [
+        link("/dashboard/speed-test/history", "history", "Speed Test History", History),
+        link("/dashboard/speed-test/nepal", "nepal", "Nepal Server Speed Test", Gauge),
+        link("/dashboard/speed-test/international", "international", "International Server Speed Test", Globe),
+        link("/dashboard/speed-test/local-ip", "localIp", "Local IP Speed Test", Network),
+      ]),
+      group("emailDelivery", "Test Email Delivery", Mail, [
+        link("/dashboard/email-test/mx-test", "mxTest", "MX Mail Server Test", Mail),
+        link("/dashboard/email-test/smtp-test", "smtpTest", "SMTP Server Test", Send),
+        link("/dashboard/email-test/spf-dkim-dmarc", "spfDkimDmarc", "SPF, DKIM & DMARC Checker", ShieldCheck),
+        link("/dashboard/email-test/delivery-test", "deliveryTest", "Email Delivery Test", MailCheck),
+        link("/dashboard/email-test/dnsbl-lookup", "dnsblLookup", "DNSBL Spam Database Lookup", Ban),
+        link("/dashboard/email-test/uribl-lookup", "uriblLookup", "URIBL Spam Database Lookup", Ban),
+      ]),
+      group("whatIsMyIp", "What Is My IP", Fingerprint, [
+        link("/dashboard/whatismyip/my-ip", "myIp", "What Is My IP", Fingerprint),
+        link("/dashboard/whatismyip/ip-lookup", "ipLookup", "IP Lookup", Search),
+        link("/dashboard/whatismyip/whois-lookup", "whoisLookup", "WHOIS Lookup", BookOpen),
+        link("/dashboard/whatismyip/blacklist-check", "blacklistCheck", "Blacklist Check", ShieldAlert),
+        link("/dashboard/whatismyip/ipv6-test", "ipv6Test", "IPv6 Test", Binary),
+        link("/dashboard/whatismyip/proxy-vpn-detection", "proxyVpnDetection", "Proxy / VPN Detection", EyeOff),
+      ]),
     ],
   },
   {
-    key: "speedTest",
-    label: "Speed Test",
-    icon: Gauge,
+    key: "websiteApiMonitoring",
+    label: "Website & API Monitoring",
     items: [
-      { href: "/dashboard/speed-test/history", key: "history", label: "Speed Test History", icon: History },
-      { href: "/dashboard/speed-test/nepal", key: "nepal", label: "Nepal Server Speed Test", icon: Gauge },
-      { href: "/dashboard/speed-test/international", key: "international", label: "International Server Speed Test", icon: Globe },
-      { href: "/dashboard/speed-test/local-ip", key: "localIp", label: "Local IP Speed Test", icon: Network },
+      link("/dashboard/monitoring", "overview", "Overview", Activity),
+      link("/dashboard/monitoring/websites", "websiteMonitors", "Website Monitors", Globe2),
+      link("/dashboard/monitoring/api", "apiMonitors", "API Monitors", Workflow),
+      link("/dashboard/monitoring/incidents", "incidents", "Incidents", Siren),
+      link("/dashboard/monitoring/ssl-certificates", "sslCertificates", "SSL Certificates", Lock),
+      link("/dashboard/monitoring/alert-contacts", "alertContacts", "Alert Contacts", Bell),
+      link("/dashboard/monitoring/alert-policies", "alertPolicies", "Alert Policies", Layers),
+      link("/dashboard/monitoring/maintenance", "maintenanceWindows", "Maintenance Windows", Wrench),
+      link("/dashboard/monitoring/reports", "reports", "Reports", BarChart2),
+      link("/dashboard/monitoring/notification-logs", "notificationLogs", "Notification Logs", ScrollText),
+      link("/dashboard/monitoring/settings", "settings", "Settings", Settings),
     ],
   },
   {
-    key: "whatIsMyIp",
-    label: "What Is My IP",
-    icon: Fingerprint,
+    key: "automation",
+    label: "Automation",
     items: [
-      { href: "/dashboard/whatismyip/my-ip", key: "myIp", label: "What Is My IP", icon: Fingerprint },
-      { href: "/dashboard/whatismyip/ip-lookup", key: "ipLookup", label: "IP Lookup", icon: Search },
-      { href: "/dashboard/whatismyip/whois-lookup", key: "whoisLookup", label: "WHOIS Lookup", icon: BookOpen },
-      { href: "/dashboard/whatismyip/blacklist-check", key: "blacklistCheck", label: "Blacklist Check", icon: ShieldAlert },
-      { href: "/dashboard/whatismyip/ipv6-test", key: "ipv6Test", label: "IPv6 Test", icon: Binary },
-      { href: "/dashboard/whatismyip/proxy-vpn-detection", key: "proxyVpnDetection", label: "Proxy / VPN Detection", icon: EyeOff },
-    ],
-  },
-
-  // --- Email ---------------------------------------------------------------------------------
-  {
-    key: "emailDelivery",
-    label: "Test Email Delivery",
-    icon: Mail,
-    items: [
-      { href: "/dashboard/email-test/mx-test", key: "mxTest", label: "MX Mail Server Test", icon: Mail },
-      { href: "/dashboard/email-test/smtp-test", key: "smtpTest", label: "SMTP Server Test", icon: Send },
-      { href: "/dashboard/email-test/spf-dkim-dmarc", key: "spfDkimDmarc", label: "SPF, DKIM & DMARC Checker", icon: ShieldCheck },
-      { href: "/dashboard/email-test/delivery-test", key: "deliveryTest", label: "Email Delivery Test", icon: MailCheck },
-      { href: "/dashboard/email-test/dnsbl-lookup", key: "dnsblLookup", label: "DNSBL Spam Database Lookup", icon: Ban },
-      { href: "/dashboard/email-test/uribl-lookup", key: "uriblLookup", label: "URIBL Spam Database Lookup", icon: Ban },
-    ],
-  },
-
-  // --- Dev / QA Tooling ----------------------------------------------------------------------
-  // Visibility of this group alone (not any other) is gated by qa_view — see canAccessQa()
-  // in requireQaPermission.ts and the qaAccess prop threaded through
-  // DashboardLayout -> SidebarShell -> Sidebar.
-  {
-    key: "qaTesting",
-    label: "QA Testing",
-    icon: FlaskConical,
-    items: [
-      { href: "/dashboard/qa", key: "qaDashboard", label: "QA Dashboard", icon: ClipboardCheck },
-      { href: "/dashboard/qa/requirements", key: "requirements", label: "Requirements", icon: FileText },
-      { href: "/dashboard/qa/test-suites", key: "testSuites", label: "Test Suites", icon: FolderTree },
-      { href: "/dashboard/qa/test-cases", key: "testCases", label: "Test Cases", icon: ListChecks },
-      { href: "/dashboard/qa/test-plans", key: "testPlans", label: "Test Plans", icon: ClipboardList },
-      { href: "/dashboard/qa/milestones", key: "milestones", label: "Milestones", icon: Flag },
-      { href: "/dashboard/qa/test-runs", key: "testRuns", label: "Test Runs", icon: PlayCircle },
-      { href: "/dashboard/qa/execute", key: "executeTest", label: "Execute Test", icon: Zap },
-      { href: "/dashboard/qa/bugs", key: "bugs", label: "Bugs", icon: Bug },
-      { href: "/dashboard/qa/releases", key: "releases", label: "Releases", icon: Rocket },
-      { href: "/dashboard/qa/environments", key: "environments", label: "Environments", icon: Cloud },
-      { href: "/dashboard/qa/builds", key: "builds", label: "Builds", icon: Package },
-      { href: "/dashboard/qa/reports", key: "reports", label: "QA Reports", icon: BarChart2 },
-    ],
-  },
-  // Visibility of this group alone is gated by cq_view - see getCqAccess() in
-  // requireCodeQualityPermission.ts and the codeQualityAccess prop threaded through
-  // DashboardLayout -> SidebarShell -> Sidebar (same pattern qaAccess already established).
-  {
-    key: "codeQuality",
-    label: "Code Quality",
-    icon: Code2,
-    items: [
-      { href: "/dashboard/code-quality", key: "codeQualityDashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/code-quality/projects", key: "codeQualityProjects", label: "Projects", icon: FolderKanban },
-      { href: "/dashboard/code-quality/scans", key: "codeQualityScans", label: "Scans", icon: ScanLine },
-      { href: "/dashboard/code-quality/issues", key: "codeQualityIssues", label: "Issues", icon: AlertCircle },
-      { href: "/dashboard/code-quality/settings", key: "codeQualityRulesSettings", label: "Rules and Settings", icon: SlidersHorizontal },
+      link("/dashboard/automation/scripts", "scripts", "Scripts", Terminal),
+      link("/dashboard/automation/tasks", "remoteTasks", "Remote Tasks", PlayCircle),
+      link("/dashboard/automation/schedules", "scheduledJobs", "Scheduled Jobs", Timer),
     ],
   },
   {
-    key: "utilities",
-    label: "Utilities",
-    icon: Cog,
+    key: "administration",
+    label: "Administration",
     items: [
-      { href: "/dashboard/utilities/ssl-decoder", key: "sslDecoder", label: "SSL Decoder", icon: FileLock2 },
-      { href: "/dashboard/utilities/jwt-decoder", key: "jwtDecoder", label: "JWT Decoder", icon: KeySquare },
-      { href: "/dashboard/utilities/base64-tool", key: "base64Tool", label: "Base64 Tool", icon: Binary },
-      { href: "/dashboard/utilities/hash-generator", key: "hashGenerator", label: "Hash Generator", icon: Hash },
-      { href: "/dashboard/utilities/qr-code-generator", key: "qrCodeGenerator", label: "QR Code Generator", icon: QrCode },
-      { href: "/dashboard/utilities/password-generator", key: "passwordGenerator", label: "Password Generator", icon: Key },
-      { href: "/dashboard/utilities/cron-tester", key: "cronTester", label: "Cron Expression Tester", icon: Timer },
-      { href: "/dashboard/utilities/regex-tester", key: "regexTester", label: "Regex Tester", icon: Regex },
-      { href: "/dashboard/utilities/json-formatter", key: "jsonFormatter", label: "JSON Formatter", icon: Braces },
-      { href: "/dashboard/utilities/yaml-validator", key: "yamlValidator", label: "YAML Validator", icon: FileCode },
-      { href: "/dashboard/utilities/xml-validator", key: "xmlValidator", label: "XML Validator", icon: FileText },
-      { href: "/dashboard/utilities/cidr-calculator", key: "cidrCalculator", label: "CIDR Calculator", icon: Calculator },
-      { href: "/dashboard/utilities/subnet-calculator", key: "subnetCalculator", label: "Subnet Calculator", icon: Divide },
-      { href: "/dashboard/utilities/url-encoder-decoder", key: "urlEncoderDecoder", label: "URL Encoder/Decoder", icon: Link2 },
-      { href: "/dashboard/utilities/timezone-converter", key: "timezoneConverter", label: "Time Zone Converter", icon: Clock3 },
+      group("website", "Website", Layers, [
+        link("/dashboard/website/slider", "sliderManagement", "Slider Management", ImageIcon),
+        link("/dashboard/website/tickets", "supportTickets", "Support Tickets", Ticket),
+        link("/dashboard/website/contact-messages", "contactMessages", "Contact Messages", Inbox),
+      ]),
+      link("/dashboard/settings/integrations/git", "gitConnections", "Integrations", GitBranch),
+      link("/dashboard/settings", "companySettings", "Company Settings", Settings),
+      group("utilities", "Utilities", Cog, [
+        link("/dashboard/utilities/ssl-decoder", "sslDecoder", "SSL Decoder", FileLock2),
+        link("/dashboard/utilities/jwt-decoder", "jwtDecoder", "JWT Decoder", KeySquare),
+        link("/dashboard/utilities/base64-tool", "base64Tool", "Base64 Tool", Binary),
+        link("/dashboard/utilities/hash-generator", "hashGenerator", "Hash Generator", Hash),
+        link("/dashboard/utilities/qr-code-generator", "qrCodeGenerator", "QR Code Generator", QrCode),
+        link("/dashboard/utilities/password-generator", "passwordGenerator", "Password Generator", Key),
+        link("/dashboard/utilities/cron-tester", "cronTester", "Cron Expression Tester", Timer),
+        link("/dashboard/utilities/regex-tester", "regexTester", "Regex Tester", Regex),
+        link("/dashboard/utilities/json-formatter", "jsonFormatter", "JSON Formatter", Braces),
+        link("/dashboard/utilities/yaml-validator", "yamlValidator", "YAML Validator", FileCode),
+        link("/dashboard/utilities/xml-validator", "xmlValidator", "XML Validator", FileText),
+        link("/dashboard/utilities/cidr-calculator", "cidrCalculator", "CIDR Calculator", Calculator),
+        link("/dashboard/utilities/subnet-calculator", "subnetCalculator", "Subnet Calculator", Divide),
+        link("/dashboard/utilities/url-encoder-decoder", "urlEncoderDecoder", "URL Encoder/Decoder", Link2),
+        link("/dashboard/utilities/timezone-converter", "timezoneConverter", "Time Zone Converter", Clock3),
+      ]),
     ],
   },
 ];
 
-// Flat list of every route + its parent group label, for the header's global search.
+// Permission-gated subgroup keys - resolved server-side in DashboardLayout and threaded
+// down through SidebarShell -> Sidebar as boolean props, same convention as before the
+// category reorganization (qaTesting/codeQuality/laravelSecurity/mailProtection).
+export const GATED_GROUP_KEYS = {
+  qaTesting: "qa_view",
+  codeQuality: "cq_view",
+  laravelSecurity: "ls_view",
+  mailProtection: "mail_view",
+} as const;
+
+// Unlike GATED_GROUP_KEYS (a subgroup nested inside an always-visible category), Website &
+// API Monitoring is gated at the whole-category level - the category has no ungated entries
+// to fall back to, so it must disappear entirely for a user without mon_view.
+export const GATED_CATEGORY_KEYS = {
+  websiteApiMonitoring: "mon_view",
+  automation: "auto_view",
+  remoteAccess: "ra_view",
+  itAssetLogsheet: "ita_view",
+  browserActivity: "ba_view",
+} as const;
+
+export const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  dashboard: LayoutGrid,
+  userManagement: Users,
+  securityCenter: ShieldAlert,
+  networkManagement: Network,
+  remoteAccess: Terminal,
+  itAssetLogsheet: Boxes,
+  browserActivity: History,
+  websiteManagement: Globe2,
+  websiteApiMonitoring: Activity,
+  automation: Bot,
+  administration: Cog,
+};
+
+// Flat list of every route + its immediate parent label, for the header's global search.
 // English fallback only — HeaderClient builds the translated version itself via
 // useTranslations, since this static export can't be locale-aware.
-export const SEARCH_INDEX: { href: string; label: string; group: string }[] = [
-  ...TOP_ITEMS.map((i) => ({ href: i.href, label: i.label, group: "Main" })),
-  ...NAV_GROUPS.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: g.label }))),
-];
+export const SEARCH_INDEX: { href: string; label: string; group: string }[] = NAV_CATEGORIES.flatMap((category) =>
+  category.items.flatMap((entry) =>
+    entry.type === "link" ? [{ href: entry.href, label: entry.label, group: category.label }] : entry.items.map((item) => ({ href: item.href, label: item.label, group: entry.label }))
+  )
+);

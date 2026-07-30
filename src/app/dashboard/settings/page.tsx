@@ -3,6 +3,7 @@ import path from "path";
 import { getDb } from "@/lib/db";
 import { getAdminSession } from "@/lib/requireAdmin";
 import { SettingsShell } from "@/components/settings/SettingsShell";
+import { isSystemModule } from "@/lib/notificationRecipients";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function CompanySettingsPage() {
     notificationPreferencesResult,
     notificationTemplatesResult,
     notificationRulesResult,
+    notificationRecipientsResult,
     backupHistoryResult,
     auditLogResult,
     appVersion,
@@ -94,6 +96,7 @@ export default async function CompanySettingsPage() {
     db.query`SELECT EmailEnabled, SmsEnabled, PushEnabled, InAppEnabled FROM NotificationPreferences WHERE Id = 1`,
     db.query`SELECT Id, [Key], Subject, Body, IsSystem FROM NotificationTemplates ORDER BY [Key] ASC`,
     db.query`SELECT Id, EventName, EmailEnabled, SmsEnabled, PushEnabled, InAppEnabled FROM NotificationRules ORDER BY EventName ASC`,
+    db.query`SELECT ModuleKey, SubModuleKey, ModuleLabel, SubModuleLabel, Recipients, Enabled FROM NotificationRecipients ORDER BY ModuleLabel ASC, SubModuleLabel ASC`,
     db.query`
       SELECT TOP 100 Id, FileName, SizeBytes, Status, ErrorMessage, TriggeredByUsername, CONVERT(VARCHAR(19), CreatedAt, 126) AS CreatedAt
       FROM BackupHistory ORDER BY CreatedAt DESC
@@ -106,6 +109,18 @@ export default async function CompanySettingsPage() {
   ]);
 
   const companySettings = companySettingsResult.recordset[0] ?? null;
+
+  const notificationRecipients = notificationRecipientsResult.recordset.map(
+    (r: { ModuleKey: string; SubModuleKey: string; ModuleLabel: string | null; SubModuleLabel: string | null; Recipients: string; Enabled: boolean }) => ({
+      moduleKey: r.ModuleKey,
+      subModuleKey: r.SubModuleKey,
+      moduleLabel: r.ModuleLabel ?? r.ModuleKey,
+      subModuleLabel: r.SubModuleLabel,
+      recipients: r.Recipients,
+      enabled: r.Enabled,
+      isSystem: isSystemModule(r.ModuleKey, r.SubModuleKey),
+    })
+  );
 
   return (
     <div>
@@ -140,6 +155,7 @@ export default async function CompanySettingsPage() {
           notificationPreferences: notificationPreferencesResult.recordset[0] ?? null,
           notificationTemplates: notificationTemplatesResult.recordset,
           notificationRules: notificationRulesResult.recordset,
+          notificationRecipients,
           branding: companySettings,
           backupSchedule: companySettings,
           backupHistory: backupHistoryResult.recordset,

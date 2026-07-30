@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Search, Bell, RefreshCw, X, Menu } from "lucide-react";
-import { TOP_ITEMS, NAV_GROUPS } from "@/lib/navRoutes";
+import { NAV_CATEGORIES } from "@/lib/navRoutes";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { useMobileSidebar } from "./MobileSidebarContext";
 import { useToast } from "./ui/Toast";
+import { MonitoringNotificationBell } from "./websiteApiMonitoring/MonitoringNotificationBell";
 import type { AlertRow } from "@/lib/alerts";
 
 const ALERTS_POLL_INTERVAL_MS = 6000;
@@ -102,16 +103,20 @@ export default function HeaderClient({
     };
   }, [toast]);
 
-  const searchIndex = useMemo(() => {
-    const mainGroup = tSidebar("searchMainGroup");
-    return [
-      ...TOP_ITEMS.map((i) => ({ href: i.href, label: tSidebar(`top.${i.key}`), group: mainGroup })),
-      ...NAV_GROUPS.flatMap((g) => {
-        const groupLabel = tSidebar(`groups.${g.key}.label`);
-        return g.items.map((i) => ({ href: i.href, label: tSidebar(`groups.${g.key}.items.${i.key}`), group: groupLabel }));
+  const searchIndex = useMemo(
+    () =>
+      NAV_CATEGORIES.flatMap((category) => {
+        const categoryLabel = tSidebar(`categories.${category.key}.label`);
+        return category.items.flatMap((entry) => {
+          if (entry.type === "link") {
+            return [{ href: entry.href, label: tSidebar(`categories.${category.key}.entries.${entry.key}`), group: categoryLabel }];
+          }
+          const groupLabel = tSidebar(`categories.${category.key}.groups.${entry.key}.label`);
+          return entry.items.map((i) => ({ href: i.href, label: tSidebar(`categories.${category.key}.groups.${entry.key}.items.${i.key}`), group: groupLabel }));
+        });
       }),
-    ];
-  }, [tSidebar]);
+    [tSidebar]
+  );
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -349,6 +354,8 @@ export default function HeaderClient({
           </div>
         )}
       </div>
+
+      <MonitoringNotificationBell />
 
       <ThemeSwitcher />
 

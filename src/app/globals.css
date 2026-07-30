@@ -2,6 +2,10 @@
 
 :root {
   color-scheme: dark;
+  /* Sidebar accent — deliberately a single fixed color across every theme (unlike --primary,
+     which is redefined per theme below) so the sidebar's active-state indicator stays a
+     consistent, recognizable red regardless of which of the 15+ themes is selected. */
+  --sidebar-accent: #e53935;
 }
 
 * {
@@ -388,6 +392,13 @@ body {
   margin: 0;
   background: var(--plane);
   color: var(--ink);
+  /* Without these, Chromium/WebKit fall back to grayscale-only text rendering on some
+     displays instead of the crisper LCD-subpixel/antialiased rendering most design tools
+     preview with - the site-wide "text looks blurry/soft" symptom this fixes, on both the
+     admin dashboard and the public marketing pages (both render under this same body). */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .center-screen {
@@ -541,74 +552,201 @@ button.submit:disabled {
 .dash-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.dash-nav a {
-  display: block;
-  padding: 0.55rem 0.65rem;
-  border-radius: 8px;
-  color: var(--ink-secondary);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.dash-nav a:hover {
-  background: rgba(255, 255, 255, 0.05);
+/* Search bar at the top of the sidebar - filters the tree below as you type. */
+.dash-nav-search {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   color: var(--ink);
+  font-size: 0.82rem;
 }
 
-.dash-nav a.active {
-  background: var(--success);
-  color: #ffffff;
-  font-weight: 600;
+.dash-nav-search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--sidebar-accent) 55%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-accent) 20%, transparent);
 }
 
-.dash-nav-group {
-  margin-top: 0.5rem;
+.dash-nav-category {
+  margin-top: 0.35rem;
 }
 
-.dash-nav-group-header {
+/* Light-gray section header, bold sentence-case label, expand/collapse chevron. Uses
+   color-mix against --ink rather than a literal gray so it reads as "light gray" on a light
+   theme and as a subtle neutral tint on a dark one, instead of one hardcoded value looking
+   wrong in half the app's 15+ themes. */
+.dash-nav-category-header {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  background: none;
+  gap: 0.5rem;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
   border: none;
+  border-radius: 10px;
   padding: 0.5rem 0.65rem;
   font-size: 0.78rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--series-1);
+  color: var(--ink-secondary);
   cursor: pointer;
   text-align: left;
+  transition: background 120ms ease, color 120ms ease;
 }
 
-.dash-nav-group-header:hover {
+.dash-nav-category-header:hover {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
   color: var(--ink);
 }
 
-.dash-nav-group-header .chevron {
+.dash-nav-category-header .chevron {
   display: inline-block;
   font-size: 0.7rem;
   transition: transform 0.15s ease;
 }
 
-.dash-nav-group-header .chevron.collapsed {
+.dash-nav-category-header .chevron.collapsed {
   transform: rotate(-90deg);
 }
 
-.dash-nav-group-items {
+/* Smooth expand/collapse without measuring content height in JS. Deliberately NOT the
+   grid-template-rows 0fr/1fr trick - that animates through fractional (sub-pixel) row
+   heights, which leaves text inside at a non-integer vertical position and renders visibly
+   blurry in some browsers for the whole duration it's expanded, not just mid-animation.
+   max-height to a value comfortably larger than any real submenu avoids that entirely, since
+   height reaching its content's natural size isn't itself animated in fractional steps. */
+.dash-nav-collapsible {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 220ms ease;
+}
+
+.dash-nav-collapsible.expanded {
+  max-height: 1200px;
+}
+
+.dash-nav-collapsible-inner {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  padding-top: 0.25rem;
 }
 
-.dash-nav-group-items a {
-  padding-left: 1.4rem;
-  font-size: 0.85rem;
+/* Direct links at the top level of a category - one indent step in from the category header. */
+.dash-nav-entry-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem 0.5rem 1rem;
+  margin-left: 0.15rem;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  color: var(--ink-secondary);
+  text-decoration: none;
+  font-size: 0.87rem;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.dash-nav-subgroup {
+  margin-left: 0.15rem;
+}
+
+.dash-nav-subgroup-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.65rem 0.5rem 1rem;
+  border-radius: 10px;
+  font-size: 0.87rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.dash-nav-subgroup-header:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+.dash-nav-subgroup-header .chevron {
+  display: inline-block;
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+  margin-left: auto;
+}
+
+.dash-nav-subgroup-header .chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Leaf items inside a subgroup - a second indent step in from the subgroup header, so the
+   parent/child hierarchy is visually unambiguous at a glance. */
+.dash-nav-subitem-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.65rem 0.42rem 2.1rem;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  color: var(--ink-secondary);
+  text-decoration: none;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.dash-nav-entry-link:hover,
+.dash-nav-subitem-link:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+/* Active item: colored left border + subtle tinted background - only the current page is
+   highlighted this way, never a whole ancestor chain, so it's obvious at a glance which one
+   entry is selected. */
+.dash-nav-entry-link.active,
+.dash-nav-subitem-link.active {
+  background: color-mix(in srgb, var(--sidebar-accent) 14%, transparent);
+  border-left-color: var(--sidebar-accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dash-nav-badge-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--surface);
+}
+
+.dash-nav-badge-count {
+  margin-left: auto;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  flex-shrink: 0;
 }
 
 .dash-user {

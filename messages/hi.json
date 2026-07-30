@@ -329,170 +329,359 @@
     "expandSidebar": "साइडबार विस्तृत करें",
     "collapse": "संक्षिप्त करें",
     "searchMainGroup": "मुख्य",
-    "top": {
-      "overview": "अवलोकन",
-      "staff": "कर्मचारी",
-      "employeeChat": "कर्मचारी चैट",
-      "cameras": "कैमरे",
-      "sendNotification": "सूचना भेजें",
-      "websitePerformance": "वेबसाइट गति और प्रदर्शन",
-      "threatScanner": "थ्रेट स्कैनर",
-      "malwareDetection": "मैलवेयर डिटेक्शन",
-      "seoScanner": "SEO स्कैनर",
-      "intrusionDetection": "घुसपैठ का पता लगाना",
-      "companySettings": "कंपनी सेटिंग्स",
-      "gitConnections": "इंटीग्रेशन"
-    },
-    "groups": {
-      "mikrotikRouter": {
-        "label": "माइक्रोटिक राउटर",
-        "items": {
-          "routerClients": "राउटर क्लाइंट",
-          "routerHealth": "राउटर स्वास्थ्य",
-          "routerWeb": "राउटर वेब कनेक्शन"
+    "searchNav": "मेनू खोजें...",
+    "clearSearch": "खोज साफ़ करें",
+    "categories": {
+      "dashboard": {
+        "label": "डैशबोर्ड",
+        "entries": {
+          "overview": "अवलोकन",
+          "aiAssistant": "एआई सहायक"
+        },
+        "groups": {
+          "aiModules": {
+            "label": "AI मॉड्यूल",
+            "items": {
+              "rootCauseAnalysis": "मूल कारण विश्लेषण",
+              "alertCorrelation": "अलर्ट सहसंबंध",
+              "aiIncidentSummary": "AI घटना सारांश",
+              "aiLogAnalyzer": "AI लॉग विश्लेषक",
+              "aiConfigurationReview": "AI कॉन्फ़िगरेशन समीक्षा",
+              "aiThreatDetection": "AI खतरा पहचान"
+            }
+          }
         }
       },
-      "networkDiagram": {
-        "label": "नेटवर्क डायग्राम",
-        "items": {
-          "existingDiagrams": "मौजूदा डायग्राम",
-          "designNewDiagram": "नया डायग्राम डिज़ाइन करें"
+      "userManagement": {
+        "label": "उपयोगकर्ता प्रबंधन",
+        "entries": {
+          "staff": "कर्मचारी",
+          "employeeChat": "कर्मचारी चैट",
+          "sendNotification": "सूचना भेजें"
+        },
+        "groups": {}
+      },
+      "securityCenter": {
+        "label": "सुरक्षा केंद्र",
+        "entries": {
+          "securityCenterDashboard": "डैशबोर्ड",
+          "vulnerabilityScanner": "भेद्यता स्कैनर",
+          "waf": "वेब एप्लिकेशन फ़ायरवॉल",
+          "cameras": "कैमरे",
+          "intrusionDetection": "घुसपैठ का पता लगाना",
+          "ddosDetection": "DDos पहचान",
+          "threatScanner": "थ्रेट स्कैनर",
+          "malwareDetection": "मैलवेयर डिटेक्शन"
+        },
+        "groups": {
+          "endpointAgents": {
+            "label": "एंडपॉइंट एजेंट",
+            "items": {
+              "agentDashboard": "एजेंट डैशबोर्ड",
+              "downloadAgent": "एजेंट डाउनलोड करें",
+              "enrollDevice": "डिवाइस नामांकित करें",
+              "screenshotAuditLog": "स्क्रीनशॉट ऑडिट लॉग"
+            }
+          },
+          "fileIntegrityMonitoring": {
+            "label": "फ़ाइल अखंडता निगरानी",
+            "items": {
+              "watchedFiles": "निगरानी की गई फ़ाइलें",
+              "fileIntegrityHistory": "परिवर्तन इतिहास"
+            }
+          },
+          "usbDeviceControl": {
+            "label": "USB डिवाइस नियंत्रण",
+            "items": {
+              "usbConnected": "कनेक्टेड USB",
+              "usbHistory": "इतिहास",
+              "usbBlock": "ब्लॉक करें",
+              "usbAllow": "अनुमति दें"
+            }
+          },
+          "compliance": {
+            "label": "अनुपालन",
+            "items": {
+              "complianceDashboard": "डैशबोर्ड",
+              "complianceIso27001": "ISO 27001",
+              "compliancePciDss": "PCI DSS",
+              "complianceHipaa": "HIPAA",
+              "complianceNist": "NIST",
+              "complianceSoc2": "SOC 2"
+            }
+          }
         }
       },
-      "sophosFirewall": {
-        "label": "सोफोस फ़ायरवॉल",
-        "items": {
-          "sophosClients": "सोफोस क्लाइंट",
-          "webFilter": "सोफोस वेब फ़िल्टर",
-          "systemHealth": "सोफोस सिस्टम स्वास्थ्य",
-          "sophosEvents": "सोफोस घटनाएं"
+      "networkManagement": {
+        "label": "नेटवर्क प्रबंधन",
+        "entries": {
+          "sqlServerMonitoring": "SQL सर्वर निगरानी",
+          "remoteSupport": "रिमोट सपोर्ट"
+        },
+        "groups": {
+          "mikrotikRouter": {
+            "label": "माइक्रोटिक राउटर",
+            "items": {
+              "routerClients": "राउटर क्लाइंट",
+              "routerHealth": "राउटर स्वास्थ्य",
+              "routerWeb": "राउटर वेब कनेक्शन",
+              "employeeWebActivity": "कर्मचारी वेब गतिविधि"
+            }
+          },
+          "sophosFirewall": {
+            "label": "सोफोस फ़ायरवॉल",
+            "items": {
+              "sophosClients": "सोफोस क्लाइंट",
+              "webFilter": "सोफोस वेब फ़िल्टर",
+              "systemHealth": "सोफोस सिस्टम स्वास्थ्य",
+              "sophosEvents": "सोफोस घटनाएं",
+              "topConsumers": "शीर्ष उपभोक्ता"
+            }
+          },
+          "servers": {
+            "label": "सर्वर",
+            "items": {
+              "serverList": "सर्वर सूची",
+              "addServer": "सर्वर जोड़ें",
+              "downloadAgent": "एजेंट डाउनलोड करें"
+            }
+          },
+          "networkTools": {
+            "label": "नेटवर्क टूल्स",
+            "items": {
+              "ping": "पिंग",
+              "traceroute": "ट्रेसरूट",
+              "host": "होस्ट",
+              "dnsCheck": "DNS जांच",
+              "nslookup": "Nslookup",
+              "ntpTest": "NTP सर्वर परीक्षण",
+              "reverseDns": "रिवर्स DNS टूल",
+              "dnsPropagation": "DNS प्रसार जांचकर्ता",
+              "mtr": "MTR टूल",
+              "portScanner": "पोर्ट स्कैनर"
+            }
+          },
+          "networkDiagram": {
+            "label": "नेटवर्क डायग्राम",
+            "items": {
+              "existingDiagrams": "मौजूदा डायग्राम",
+              "designNewDiagram": "नया डायग्राम डिज़ाइन करें"
+            }
+          },
+          "mailProtection": {
+            "label": "मेल सुरक्षा",
+            "items": {
+              "mailPolicies": "फ़ाइल अवरोधन नीतियाँ",
+              "mailExceptions": "अपवाद",
+              "mailIncidents": "घटनाएं",
+              "mailTemplates": "अधिसूचना टेम्पलेट",
+              "mailConnectors": "मेल कनेक्टर",
+              "mailReports": "रिपोर्ट"
+            }
+          }
         }
       },
-      "networkTools": {
-        "label": "नेटवर्क टूल्स",
-        "items": {
-          "ping": "पिंग",
-          "traceroute": "ट्रेसरूट",
-          "host": "होस्ट",
-          "dnsCheck": "DNS जांच",
-          "nslookup": "Nslookup",
-          "ntpTest": "NTP सर्वर परीक्षण",
-          "reverseDns": "रिवर्स DNS टूल",
-          "dnsPropagation": "DNS प्रसार जांचकर्ता",
-          "mtr": "MTR टूल"
-        }
+      "remoteAccess": {
+        "label": "रिमोट एक्सेस",
+        "entries": {
+          "overview": "अवलोकन",
+          "connections": "कनेक्शन",
+          "quickConnect": "क्विक कनेक्ट",
+          "activeSessions": "सक्रिय सत्र",
+          "remoteDesktop": "रिमोट डेस्कटॉप",
+          "terminal": "टर्मिनल",
+          "fileTransfer": "फ़ाइल स्थानांतरण",
+          "serverInventory": "सर्वर इन्वेंटरी",
+          "credentialsVault": "क्रेडेंशियल वॉल्ट",
+          "sshKeys": "SSH कीज़",
+          "portForwarding": "पोर्ट फ़ॉरवर्डिंग",
+          "scriptsAndCommands": "स्क्रिप्ट और कमांड",
+          "connectionLogs": "कनेक्शन लॉग",
+          "settings": "सेटिंग्स"
+        },
+        "groups": {}
       },
-      "auditWebsites": {
-        "label": "वेबसाइट और SSL प्रमाणपत्र ऑडिट",
-        "items": {
+      "itAssetLogsheet": {
+        "label": "आईटी एसेट लॉगशीट",
+        "entries": {
+          "dashboard": "डैशबोर्ड",
+          "assetRegister": "एसेट रजिस्टर",
+          "passwordChanges": "पासवर्ड परिवर्तन",
+          "patchesAndUpdates": "पैच और अपडेट",
+          "softwareInventory": "सॉफ़्टवेयर इन्वेंटरी",
+          "maintenanceLog": "रखरखाव लॉग",
+          "reports": "रिपोर्ट",
+          "alerts": "अलर्ट",
+          "settings": "सेटिंग्स",
+          "auditLog": "ऑडिट लॉग"
+        },
+        "groups": {}
+      },
+      "browserActivity": {
+        "label": "ब्राउज़र गतिविधि ऑडिट",
+        "entries": {
+          "dashboard": "डैशबोर्ड",
+          "activityEvents": "गतिविधि इवेंट",
+          "securityAlerts": "सुरक्षा अलर्ट",
+          "domainCategories": "डोमेन श्रेणियाँ",
+          "excludedDomains": "बहिष्कृत डोमेन",
+          "auditLog": "ऑडिट लॉग",
+          "settings": "सेटिंग्स",
+          "monitoringPolicy": "निगरानी नीति"
+        },
+        "groups": {}
+      },
+      "websiteManagement": {
+        "label": "वेबसाइट प्रबंधन",
+        "entries": {
           "websites": "वेबसाइटें",
-          "healthCheck": "वेबसाइट स्वास्थ्य जांच",
-          "sslChecker": "SSL/TLS प्रमाणपत्र जांचकर्ता",
-          "headerViewer": "HTTP / HTTPS रिस्पॉन्स हेडर व्यूअर",
-          "securityHeaders": "सुरक्षा हेडर",
-          "gaTagFinder": "GA टैग खोजक",
-          "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट",
-          "wordpressScan": "वर्डप्रेस डीप स्कैन"
+          "websitePerformance": "वेबसाइट गति और प्रदर्शन",
+          "seoScanner": "SEO स्कैनर"
+        },
+        "groups": {
+          "websiteSslAudit": {
+            "label": "वेबसाइट और SSL ऑडिट",
+            "items": {
+              "healthCheck": "वेबसाइट स्वास्थ्य जांच",
+              "sslChecker": "SSL/TLS प्रमाणपत्र जांचकर्ता",
+              "headerViewer": "HTTP / HTTPS रिस्पॉन्स हेडर व्यूअर",
+              "securityHeaders": "सुरक्षा हेडर",
+              "gaTagFinder": "GA टैग खोजक",
+              "websiteSecurityAudit": "वेबसाइट सुरक्षा ऑडिट",
+              "wordpressScan": "वर्डप्रेस डीप स्कैन"
+            }
+          },
+          "laravelSecurity": {
+            "label": "Laravel सुरक्षा",
+            "items": {
+              "laravelSecurityDashboard": "डैशबोर्ड",
+              "laravelSecurityProjects": "प्रोजेक्ट्स",
+              "laravelSecurityScans": "स्कैन",
+              "laravelSecurityIssues": "समस्याएं",
+              "laravelSecurityRulesSettings": "नियम और सेटिंग्स"
+            }
+          },
+          "codeQuality": {
+            "label": "कोड गुणवत्ता",
+            "items": {
+              "codeQualityDashboard": "डैशबोर्ड",
+              "codeQualityProjects": "प्रोजेक्ट्स",
+              "codeQualityScans": "स्कैन",
+              "codeQualityIssues": "समस्याएं",
+              "codeQualityRulesSettings": "नियम और सेटिंग्स"
+            }
+          },
+          "qaTesting": {
+            "label": "QA परीक्षण",
+            "items": {
+              "qaDashboard": "QA डैशबोर्ड",
+              "requirements": "आवश्यकताएं",
+              "testSuites": "टेस्ट सुइट्स",
+              "testCases": "टेस्ट केस",
+              "testPlans": "टेस्ट योजनाएं",
+              "milestones": "माइलस्टोन",
+              "testRuns": "टेस्ट रन",
+              "executeTest": "टेस्ट चलाएं",
+              "bugs": "बग",
+              "releases": "रिलीज़",
+              "environments": "वातावरण",
+              "builds": "बिल्ड",
+              "reports": "QA रिपोर्ट"
+            }
+          },
+          "speedTest": {
+            "label": "स्पीड टेस्ट",
+            "items": {
+              "history": "स्पीड टेस्ट इतिहास",
+              "nepal": "नेपाल सर्वर स्पीड टेस्ट",
+              "international": "अंतरराष्ट्रीय सर्वर स्पीड टेस्ट",
+              "localIp": "लोकल IP स्पीड टेस्ट"
+            }
+          },
+          "emailDelivery": {
+            "label": "ईमेल डिलीवरी परीक्षण",
+            "items": {
+              "mxTest": "MX मेल सर्वर परीक्षण",
+              "smtpTest": "SMTP सर्वर परीक्षण",
+              "spfDkimDmarc": "SPF, DKIM और DMARC जांचकर्ता",
+              "deliveryTest": "ईमेल डिलीवरी परीक्षण",
+              "dnsblLookup": "DNSBL स्पैम डेटाबेस लुकअप",
+              "uriblLookup": "URIBL स्पैम डेटाबेस लुकअप"
+            }
+          },
+          "whatIsMyIp": {
+            "label": "मेरा IP क्या है",
+            "items": {
+              "myIp": "मेरा IP क्या है",
+              "ipLookup": "IP लुकअप",
+              "whoisLookup": "WHOIS लुकअप",
+              "blacklistCheck": "ब्लैकलिस्ट जांच",
+              "ipv6Test": "IPv6 परीक्षण",
+              "proxyVpnDetection": "प्रॉक्सी / VPN पहचान"
+            }
+          }
         }
       },
-      "emailDelivery": {
-        "label": "ईमेल डिलीवरी परीक्षण",
-        "items": {
-          "mxTest": "MX मेल सर्वर परीक्षण",
-          "smtpTest": "SMTP सर्वर परीक्षण",
-          "spfDkimDmarc": "SPF, DKIM और DMARC जांचकर्ता",
-          "deliveryTest": "ईमेल डिलीवरी परीक्षण",
-          "dnsblLookup": "DNSBL स्पैम डेटाबेस लुकअप",
-          "uriblLookup": "URIBL स्पैम डेटाबेस लुकअप"
-        }
+      "websiteApiMonitoring": {
+        "label": "वेबसाइट और API मॉनिटरिंग",
+        "entries": {
+          "overview": "अवलोकन",
+          "websiteMonitors": "वेबसाइट मॉनिटर",
+          "apiMonitors": "API मॉनिटर",
+          "incidents": "घटनाएं",
+          "sslCertificates": "SSL प्रमाणपत्र",
+          "alertContacts": "अलर्ट संपर्क",
+          "maintenanceWindows": "रखरखाव विंडो",
+          "reports": "रिपोर्ट",
+          "notificationLogs": "सूचना लॉग",
+          "settings": "सेटिंग्स"
+        },
+        "groups": {}
       },
-      "speedTest": {
-        "label": "स्पीड टेस्ट",
-        "items": {
-          "history": "स्पीड टेस्ट इतिहास",
-          "nepal": "नेपाल सर्वर स्पीड टेस्ट",
-          "international": "अंतरराष्ट्रीय सर्वर स्पीड टेस्ट",
-          "localIp": "लोकल IP स्पीड टेस्ट"
-        }
+      "automation": {
+        "label": "स्वचालन",
+        "entries": {
+          "scripts": "स्क्रिप्ट",
+          "remoteTasks": "रिमोट कार्य",
+          "scheduledJobs": "अनुसूचित कार्य"
+        },
+        "groups": {}
       },
-      "whatIsMyIp": {
-        "label": "मेरा IP क्या है",
-        "items": {
-          "myIp": "मेरा IP क्या है",
-          "ipLookup": "IP लुकअप",
-          "whoisLookup": "WHOIS लुकअप",
-          "blacklistCheck": "ब्लैकलिस्ट जांच",
-          "ipv6Test": "IPv6 परीक्षण",
-          "proxyVpnDetection": "प्रॉक्सी / VPN पहचान"
-        }
-      },
-      "endpointAgents": {
-        "label": "एंडपॉइंट एजेंट",
-        "items": {
-          "agentDashboard": "एजेंट डैशबोर्ड",
-          "downloadAgent": "एजेंट डाउनलोड करें",
-          "enrollDevice": "डिवाइस नामांकित करें",
-          "screenshotAuditLog": "स्क्रीनशॉट ऑडिट लॉग"
-        }
-      },
-      "servers": {
-        "label": "सर्वर",
-        "items": {
-          "serverList": "सर्वर सूची",
-          "addServer": "सर्वर जोड़ें",
-          "downloadAgent": "एजेंट डाउनलोड करें"
-        }
-      },
-      "sqlServerMonitoring": {
-        "label": "SQL सर्वर निगरानी",
-        "items": {
-          "sqlServerMonitoringList": "इंस्टेंस"
-        }
-      },
-      "website": {
-        "label": "वेबसाइट",
-        "items": {
-          "sliderManagement": "स्लाइडर प्रबंधन",
-          "supportTickets": "सहायता टिकट",
-          "contactMessages": "संपर्क संदेश"
-        }
-      },
-      "qaTesting": {
-        "label": "QA परीक्षण",
-        "items": {
-          "qaDashboard": "QA डैशबोर्ड",
-          "requirements": "आवश्यकताएं",
-          "testSuites": "टेस्ट सुइट्स",
-          "testCases": "टेस्ट केस",
-          "testPlans": "टेस्ट योजनाएं",
-          "milestones": "माइलस्टोन",
-          "testRuns": "टेस्ट रन",
-          "executeTest": "टेस्ट चलाएं",
-          "bugs": "बग",
-          "reports": "QA रिपोर्ट",
-          "releases": "रिलीज़",
-          "environments": "वातावरण",
-          "builds": "बिल्ड"
-        }
-      },
-      "codeQuality": {
-        "label": "कोड गुणवत्ता",
-        "items": {
-          "codeQualityDashboard": "डैशबोर्ड",
-          "codeQualityProjects": "प्रोजेक्ट्स",
-          "codeQualityScans": "स्कैन",
-          "codeQualityIssues": "समस्याएं",
-          "codeQualityRulesSettings": "नियम और सेटिंग्स"
-        }
-      },
-      "laravelSecurity": {
-        "label": "Laravel सुरक्षा",
-        "items": {
-          "laravelSecurityDashboard": "डैशबोर्ड",
-          "laravelSecurityProjects": "प्रोजेक्ट्स",
-          "laravelSecurityScans": "स्कैन",
-          "laravelSecurityIssues": "समस्याएं",
-          "laravelSecurityRulesSettings": "नियम और सेटिंग्स"
+      "administration": {
+        "label": "प्रशासन",
+        "entries": {
+          "gitConnections": "इंटीग्रेशन",
+          "companySettings": "कंपनी सेटिंग्स"
+        },
+        "groups": {
+          "website": {
+            "label": "वेबसाइट",
+            "items": {
+              "sliderManagement": "स्लाइडर प्रबंधन",
+              "supportTickets": "सहायता टिकट",
+              "contactMessages": "संपर्क संदेश"
+            }
+          },
+          "utilities": {
+            "label": "उपयोगिताएँ",
+            "items": {
+              "sslDecoder": "SSL डिकोडर",
+              "jwtDecoder": "JWT डिकोडर",
+              "base64Tool": "Base64 टूल",
+              "hashGenerator": "हैश जेनरेटर",
+              "qrCodeGenerator": "QR कोड जेनरेटर",
+              "passwordGenerator": "पासवर्ड जेनरेटर",
+              "cronTester": "Cron एक्सप्रेशन टेस्टर",
+              "regexTester": "रेगेक्स टेस्टर",
+              "jsonFormatter": "JSON फॉर्मेटर",
+              "yamlValidator": "YAML वैलिडेटर",
+              "xmlValidator": "XML वैलिडेटर",
+              "cidrCalculator": "CIDR कैलकुलेटर",
+              "subnetCalculator": "सबनेट कैलकुलेटर",
+              "urlEncoderDecoder": "URL एनकोडर/डिकोडर",
+              "timezoneConverter": "समय क्षेत्र कनवर्टर"
+            }
+          }
         }
       }
     }
@@ -527,11 +716,24 @@
     "internalIpsTotal24h": "कुल {count} आंतरिक IP (24 घंटे)",
     "knownDevicesTotal": "कुल {count} ज्ञात डिवाइस",
     "deviceStatusTitle": "डिवाइस स्थिति",
-    "deviceFirstSeen": "{name} का डिवाइस नेटवर्क पर पहली बार देखा गया"
+    "deviceFirstSeen": "{name} का डिवाइस नेटवर्क पर पहली बार देखा गया",
+    "customizeDashboard": "डैशबोर्ड कस्टमाइज़ करें",
+    "doneCustomizing": "हो गया",
+    "widgetCalendarWeather": "कैलेंडर और मौसम",
+    "widgetKpis": "सिस्टम KPI",
+    "widgetBandwidth": "बैंडविड्थ चार्ट",
+    "widgetDeviceStatus": "डिवाइस स्थिति",
+    "widgetAlertsTimeline": "अलर्ट और गतिविधि समयरेखा",
+    "widgetRightRail": "हेल्थ स्कोर और नेटवर्क सारांश",
+    "widgetOfflineDevices": "ऑफ़लाइन डिवाइस",
+    "widgetExpiringSsl": "जल्द समाप्त होने वाले SSL प्रमाणपत्र",
+    "widgetMalwareFindings": "खुले मैलवेयर निष्कर्ष",
+    "widgetTopBandwidthConsumers": "शीर्ष बैंडविड्थ उपभोक्ता"
   },
   "employees": {
     "list": {
       "pageTitle": "कर्मचारी",
+      "webActivityReportLink": "राउटर वेब कनेक्शन — गतिविधि रिपोर्ट (सभी कर्मचारी)",
       "intro": "एक कर्मचारी को एक <strong>MAC पते</strong> से मैप किया जाता है, न कि किसी IP से — नीचे दिखाया गया IP केवल डिवाइस का <em>वर्तमान</em> पता है, जो MikroTik राउटर के DHCP लीज़ से या Sophos-साइड क्लाइंट के लिए इस सर्वर की ARP तालिका से लाइव रिज़ॉल्व किया जाता है। उस MAC ने अब तक जो भी IP उपयोग किया है, वह सुरक्षित रखा जाता है, इसलिए प्रत्येक कर्मचारी के पेज पर गतिविधि रिपोर्ट IP बदलने के बाद भी उनका पूरा इतिहास कवर करती है — केवल आज का नहीं। यहाँ सब कुछ (कर्मचारी, डिवाइस इतिहास, वेब फ़िल्टर, राउटर लॉग) SQL डेटाबेस में स्थायी रूप से संग्रहीत है, कुछ भी केवल मेमोरी में नहीं रखा जाता। ऑनलाइन/ऑफ़लाइन और पहली बार देखा गया केवल नेटवर्क गतिविधि पर आधारित हैं — इसमें कोई OS लॉगिन समय नहीं है, और प्रत्येक PC पर एंडपॉइंट एजेंट इंस्टॉल किए बिना CPU/RAM/स्क्रीन डेटा उपलब्ध नहीं है।",
       "totalEmployeesLabel": "कुल कर्मचारी",
       "onlineLabel": "ऑनलाइन",
@@ -589,6 +791,11 @@
       "lastUpdatedColumn": "अंतिम अपडेट",
       "noDeviceEverSeenNotice": "इस स्टाफ सदस्य के लिए कोई डिवाइस असाइन नहीं किया गया है या कभी नहीं देखा गया है, इसलिए दिखाने के लिए कोई गतिविधि नहीं है।",
       "webFilterReportTitle": "Sophos वेब फ़िल्टर — गतिविधि रिपोर्ट",
+      "categoryChartTitle": "श्रेणी विवरण (पिछले 30 दिन)",
+      "applicationChartTitle": "एप्लिकेशन विवरण (पिछले 30 दिन)",
+      "applicationColumn": "एप्लिकेशन",
+      "bandwidthLabel": "उपयोग किया गया बैंडविड्थ, पिछले 30 दिन (Sophos द्वारा ट्रैक किया गया ट्रैफ़िक):",
+      "destinationChartTitle": "शीर्ष गंतव्य (पिछले 30 दिन)",
       "activityReportSub": "इस डिवाइस के लिए सभी ज्ञात IP में से, सबसे हाल की पहले (अधिकतम 50 दिखाई गई)।",
       "noWebFilterEvents": "इस डिवाइस के लिए अभी तक कोई वेब फ़िल्टर इवेंट नहीं है।",
       "timeColumn": "समय",
@@ -600,6 +807,15 @@
       "noRouterWebConnections": "इस डिवाइस के लिए अभी तक कोई राउटर वेब कनेक्शन नहीं है।",
       "destinationColumn": "गंतव्य",
       "portColumn": "पोर्ट"
+    },
+    "webActivity": {
+      "pageTitle": "राउटर वेब कनेक्शन — गतिविधि रिपोर्ट (सभी कर्मचारी)",
+      "subtitle": "हर कर्मचारी के सभी ज्ञात कनेक्शन एक ही फ़ीड में, नवीनतम पहले, हर कर्मचारी के अपने पेज जैसी ही विधि से जोड़े गए — MAC पते के आधार पर, उसने कभी उपयोग की हर IP पर।",
+      "employeeColumn": "कर्मचारी",
+      "noActivity": "अभी तक किसी कर्मचारी के लिए राउटर वेब कनेक्शन गतिविधि नहीं मिली।",
+      "pageOf": "पृष्ठ {page} / {totalPages}",
+      "prevPage": "पिछला",
+      "nextPage": "अगला"
     },
     "table": {
       "searchPlaceholder": "नाम, होस्टनाम, आईपी या मैक पते से खोजें...",
@@ -613,6 +829,9 @@
       "ipAddressColumn": "IP पता",
       "lastSeenColumn": "अंतिम बार देखा गया",
       "macAddressColumn": "MAC पता",
+      "webActivityColumn": "वेब गतिविधि",
+      "webActivityTitle": "{count} ज्ञात राउटर वेब कनेक्शन",
+      "webActivityAgo": "{duration} पहले",
       "noDeviceStatus": "कोई डिवाइस नहीं",
       "onlineStatus": "ऑनलाइन",
       "offlineStatus": "ऑफ़लाइन",
@@ -910,7 +1129,22 @@
       "keyPlaceholder": "कुंजी (जैसे welcome_email)",
       "subjectPlaceholder": "विषय",
       "bodyPlaceholder": "बॉडी",
-      "editTemplateModalTitle": "टेम्पलेट संपादित करें — {key}"
+      "editTemplateModalTitle": "टेम्पलेट संपादित करें — {key}",
+      "moduleRecipientsTitle": "मॉड्यूल ईमेल प्राप्तकर्ता",
+      "moduleRecipientsDescription": "प्रत्येक मॉड्यूल और सब-मॉड्यूल के लिए किसे ईमेल भेजा जाए, चुनें।",
+      "moduleColumn": "मॉड्यूल",
+      "recipientsColumn": "प्राप्तकर्ता",
+      "enabledColumn": "सक्षम",
+      "recipientsPlaceholder": "name@example.com, other@example.com",
+      "moduleRecipientsSaved": "प्राप्तकर्ता सहेजे गए।",
+      "addModuleButton": "मॉड्यूल जोड़ें",
+      "addModuleModalTitle": "सूचना मॉड्यूल जोड़ें",
+      "moduleNamePlaceholder": "मॉड्यूल नाम (जैसे मार्केटिंग अलर्ट)",
+      "subModuleNamePlaceholder": "सब-मॉड्यूल नाम (वैकल्पिक)",
+      "moduleAdded": "मॉड्यूल जोड़ा गया।",
+      "moduleDeleted": "मॉड्यूल हटाया गया।",
+      "moduleNameRequired": "मॉड्यूल नाम आवश्यक है।",
+      "removeModuleConfirm": "इस मॉड्यूल और इसकी प्राप्तकर्ता सूची को हटाएं?"
     },
     "rolesPermissions": {
       "title": "भूमिकाएं और अनुमतियां",

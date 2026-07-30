@@ -5,7 +5,9 @@ export interface AuthenticatedDevice {
   id: number;
   deviceId: string;
   hostname: string;
+  staffId: number | null;
   screenshotIntervalMinutes: number | null;
+  browserActivityIntervalMinutes: number | null;
   privacyMode: boolean;
 }
 
@@ -47,7 +49,9 @@ interface DeviceAuthRow {
   DeviceId: string;
   Hostname: string;
   ApiKeyHash: string;
+  StaffId: number | null;
   ScreenshotIntervalMinutes: number | null;
+  BrowserActivityIntervalMinutes: number | null;
   PrivacyMode: boolean;
 }
 
@@ -66,7 +70,7 @@ export async function authenticateDevice(req: Request): Promise<AuthenticatedDev
     .request()
     .input("deviceId", sql.VarChar, deviceId)
     .query<DeviceAuthRow>(
-      "SELECT Id, DeviceId, Hostname, ApiKeyHash, ScreenshotIntervalMinutes, PrivacyMode FROM Devices WHERE DeviceId = @deviceId"
+      "SELECT Id, DeviceId, Hostname, ApiKeyHash, StaffId, ScreenshotIntervalMinutes, BrowserActivityIntervalMinutes, PrivacyMode FROM Devices WHERE DeviceId = @deviceId"
     );
 
   const device = result.recordset[0];
@@ -77,7 +81,9 @@ export async function authenticateDevice(req: Request): Promise<AuthenticatedDev
     id: device.Id,
     deviceId: device.DeviceId,
     hostname: device.Hostname,
+    staffId: device.StaffId,
     screenshotIntervalMinutes: device.ScreenshotIntervalMinutes,
+    browserActivityIntervalMinutes: device.BrowserActivityIntervalMinutes,
     privacyMode: device.PrivacyMode,
   };
 }

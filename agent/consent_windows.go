@@ -24,7 +24,10 @@ func ShowConsentDialog() bool {
 	title := `LogMonitor Endpoint Agent - Consent Required`
 	text := "This will install endpoint monitoring on this device, including:\n\n" +
 		"  - CPU / memory / disk / network usage reporting\n" +
-		"  - Optional periodic or on-demand screenshot capture (disabled by default)\n\n" +
+		"  - Optional periodic or on-demand screenshot capture (disabled by default)\n" +
+		"  - Optional browser activity summary: domain, page title, time, and category of\n" +
+		"    work-related browsing (never full page addresses, form contents, or\n" +
+		"    passwords) - disabled by default, enabled per device by an administrator\n\n" +
 		"This tool must only be installed on a company-owned device, with the user informed\n" +
 		"via written policy that monitoring is in effect.\n\n" +
 		"Do you consent to enable monitoring on this device?"

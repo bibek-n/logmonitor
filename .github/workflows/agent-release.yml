@@ -111,7 +111,12 @@ jobs:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" "${{ matrix.pkg }}"
+        # -tags legacy_win7 excludes the Browser Activity Audit collector (browserhistory.go)
+        # from this build - modernc.org/sqlite isn't pinned into go.mod.win7's dependency set
+        # (see that file's header comment), and browserhistory_stub.go provides a no-op in
+        # its place, same "windows-only feature, stub everywhere else" shape as
+        # chattray/remotesupport_stub.go.
+        run: go build -trimpath -tags legacy_win7 -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" "${{ matrix.pkg }}"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -91,8 +91,31 @@ export default async function StaffPage({
     "SELECT Id, Email, Phone, Department, Position, Address, PhotoPath, DepartmentId, TeamId, BranchOfficeId, JobDesignationId FROM Staff"
   );
   const profileById = new Map(profileResult.recordset.map((p) => [p.Id, p]));
+
+  // Same MAC -> historical-IP correlation as the per-employee report (see [id]/page.tsx and
+  // web-activity/page.tsx) and web-activity/page.tsx's combined feed, aggregated to one row per
+  // staff member so the list can show a lightweight "at a glance" signal without linking out -
+  // MAX(ReceivedAt) is an efficient index seek per IP (IX_RouterWebLogs_SrcIp is (SrcIp,
+  // ReceivedAt DESC)), so this stays cheap even with RouterWebLogs at several million rows.
+  const webActivityResult = await db.query<{ StaffId: number; Cnt: number; LastSeen: string }>(`
+    WITH StaffIps AS (
+      SELECT s.Id AS StaffId, rc.IpAddress
+      FROM Staff s JOIN RouterClients rc ON UPPER(rc.MacAddress) = UPPER(s.MacAddress)
+      WHERE s.MacAddress IS NOT NULL
+      UNION
+      SELECT s.Id AS StaffId, sc.IpAddress
+      FROM Staff s JOIN SophosClients sc ON UPPER(sc.MacAddress) = UPPER(s.MacAddress)
+      WHERE s.MacAddress IS NOT NULL
+    )
+    SELECT si.StaffId, COUNT(*) AS Cnt, CONVERT(VARCHAR(19), MAX(rwl.ReceivedAt), 126) AS LastSeen
+    FROM RouterWebLogs rwl JOIN StaffIps si ON si.IpAddress = rwl.SrcIp
+    GROUP BY si.StaffId
+  `);
+  const webActivityByStaffId = new Map(webActivityResult.recordset.map((r) => [r.StaffId, { count: r.Cnt, lastSeen: new Date(r.LastSeen) }]));
+
   const employees: EmployeeRow[] = staff.map((s) => {
     const profile = profileById.get(s.Id);
+    const webActivity = webActivityByStaffId.get(s.Id) ?? null;
     return {
       ...s,
       ComputerNameOverride: s.computerNameOverride,
@@ -106,6 +129,8 @@ export default async function StaffPage({
       TeamId: profile?.TeamId ?? null,
       BranchOfficeId: profile?.BranchOfficeId ?? null,
       JobDesignationId: profile?.JobDesignationId ?? null,
+      webActivityCount: webActivity?.count ?? 0,
+      webActivityLastSeen: webActivity?.lastSeen ?? null,
     };
   });
 
@@ -154,8 +179,22 @@ export default async function StaffPage({
 
   return (
     <div>
-      <h1>{t("pageTitle")}</h1>
-      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+      <div className="flex items-center justify-between" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+        <h1 style={{ margin: 0 }}>{t("pageTitle")}</h1>
+        <Link
+          href="/dashboard/staff/web-activity"
+          style={{
+            fontSize: "0.82rem",
+            color: "var(--series-1)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            padding: "0.4rem 0.8rem",
+          }}
+        >
+          {t("webActivityReportLink")}
+        </Link>
+      </div>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "0.25rem" }}>
         {t.rich("intro", {
           strong: (chunks) => <strong>{chunks}</strong>,
           em: (chunks) => <em>{chunks}</em>,

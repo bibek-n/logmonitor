@@ -31,11 +31,23 @@ export default function SidebarShell({
   qaAccess = false,
   codeQualityAccess = false,
   laravelSecurityAccess = false,
+  mailSecurityAccess = false,
+  monitoringAccess = false,
+  automationAccess = false,
+  remoteAccessAccess = false,
+  itAssetLogsheetAccess = false,
+  browserActivityAccess = false,
 }: {
   children: ReactNode;
   qaAccess?: boolean;
   codeQualityAccess?: boolean;
   laravelSecurityAccess?: boolean;
+  mailSecurityAccess?: boolean;
+  monitoringAccess?: boolean;
+  automationAccess?: boolean;
+  remoteAccessAccess?: boolean;
+  itAssetLogsheetAccess?: boolean;
+  browserActivityAccess?: boolean;
 }) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
@@ -78,7 +90,7 @@ export default function SidebarShell({
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
+      animate={{ width: collapsed ? 72 : 272 }}
       transition={{ duration: 0.22, ease: "easeInOut" }}
       className="dash-sidebar"
       style={{ overflow: "hidden" }}
@@ -131,7 +143,19 @@ export default function SidebarShell({
         <span style={labelStyle(collapsed)}>{t("collapse")}</span>
       </button>
 
-      <Sidebar collapsed={collapsed} onExpandRail={expandRail} qaAccess={qaAccess} codeQualityAccess={codeQualityAccess} laravelSecurityAccess={laravelSecurityAccess} />
+      <Sidebar
+        collapsed={collapsed}
+        onExpandRail={expandRail}
+        qaAccess={qaAccess}
+        codeQualityAccess={codeQualityAccess}
+        laravelSecurityAccess={laravelSecurityAccess}
+        mailSecurityAccess={mailSecurityAccess}
+        monitoringAccess={monitoringAccess}
+        automationAccess={automationAccess}
+        remoteAccessAccess={remoteAccessAccess}
+        itAssetLogsheetAccess={itAssetLogsheetAccess}
+        browserActivityAccess={browserActivityAccess}
+      />
 
       <div style={{ display: collapsed ? "none" : "block" }}>{children}</div>
     </motion.aside>

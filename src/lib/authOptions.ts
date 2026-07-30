@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { getDb, sql } from "./db";
-import { validateUserCredentials, getUserById } from "./authCore";
+import { validateUserCredentials, getUserById, getUserForAuthCommit, commitTokenMatches, consumeCommitToken, type AuthCoreUser } from "./authCore";
 import { logLoginAttempt, clientIpFromHeaders } from "./loginActivity";
 import { sendLoginSuccessEmail, OTP_MAX_ATTEMPTS } from "./loginOtp";
 import { RP_ID, ORIGIN, readChallengeCookie, handleToUserId, getPasskeyByCredentialId, toWebAuthnCredential, updatePasskeyCounter } from "./webauthn";
@@ -22,27 +22,42 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
         otp: { label: "Code", type: "text" },
         totpMode: { label: "Code type", type: "text" },
+        commitToken: { label: "Commit token", type: "text" },
       },
       // By the time this runs, the login form has already confirmed via
       // /api/auth/request-otp and /api/auth/verify-otp (plain 200-always JSON routes) that
       // the password and code are both correct — those routes exist because this app's IIS
       // front end replaces any non-2xx response body with a generic error page, which would
       // otherwise swallow NextAuth's own 401 JSON responses. This authorize() call is the
-      // "commit" step: it re-validates (defense in depth) and, only on success, actually
-      // clears the pending OTP and issues the session. A failure here should be rare (a
-      // race between verify-otp and this call) — it still returns null/401 same as always,
-      // which in that rare case would also get its body swallowed by IIS, but the login
-      // form has its own fallback message for that.
+      // "commit" step: it re-validates and, only on success, actually clears the pending OTP
+      // and issues the session.
+      //
+      // The password re-check is still mandatory for defense in depth, but re-running bcrypt
+      // a second time for every single login was adding a full duplicate bcrypt cost on top
+      // of the one request-otp already paid moments earlier — see authCore.ts's
+      // issueCommitToken/getUserForAuthCommit/commitTokenMatches. When the client presents a
+      // valid, unexpired, single-use commitToken (only ever disclosed to whoever already
+      // proved the password via request-otp), that stands in for the bcrypt check without
+      // weakening it: anyone who reaches authorize() without a matching token — including a
+      // caller that skips request-otp and hits this endpoint directly — falls back to the
+      // exact same full bcrypt validateUserCredentials() path as before.
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password || !credentials?.otp) return null;
 
-        const validation = await validateUserCredentials(credentials.username, credentials.password);
-        if (!validation.ok) {
-          await logLoginAttempt(credentials.username, false, validation.reason, req);
-          return null;
-        }
+        const fastUser = await getUserForAuthCommit(credentials.username);
+        let user: AuthCoreUser;
 
-        const { user } = validation;
+        if (fastUser && fastUser.IsActive !== false && commitTokenMatches(fastUser, credentials.commitToken)) {
+          await consumeCommitToken(fastUser.Id);
+          user = fastUser;
+        } else {
+          const validation = await validateUserCredentials(credentials.username, credentials.password);
+          if (!validation.ok) {
+            await logLoginAttempt(credentials.username, false, validation.reason, req);
+            return null;
+          }
+          user = validation.user;
+        }
 
         // Authenticator-app users skip the emailed-code path entirely — request-otp never
         // issued a PendingOtpCodeHash for them, so re-checking that path here would always

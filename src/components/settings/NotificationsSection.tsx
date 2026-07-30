@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
@@ -31,6 +31,15 @@ interface RuleRow {
   PushEnabled: boolean;
   InAppEnabled: boolean;
 }
+interface RecipientRow {
+  moduleKey: string;
+  subModuleKey: string;
+  moduleLabel: string;
+  subModuleLabel: string | null;
+  recipients: string;
+  enabled: boolean;
+  isSystem: boolean;
+}
 
 const fieldStyle: React.CSSProperties = {
   width: "100%",
@@ -46,10 +55,12 @@ export function NotificationsSection({
   initialPreferences,
   initialTemplates,
   initialRules,
+  initialRecipients,
 }: {
   initialPreferences: Preferences | null;
   initialTemplates: TemplateRow[];
   initialRules: RuleRow[];
+  initialRecipients: RecipientRow[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -61,6 +72,95 @@ export function NotificationsSection({
   const [editTemplate, setEditTemplate] = useState<TemplateRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTemplate, setNewTemplate] = useState({ key: "", subject: "", body: "" });
+  const [recipients, setRecipients] = useState<RecipientRow[]>(initialRecipients);
+  const [savingRecipientKey, setSavingRecipientKey] = useState<string | null>(null);
+  const [deletingRecipientKey, setDeletingRecipientKey] = useState<string | null>(null);
+  const [addModuleOpen, setAddModuleOpen] = useState(false);
+  const [addingModule, setAddingModule] = useState(false);
+  const [newModule, setNewModule] = useState({ moduleLabel: "", subModuleLabel: "", recipients: "" });
+
+  function recipientRowKey(row: Pick<RecipientRow, "moduleKey" | "subModuleKey">): string {
+    return `${row.moduleKey}::${row.subModuleKey}`;
+  }
+
+  function updateRecipientRow(rowKey: string, changes: Partial<RecipientRow>) {
+    setRecipients((prev) => prev.map((r) => (recipientRowKey(r) === rowKey ? { ...r, ...changes } : r)));
+  }
+
+  async function saveRecipientRow(row: RecipientRow) {
+    const rowKey = recipientRowKey(row);
+    setSavingRecipientKey(rowKey);
+    try {
+      const res = await fetch("/api/admin/settings/notifications/recipients", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          moduleKey: row.moduleKey,
+          subModuleKey: row.subModuleKey,
+          recipients: row.recipients,
+          enabled: row.enabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
+      toast.show({ type: "success", message: t("moduleRecipientsSaved") });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
+    } finally {
+      setSavingRecipientKey(null);
+    }
+  }
+
+  async function addRecipientModule() {
+    if (!newModule.moduleLabel.trim()) {
+      toast.show({ type: "error", message: t("moduleNameRequired") });
+      return;
+    }
+    setAddingModule(true);
+    try {
+      const res = await fetch("/api/admin/settings/notifications/recipients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          moduleLabel: newModule.moduleLabel,
+          subModuleLabel: newModule.subModuleLabel,
+          recipients: newModule.recipients,
+          enabled: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
+      setRecipients((prev) => [...prev, data.data]);
+      toast.show({ type: "success", message: t("moduleAdded") });
+      setAddModuleOpen(false);
+      setNewModule({ moduleLabel: "", subModuleLabel: "", recipients: "" });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
+    } finally {
+      setAddingModule(false);
+    }
+  }
+
+  async function deleteRecipientModule(row: RecipientRow) {
+    if (!confirm(t("removeModuleConfirm"))) return;
+    const rowKey = recipientRowKey(row);
+    setDeletingRecipientKey(rowKey);
+    try {
+      const res = await fetch("/api/admin/settings/notifications/recipients", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moduleKey: row.moduleKey, subModuleKey: row.subModuleKey }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("somethingWentWrong"));
+      setRecipients((prev) => prev.filter((r) => recipientRowKey(r) !== rowKey));
+      toast.show({ type: "success", message: t("moduleDeleted") });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
+    } finally {
+      setDeletingRecipientKey(null);
+    }
+  }
 
   async function savePreferences() {
     setSavingPrefs(true);
@@ -207,6 +307,71 @@ export function NotificationsSection({
         </div>
       </Card>
 
+      <Card className="flex flex-col gap-3" id="field-notification-recipients">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 style={{ fontSize: "0.95rem", margin: 0, color: "var(--ink)" }}>{t("moduleRecipientsTitle")}</h3>
+            <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "var(--ink-muted)" }}>{t("moduleRecipientsDescription")}</p>
+          </div>
+          <Button size="sm" onClick={() => setAddModuleOpen(true)}>
+            <Plus size={14} /> {t("addModuleButton")}
+          </Button>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                {[t("moduleColumn"), t("recipientsColumn"), t("enabledColumn"), "", ""].map((h, i) => (
+                  <th key={`${h}-${i}`} style={{ padding: "0.4rem 0.6rem", color: "var(--ink-muted)", fontWeight: 500 }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recipients.map((row) => {
+                const rowKey = recipientRowKey(row);
+                return (
+                  <tr key={rowKey} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "0.4rem 0.6rem", whiteSpace: "nowrap" }}>
+                      <div style={{ color: "var(--ink)" }}>{row.moduleLabel}</div>
+                      {row.subModuleLabel && <div style={{ fontSize: "0.74rem", color: "var(--ink-muted)" }}>{row.subModuleLabel}</div>}
+                    </td>
+                    <td style={{ padding: "0.4rem 0.6rem", minWidth: 240 }}>
+                      <input
+                        style={fieldStyle}
+                        placeholder={t("recipientsPlaceholder")}
+                        value={row.recipients}
+                        onChange={(e) => updateRecipientRow(rowKey, { recipients: e.target.value })}
+                      />
+                    </td>
+                    <td style={{ padding: "0.4rem 0.6rem" }}>
+                      <Switch checked={row.enabled} onChange={(v) => updateRecipientRow(rowKey, { enabled: v })} />
+                    </td>
+                    <td style={{ padding: "0.4rem 0.6rem" }}>
+                      <Button size="sm" onClick={() => saveRecipientRow(row)} disabled={savingRecipientKey === rowKey}>
+                        {savingRecipientKey === rowKey ? t("saving") : t("saveButton")}
+                      </Button>
+                    </td>
+                    <td style={{ padding: "0.4rem 0.6rem" }}>
+                      {!row.isSystem && (
+                        <button
+                          onClick={() => deleteRecipientModule(row)}
+                          disabled={deletingRecipientKey === rowKey}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger, #dc2626)" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -226,6 +391,43 @@ export function NotificationsSection({
           <input style={fieldStyle} placeholder={t("keyPlaceholder")} value={newTemplate.key} onChange={(e) => setNewTemplate((prev) => ({ ...prev, key: e.target.value }))} />
           <input style={fieldStyle} placeholder={t("subjectPlaceholder")} value={newTemplate.subject} onChange={(e) => setNewTemplate((prev) => ({ ...prev, subject: e.target.value }))} />
           <textarea style={{ ...fieldStyle, resize: "vertical" }} rows={4} placeholder={t("bodyPlaceholder")} value={newTemplate.body} onChange={(e) => setNewTemplate((prev) => ({ ...prev, body: e.target.value }))} />
+        </div>
+      </Modal>
+
+      <Modal
+        open={addModuleOpen}
+        onClose={() => setAddModuleOpen(false)}
+        title={t("addModuleModalTitle")}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setAddModuleOpen(false)}>
+              {t("cancelButton")}
+            </Button>
+            <Button size="sm" onClick={addRecipientModule} disabled={addingModule}>
+              {addingModule ? t("saving") : t("createButton")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          <input
+            style={fieldStyle}
+            placeholder={t("moduleNamePlaceholder")}
+            value={newModule.moduleLabel}
+            onChange={(e) => setNewModule((prev) => ({ ...prev, moduleLabel: e.target.value }))}
+          />
+          <input
+            style={fieldStyle}
+            placeholder={t("subModuleNamePlaceholder")}
+            value={newModule.subModuleLabel}
+            onChange={(e) => setNewModule((prev) => ({ ...prev, subModuleLabel: e.target.value }))}
+          />
+          <input
+            style={fieldStyle}
+            placeholder={t("recipientsPlaceholder")}
+            value={newModule.recipients}
+            onChange={(e) => setNewModule((prev) => ({ ...prev, recipients: e.target.value }))}
+          />
         </div>
       </Modal>
 

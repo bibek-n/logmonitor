@@ -1,6 +1,7 @@
 import { HeartPulse, Globe, Gauge, HardDrive, Clock, Users, ShieldAlert, MapPinned } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DemoBadge } from "./DemoBadge";
+import { DeviceDrilldownTrigger } from "./DeviceDrilldownTrigger";
 import type { MyIpSummary } from "@/lib/ipTools";
 import type { CountryTraffic } from "@/lib/trafficByCountry";
 import type { ThreatSummary } from "@/lib/threatSummary";
@@ -96,10 +97,12 @@ export function RightRail({ healthScore, ip, latestSpeedTest, topDevices, monito
           <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem" }}>No activity in the last 24h.</p>
         ) : (
           topDevices.map((d) => (
-            <div key={d.ip} className="flex items-center justify-between" style={{ padding: "0.3rem 0" }}>
-              <span style={{ fontSize: "0.8rem", color: "var(--ink)" }}>{d.name ?? d.ip}</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>{d.eventCount} events</span>
-            </div>
+            <DeviceDrilldownTrigger key={d.ip} ip={d.ip}>
+              <div className="flex items-center justify-between" style={{ padding: "0.3rem 0" }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--ink)" }}>{d.name ?? d.ip}</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>{d.eventCount} events</span>
+              </div>
+            </DeviceDrilldownTrigger>
           ))
         )}
       </Card>

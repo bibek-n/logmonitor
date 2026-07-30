@@ -329,170 +329,359 @@
     "expandSidebar": "Expandir barra lateral",
     "collapse": "Contraer",
     "searchMainGroup": "Principal",
-    "top": {
-      "overview": "Resumen",
-      "staff": "Empleados",
-      "employeeChat": "Chat de Empleados",
-      "cameras": "Cámaras",
-      "sendNotification": "Enviar Notificación",
-      "websitePerformance": "Velocidad y Rendimiento del Sitio Web",
-      "threatScanner": "Escáner de Amenazas",
-      "malwareDetection": "Detección de Malware",
-      "seoScanner": "Escáner SEO",
-      "intrusionDetection": "Detección de Intrusiones",
-      "companySettings": "Configuración de la Empresa",
-      "gitConnections": "Integración"
-    },
-    "groups": {
-      "mikrotikRouter": {
-        "label": "Router Mikrotik",
-        "items": {
-          "routerClients": "Clientes del Router",
-          "routerHealth": "Estado del Router",
-          "routerWeb": "Conexiones Web del Router"
+    "searchNav": "Buscar en el menú...",
+    "clearSearch": "Borrar búsqueda",
+    "categories": {
+      "dashboard": {
+        "label": "Panel",
+        "entries": {
+          "overview": "Resumen",
+          "aiAssistant": "Asistente de IA"
+        },
+        "groups": {
+          "aiModules": {
+            "label": "Módulos de IA",
+            "items": {
+              "rootCauseAnalysis": "Análisis de Causa Raíz",
+              "alertCorrelation": "Correlación de Alertas",
+              "aiIncidentSummary": "Resumen de Incidentes IA",
+              "aiLogAnalyzer": "Analizador de Registros IA",
+              "aiConfigurationReview": "Revisión de Configuración IA",
+              "aiThreatDetection": "Detección de Amenazas IA"
+            }
+          }
         }
       },
-      "networkDiagram": {
-        "label": "Diagrama de Red",
-        "items": {
-          "existingDiagrams": "Diagramas Existentes",
-          "designNewDiagram": "Diseñar Nuevo Diagrama"
+      "userManagement": {
+        "label": "Gestión de Usuarios",
+        "entries": {
+          "staff": "Empleados",
+          "employeeChat": "Chat de Empleados",
+          "sendNotification": "Enviar Notificación"
+        },
+        "groups": {}
+      },
+      "securityCenter": {
+        "label": "Centro de Seguridad",
+        "entries": {
+          "securityCenterDashboard": "Panel",
+          "vulnerabilityScanner": "Escáner de Vulnerabilidades",
+          "waf": "Firewall de Aplicaciones Web",
+          "cameras": "Cámaras",
+          "intrusionDetection": "Detección de Intrusiones",
+          "ddosDetection": "Detección de DDos",
+          "threatScanner": "Escáner de Amenazas",
+          "malwareDetection": "Detección de Malware"
+        },
+        "groups": {
+          "endpointAgents": {
+            "label": "Agentes de Terminal",
+            "items": {
+              "agentDashboard": "Panel de Agentes",
+              "downloadAgent": "Descargar Agente",
+              "enrollDevice": "Registrar Dispositivo",
+              "screenshotAuditLog": "Registro de Auditoría de Capturas"
+            }
+          },
+          "fileIntegrityMonitoring": {
+            "label": "Monitoreo de Integridad de Archivos",
+            "items": {
+              "watchedFiles": "Archivos Monitoreados",
+              "fileIntegrityHistory": "Historial de Cambios"
+            }
+          },
+          "usbDeviceControl": {
+            "label": "Control de Dispositivos USB",
+            "items": {
+              "usbConnected": "USB Conectados",
+              "usbHistory": "Historial",
+              "usbBlock": "Bloquear",
+              "usbAllow": "Permitir"
+            }
+          },
+          "compliance": {
+            "label": "Cumplimiento",
+            "items": {
+              "complianceDashboard": "Panel",
+              "complianceIso27001": "ISO 27001",
+              "compliancePciDss": "PCI DSS",
+              "complianceHipaa": "HIPAA",
+              "complianceNist": "NIST",
+              "complianceSoc2": "SOC 2"
+            }
+          }
         }
       },
-      "sophosFirewall": {
-        "label": "Firewall Sophos",
-        "items": {
-          "sophosClients": "Clientes Sophos",
-          "webFilter": "Filtro Web Sophos",
-          "systemHealth": "Estado del Sistema Sophos",
-          "sophosEvents": "Eventos Sophos"
+      "networkManagement": {
+        "label": "Gestión de Red",
+        "entries": {
+          "sqlServerMonitoring": "Monitoreo de SQL Server",
+          "remoteSupport": "Soporte Remoto"
+        },
+        "groups": {
+          "mikrotikRouter": {
+            "label": "Router Mikrotik",
+            "items": {
+              "routerClients": "Clientes del Router",
+              "routerHealth": "Estado del Router",
+              "routerWeb": "Conexiones Web del Router",
+              "employeeWebActivity": "Actividad Web de Empleados"
+            }
+          },
+          "sophosFirewall": {
+            "label": "Firewall Sophos",
+            "items": {
+              "sophosClients": "Clientes Sophos",
+              "webFilter": "Filtro Web Sophos",
+              "systemHealth": "Estado del Sistema Sophos",
+              "sophosEvents": "Eventos Sophos",
+              "topConsumers": "Principales Consumidores"
+            }
+          },
+          "servers": {
+            "label": "Servidores",
+            "items": {
+              "serverList": "Lista de Servidores",
+              "addServer": "Agregar Servidor",
+              "downloadAgent": "Descargar Agente"
+            }
+          },
+          "networkTools": {
+            "label": "Herramientas de Red",
+            "items": {
+              "ping": "Ping",
+              "traceroute": "Traceroute",
+              "host": "Host",
+              "dnsCheck": "Verificación DNS",
+              "nslookup": "Nslookup",
+              "ntpTest": "Prueba de Servidor NTP",
+              "reverseDns": "Herramienta DNS Inversa",
+              "dnsPropagation": "Verificador de Propagación DNS",
+              "mtr": "Herramienta MTR",
+              "portScanner": "Escáner de Puertos"
+            }
+          },
+          "networkDiagram": {
+            "label": "Diagrama de Red",
+            "items": {
+              "existingDiagrams": "Diagramas Existentes",
+              "designNewDiagram": "Diseñar Nuevo Diagrama"
+            }
+          },
+          "mailProtection": {
+            "label": "Protección de Correo",
+            "items": {
+              "mailPolicies": "Políticas de Bloqueo de Archivos",
+              "mailExceptions": "Excepciones",
+              "mailIncidents": "Incidentes",
+              "mailTemplates": "Plantillas de Notificación",
+              "mailConnectors": "Conectores de Correo",
+              "mailReports": "Informes"
+            }
+          }
         }
       },
-      "networkTools": {
-        "label": "Herramientas de Red",
-        "items": {
-          "ping": "Ping",
-          "traceroute": "Traceroute",
-          "host": "Host",
-          "dnsCheck": "Verificación DNS",
-          "nslookup": "Nslookup",
-          "ntpTest": "Prueba de Servidor NTP",
-          "reverseDns": "Herramienta DNS Inversa",
-          "dnsPropagation": "Verificador de Propagación DNS",
-          "mtr": "Herramienta MTR"
-        }
+      "remoteAccess": {
+        "label": "Acceso Remoto",
+        "entries": {
+          "overview": "Resumen",
+          "connections": "Conexiones",
+          "quickConnect": "Conexión Rápida",
+          "activeSessions": "Sesiones Activas",
+          "remoteDesktop": "Escritorio Remoto",
+          "terminal": "Terminal",
+          "fileTransfer": "Transferencia de Archivos",
+          "serverInventory": "Inventario de Servidores",
+          "credentialsVault": "Bóveda de Credenciales",
+          "sshKeys": "Claves SSH",
+          "portForwarding": "Reenvío de Puertos",
+          "scriptsAndCommands": "Scripts y Comandos",
+          "connectionLogs": "Registro de Conexiones",
+          "settings": "Configuración"
+        },
+        "groups": {}
       },
-      "auditWebsites": {
-        "label": "Auditoría de Sitios Web y Certificados SSL",
-        "items": {
+      "itAssetLogsheet": {
+        "label": "Registro de Activos de TI",
+        "entries": {
+          "dashboard": "Panel",
+          "assetRegister": "Registro de Activos",
+          "passwordChanges": "Cambios de Contraseña",
+          "patchesAndUpdates": "Parches y Actualizaciones",
+          "softwareInventory": "Inventario de Software",
+          "maintenanceLog": "Registro de Mantenimiento",
+          "reports": "Informes",
+          "alerts": "Alertas",
+          "settings": "Configuración",
+          "auditLog": "Registro de Auditoría"
+        },
+        "groups": {}
+      },
+      "browserActivity": {
+        "label": "Auditoría de Actividad del Navegador",
+        "entries": {
+          "dashboard": "Panel",
+          "activityEvents": "Eventos de Actividad",
+          "securityAlerts": "Alertas de Seguridad",
+          "domainCategories": "Categorías de Dominio",
+          "excludedDomains": "Dominios Excluidos",
+          "auditLog": "Registro de Auditoría",
+          "settings": "Configuración",
+          "monitoringPolicy": "Política de Monitoreo"
+        },
+        "groups": {}
+      },
+      "websiteManagement": {
+        "label": "Gestión de Sitios Web",
+        "entries": {
           "websites": "Sitios Web",
-          "healthCheck": "Verificación de Salud del Sitio",
-          "sslChecker": "Verificador de Certificados SSL/TLS",
-          "headerViewer": "Visor de Encabezados HTTP / HTTPS",
-          "securityHeaders": "Cabeceras de Seguridad",
-          "gaTagFinder": "Buscador de Etiquetas GA",
-          "websiteSecurityAudit": "Auditoría de Seguridad del Sitio Web",
-          "wordpressScan": "Escaneo Profundo de WordPress"
+          "websitePerformance": "Velocidad y Rendimiento del Sitio Web",
+          "seoScanner": "Escáner SEO"
+        },
+        "groups": {
+          "websiteSslAudit": {
+            "label": "Auditoría de Sitios Web y SSL",
+            "items": {
+              "healthCheck": "Verificación de Salud del Sitio",
+              "sslChecker": "Verificador de Certificados SSL/TLS",
+              "headerViewer": "Visor de Encabezados HTTP / HTTPS",
+              "securityHeaders": "Cabeceras de Seguridad",
+              "gaTagFinder": "Buscador de Etiquetas GA",
+              "websiteSecurityAudit": "Auditoría de Seguridad del Sitio Web",
+              "wordpressScan": "Escaneo Profundo de WordPress"
+            }
+          },
+          "laravelSecurity": {
+            "label": "Seguridad de Laravel",
+            "items": {
+              "laravelSecurityDashboard": "Panel",
+              "laravelSecurityProjects": "Proyectos",
+              "laravelSecurityScans": "Análisis",
+              "laravelSecurityIssues": "Incidencias",
+              "laravelSecurityRulesSettings": "Reglas y Configuración"
+            }
+          },
+          "codeQuality": {
+            "label": "Calidad del Código",
+            "items": {
+              "codeQualityDashboard": "Panel",
+              "codeQualityProjects": "Proyectos",
+              "codeQualityScans": "Análisis",
+              "codeQualityIssues": "Incidencias",
+              "codeQualityRulesSettings": "Reglas y Configuración"
+            }
+          },
+          "qaTesting": {
+            "label": "Pruebas QA",
+            "items": {
+              "qaDashboard": "Panel QA",
+              "requirements": "Requisitos",
+              "testSuites": "Suites de Prueba",
+              "testCases": "Casos de Prueba",
+              "testPlans": "Planes de Prueba",
+              "milestones": "Hitos",
+              "testRuns": "Ejecuciones de Prueba",
+              "executeTest": "Ejecutar Prueba",
+              "bugs": "Errores",
+              "releases": "Lanzamientos",
+              "environments": "Entornos",
+              "builds": "Compilaciones",
+              "reports": "Informes QA"
+            }
+          },
+          "speedTest": {
+            "label": "Prueba de Velocidad",
+            "items": {
+              "history": "Historial de Pruebas de Velocidad",
+              "nepal": "Prueba de Velocidad Servidor Nepal",
+              "international": "Prueba de Velocidad Servidor Internacional",
+              "localIp": "Prueba de Velocidad IP Local"
+            }
+          },
+          "emailDelivery": {
+            "label": "Prueba de Entrega de Correo",
+            "items": {
+              "mxTest": "Prueba de Servidor MX",
+              "smtpTest": "Prueba de Servidor SMTP",
+              "spfDkimDmarc": "Verificador SPF, DKIM y DMARC",
+              "deliveryTest": "Prueba de Entrega de Correo",
+              "dnsblLookup": "Consulta de Base de Datos DNSBL",
+              "uriblLookup": "Consulta de Base de Datos URIBL"
+            }
+          },
+          "whatIsMyIp": {
+            "label": "Cuál Es Mi IP",
+            "items": {
+              "myIp": "Cuál Es Mi IP",
+              "ipLookup": "Búsqueda de IP",
+              "whoisLookup": "Búsqueda WHOIS",
+              "blacklistCheck": "Verificación de Lista Negra",
+              "ipv6Test": "Prueba de IPv6",
+              "proxyVpnDetection": "Detección de Proxy / VPN"
+            }
+          }
         }
       },
-      "emailDelivery": {
-        "label": "Prueba de Entrega de Correo",
-        "items": {
-          "mxTest": "Prueba de Servidor MX",
-          "smtpTest": "Prueba de Servidor SMTP",
-          "spfDkimDmarc": "Verificador SPF, DKIM y DMARC",
-          "deliveryTest": "Prueba de Entrega de Correo",
-          "dnsblLookup": "Consulta de Base de Datos DNSBL",
-          "uriblLookup": "Consulta de Base de Datos URIBL"
-        }
+      "websiteApiMonitoring": {
+        "label": "Monitoreo de Sitios Web y API",
+        "entries": {
+          "overview": "Resumen",
+          "websiteMonitors": "Monitores de Sitios Web",
+          "apiMonitors": "Monitores de API",
+          "incidents": "Incidentes",
+          "sslCertificates": "Certificados SSL",
+          "alertContacts": "Contactos de Alerta",
+          "maintenanceWindows": "Ventanas de Mantenimiento",
+          "reports": "Informes",
+          "notificationLogs": "Registro de Notificaciones",
+          "settings": "Configuración"
+        },
+        "groups": {}
       },
-      "speedTest": {
-        "label": "Prueba de Velocidad",
-        "items": {
-          "history": "Historial de Pruebas de Velocidad",
-          "nepal": "Prueba de Velocidad Servidor Nepal",
-          "international": "Prueba de Velocidad Servidor Internacional",
-          "localIp": "Prueba de Velocidad IP Local"
-        }
+      "automation": {
+        "label": "Automatización",
+        "entries": {
+          "scripts": "Scripts",
+          "remoteTasks": "Tareas Remotas",
+          "scheduledJobs": "Trabajos Programados"
+        },
+        "groups": {}
       },
-      "whatIsMyIp": {
-        "label": "Cuál Es Mi IP",
-        "items": {
-          "myIp": "Cuál Es Mi IP",
-          "ipLookup": "Búsqueda de IP",
-          "whoisLookup": "Búsqueda WHOIS",
-          "blacklistCheck": "Verificación de Lista Negra",
-          "ipv6Test": "Prueba de IPv6",
-          "proxyVpnDetection": "Detección de Proxy / VPN"
-        }
-      },
-      "endpointAgents": {
-        "label": "Agentes de Terminal",
-        "items": {
-          "agentDashboard": "Panel de Agentes",
-          "downloadAgent": "Descargar Agente",
-          "enrollDevice": "Registrar Dispositivo",
-          "screenshotAuditLog": "Registro de Auditoría de Capturas"
-        }
-      },
-      "servers": {
-        "label": "Servidores",
-        "items": {
-          "serverList": "Lista de Servidores",
-          "addServer": "Agregar Servidor",
-          "downloadAgent": "Descargar Agente"
-        }
-      },
-      "sqlServerMonitoring": {
-        "label": "Monitoreo de SQL Server",
-        "items": {
-          "sqlServerMonitoringList": "Instancias"
-        }
-      },
-      "website": {
-        "label": "Sitio Web",
-        "items": {
-          "sliderManagement": "Gestión del Slider",
-          "supportTickets": "Tickets de Soporte",
-          "contactMessages": "Mensajes de Contacto"
-        }
-      },
-      "qaTesting": {
-        "label": "Pruebas QA",
-        "items": {
-          "qaDashboard": "Panel QA",
-          "requirements": "Requisitos",
-          "testSuites": "Suites de Prueba",
-          "testCases": "Casos de Prueba",
-          "testPlans": "Planes de Prueba",
-          "milestones": "Hitos",
-          "testRuns": "Ejecuciones de Prueba",
-          "executeTest": "Ejecutar Prueba",
-          "bugs": "Errores",
-          "reports": "Informes QA",
-          "releases": "Lanzamientos",
-          "environments": "Entornos",
-          "builds": "Compilaciones"
-        }
-      },
-      "codeQuality": {
-        "label": "Calidad del Código",
-        "items": {
-          "codeQualityDashboard": "Panel",
-          "codeQualityProjects": "Proyectos",
-          "codeQualityScans": "Análisis",
-          "codeQualityIssues": "Incidencias",
-          "codeQualityRulesSettings": "Reglas y Configuración"
-        }
-      },
-      "laravelSecurity": {
-        "label": "Seguridad de Laravel",
-        "items": {
-          "laravelSecurityDashboard": "Panel",
-          "laravelSecurityProjects": "Proyectos",
-          "laravelSecurityScans": "Análisis",
-          "laravelSecurityIssues": "Incidencias",
-          "laravelSecurityRulesSettings": "Reglas y Configuración"
+      "administration": {
+        "label": "Administración",
+        "entries": {
+          "gitConnections": "Integración",
+          "companySettings": "Configuración de la Empresa"
+        },
+        "groups": {
+          "website": {
+            "label": "Sitio Web",
+            "items": {
+              "sliderManagement": "Gestión del Slider",
+              "supportTickets": "Tickets de Soporte",
+              "contactMessages": "Mensajes de Contacto"
+            }
+          },
+          "utilities": {
+            "label": "Utilidades",
+            "items": {
+              "sslDecoder": "Decodificador SSL",
+              "jwtDecoder": "Decodificador JWT",
+              "base64Tool": "Herramienta Base64",
+              "hashGenerator": "Generador de Hash",
+              "qrCodeGenerator": "Generador de Código QR",
+              "passwordGenerator": "Generador de Contraseñas",
+              "cronTester": "Probador de Expresiones Cron",
+              "regexTester": "Probador de Expresiones Regulares",
+              "jsonFormatter": "Formateador JSON",
+              "yamlValidator": "Validador YAML",
+              "xmlValidator": "Validador XML",
+              "cidrCalculator": "Calculadora CIDR",
+              "subnetCalculator": "Calculadora de Subredes",
+              "urlEncoderDecoder": "Codificador/Decodificador URL",
+              "timezoneConverter": "Convertidor de Zona Horaria"
+            }
+          }
         }
       }
     }
@@ -527,11 +716,24 @@
     "internalIpsTotal24h": "{count} IPs internas en total (24h)",
     "knownDevicesTotal": "{count} dispositivos conocidos en total",
     "deviceStatusTitle": "Estado de Dispositivos",
-    "deviceFirstSeen": "Dispositivo de {name} visto por primera vez en la red"
+    "deviceFirstSeen": "Dispositivo de {name} visto por primera vez en la red",
+    "customizeDashboard": "Personalizar Panel",
+    "doneCustomizing": "Listo",
+    "widgetCalendarWeather": "Calendario y Clima",
+    "widgetKpis": "KPIs del Sistema",
+    "widgetBandwidth": "Gráfico de Ancho de Banda",
+    "widgetDeviceStatus": "Estado del Dispositivo",
+    "widgetAlertsTimeline": "Alertas y Cronología de Actividad",
+    "widgetRightRail": "Puntuación de Salud y Resumen de Red",
+    "widgetOfflineDevices": "Dispositivos Desconectados",
+    "widgetExpiringSsl": "Certificados SSL Próximos a Vencer",
+    "widgetMalwareFindings": "Hallazgos de Malware Abiertos",
+    "widgetTopBandwidthConsumers": "Principales Consumidores de Ancho de Banda"
   },
   "employees": {
     "list": {
       "pageTitle": "Empleados",
+      "webActivityReportLink": "Conexiones Web del Router — informe de actividad (todos los empleados)",
       "intro": "Un empleado está vinculado a una <strong>dirección MAC</strong>, no a una IP — la IP mostrada abajo es solo la dirección <em>actual</em> del dispositivo, resuelta en tiempo real a partir de los arrendamientos DHCP del router MikroTik o de la tabla ARP de este servidor para los clientes de Sophos. Se conserva cada IP que esa MAC haya usado alguna vez, por lo que el informe de actividad en la página de cada empleado cubre todo su historial incluso después de que cambie la IP — no solo el día de hoy. Todo aquí (Empleados, historial de dispositivos, Filtro Web, registros del Router) se almacena de forma permanente en la base de datos SQL, nada se mantiene solo en memoria. En línea/Fuera de línea y Visto por primera vez se basan únicamente en la actividad de red — no hay hora de inicio de sesión del sistema operativo, y los datos de CPU/RAM/pantalla no están disponibles sin un agente de endpoint instalado en cada PC.",
       "totalEmployeesLabel": "Total de Empleados",
       "onlineLabel": "En línea",
@@ -589,6 +791,11 @@
       "lastUpdatedColumn": "Última Actualización",
       "noDeviceEverSeenNotice": "Ningún dispositivo asignado o visto alguna vez para este miembro del personal, por lo que no hay actividad que mostrar.",
       "webFilterReportTitle": "Sophos Web Filter — informe de actividad",
+      "categoryChartTitle": "Desglose por categoría (últimos 30 días)",
+      "applicationChartTitle": "Desglose por aplicación (últimos 30 días)",
+      "applicationColumn": "Aplicación",
+      "bandwidthLabel": "Ancho de banda utilizado, últimos 30 días (tráfico registrado por Sophos):",
+      "destinationChartTitle": "Principales destinos (últimos 30 días)",
       "activityReportSub": "En todas las IPs conocidas de este dispositivo, las más recientes primero (hasta 50 mostradas).",
       "noWebFilterEvents": "Aún no hay eventos de Web Filter para este dispositivo.",
       "timeColumn": "Hora",
@@ -600,6 +807,15 @@
       "noRouterWebConnections": "Aún no hay conexiones web del router para este dispositivo.",
       "destinationColumn": "Destino",
       "portColumn": "Puerto"
+    },
+    "webActivity": {
+      "pageTitle": "Conexiones Web del Router — informe de actividad (todos los empleados)",
+      "subtitle": "Todas las conexiones conocidas de cada empleado en un solo feed, más recientes primero, correlacionadas igual que en la página de cada empleado — por dirección MAC en todas las IP que haya tenido alguna vez.",
+      "employeeColumn": "Empleado",
+      "noActivity": "Aún no se encontró actividad de conexiones web del router para ningún empleado.",
+      "pageOf": "Página {page} de {totalPages}",
+      "prevPage": "Anterior",
+      "nextPage": "Siguiente"
     },
     "table": {
       "searchPlaceholder": "Buscar por nombre, host, IP o dirección MAC...",
@@ -613,6 +829,9 @@
       "ipAddressColumn": "Dirección IP",
       "lastSeenColumn": "Visto por Última Vez",
       "macAddressColumn": "Dirección MAC",
+      "webActivityColumn": "Actividad Web",
+      "webActivityTitle": "{count} conexiones web del router conocidas",
+      "webActivityAgo": "hace {duration}",
       "noDeviceStatus": "Sin dispositivo",
       "onlineStatus": "En línea",
       "offlineStatus": "Fuera de línea",
@@ -910,7 +1129,22 @@
       "keyPlaceholder": "Clave (p. ej., welcome_email)",
       "subjectPlaceholder": "Asunto",
       "bodyPlaceholder": "Cuerpo",
-      "editTemplateModalTitle": "Editar Plantilla — {key}"
+      "editTemplateModalTitle": "Editar Plantilla — {key}",
+      "moduleRecipientsTitle": "Destinatarios de Correo por Módulo",
+      "moduleRecipientsDescription": "Elija quién recibe el correo para cada módulo y submódulo.",
+      "moduleColumn": "Módulo",
+      "recipientsColumn": "Destinatarios",
+      "enabledColumn": "Habilitado",
+      "recipientsPlaceholder": "nombre@ejemplo.com, otro@ejemplo.com",
+      "moduleRecipientsSaved": "Destinatarios guardados.",
+      "addModuleButton": "Agregar Módulo",
+      "addModuleModalTitle": "Agregar Módulo de Notificación",
+      "moduleNamePlaceholder": "Nombre del módulo (p. ej., Alertas de Marketing)",
+      "subModuleNamePlaceholder": "Nombre del submódulo (opcional)",
+      "moduleAdded": "Módulo agregado.",
+      "moduleDeleted": "Módulo eliminado.",
+      "moduleNameRequired": "El nombre del módulo es obligatorio.",
+      "removeModuleConfirm": "¿Eliminar este módulo y su lista de destinatarios?"
     },
     "rolesPermissions": {
       "title": "Roles y Permisos",

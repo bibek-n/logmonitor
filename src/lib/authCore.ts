@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { getDb, sql } from "./db";
 
 export interface AuthCoreUser {
@@ -65,6 +66,76 @@ export async function getUserForOtpCheck(username: string): Promise<OtpCheckUser
       FROM Users WHERE Username = @username`
     );
   return result.recordset[0] ?? null;
+}
+
+const COMMIT_TOKEN_TTL_MINUTES = 3;
+
+function hashCommitToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function timingSafeEqualHex(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// Issued by /api/auth/request-otp immediately after validateUserCredentials's bcrypt password
+// check succeeds, and returned to the caller's own browser in that response. authorize() in
+// authOptions.ts can then trust a matching, unexpired, single-use token as proof the password
+// was already correctly verified moments ago — skipping a second, identically expensive bcrypt
+// compare on the hot "user just entered their OTP/TOTP code" path. This is safe specifically
+// because the raw token is a fresh, unguessable secret disclosed only to whoever already had
+// the correct password (nothing about "was this user's password ever verified recently" is
+// trusted on its own — only possession of this exact bearer token is): a party who never
+// called request-otp themselves — e.g. someone who obtained a valid OTP/TOTP code some other
+// way but doesn't know the password — never sees this token and gets no shortcut.
+export async function issueCommitToken(userId: number): Promise<string> {
+  const token = crypto.randomBytes(24).toString("hex");
+  const db = await getDb();
+  await db
+    .request()
+    .input("id", sql.Int, userId)
+    .input("hash", sql.VarChar, hashCommitToken(token))
+    .query(`UPDATE Users SET CommitTokenHash = @hash, CommitTokenExpiresAt = DATEADD(MINUTE, ${COMMIT_TOKEN_TTL_MINUTES}, SYSUTCDATETIME()) WHERE Id = @id`);
+  return token;
+}
+
+export interface AuthCommitUser extends AuthCoreUser {
+  IsActive: boolean;
+}
+
+// Cheap, no-bcrypt user lookup for authorize()'s commit step — paired with a commitToken
+// check (see issueCommitToken above). Whenever there's no valid token, authorize() falls back
+// to the full validateUserCredentials() bcrypt path below, so nothing here can grant a session
+// on its own; it only lets the common case skip redundant work.
+export async function getUserForAuthCommit(username: string): Promise<(AuthCommitUser & { CommitTokenHash: string | null; CommitTokenExpiresAt: Date | null }) | null> {
+  const db = await getDb();
+  const result = await db
+    .request()
+    .input("username", sql.NVarChar, username)
+    .query<AuthCommitUser & { CommitTokenHash: string | null; CommitTokenExpiresAt: Date | null }>(
+      `SELECT Id, Username, Role, IsActive, Email, PendingOtpCodeHash, PendingOtpExpiresAt,
+        PendingOtpAttempts, TotpEnabled, TotpSecretEncrypted, CommitTokenHash, CommitTokenExpiresAt
+      FROM Users WHERE Username = @username`
+    );
+  return result.recordset[0] ?? null;
+}
+
+// Verifies a caller-supplied commitToken against the stored hash with a constant-time
+// comparison (the hash itself is effectively a bearer secret). Returns true only when the
+// hash matches AND the token hasn't expired — callers must consume it via consumeCommitToken
+// right after a successful check so it can never cover a second sign-in attempt.
+export function commitTokenMatches(user: { CommitTokenHash: string | null; CommitTokenExpiresAt: Date | null }, token: string | undefined): boolean {
+  if (!token || !user.CommitTokenHash || !user.CommitTokenExpiresAt) return false;
+  if (new Date(user.CommitTokenExpiresAt).getTime() < Date.now()) return false;
+  return timingSafeEqualHex(hashCommitToken(token), user.CommitTokenHash);
+}
+
+export async function consumeCommitToken(userId: number): Promise<void> {
+  const db = await getDb();
+  await db.request().input("id", sql.Int, userId).query("UPDATE Users SET CommitTokenHash = NULL, CommitTokenExpiresAt = NULL WHERE Id = @id");
 }
 
 // Used by the passkey (WebAuthn) sign-in path, which authenticates via a stored credential

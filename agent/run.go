@@ -31,7 +31,9 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	interval := time.Duration(cfg.HeartbeatIntervalSeconds) * time.Second
 
 	var screenshotMonitoringActive bool
+	var browserActivityMonitoringActive bool
 	var lastIntervalCapture time.Time
+	var lastBrowserHistory time.Time
 	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
 
 	// USB detection runs on its own fast ticker rather than piggybacking on the main
@@ -68,6 +70,32 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			}
 			screenshotMonitoringActive = active
 
+			// Browser Activity Audit: driven entirely by the heartbeat's own field, same as
+			// screenshots above - never a separate ticker, since an admin turning this off
+			// must take effect within one heartbeat interval, not whenever some independent
+			// goroutine happens to notice.
+			browserActivityActive := hb.BrowserActivityIntervalMinutes != nil && !hb.PrivacyMode
+			if browserActivityActive && !browserActivityMonitoringActive {
+				notify("LogMonitor Agent", "Browser activity monitoring is now active on this device.")
+			} else if !browserActivityActive && browserActivityMonitoringActive {
+				notify("LogMonitor Agent", "Browser activity monitoring has stopped on this device.")
+			}
+			browserActivityMonitoringActive = browserActivityActive
+
+			if browserActivityActive && time.Since(lastBrowserHistory) >= time.Duration(*hb.BrowserActivityIntervalMinutes)*time.Minute {
+				// Own goroutine - reading several users' Chrome/Edge/Firefox history DBs can
+				// take a moment, and must never delay the next heartbeat, same reasoning as
+				// the malware scan/PHP log/automation cases below.
+				go func(suffixes []string) {
+					if events := CollectBrowserHistory(suffixes); len(events) > 0 {
+						if err := client.PostBrowserActivity(events); err != nil {
+							log.Printf("browser activity upload failed: %v", err)
+						}
+					}
+				}(hb.ExcludedDomainSuffixes)
+				lastBrowserHistory = time.Now()
+			}
+
 			if metrics := CollectMetrics(); true {
 				if err := client.PostMetrics(metrics); err != nil {
 					log.Printf("metrics upload failed: %v", err)
@@ -85,6 +113,35 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			// quick, but there's no need to risk it on the heartbeat's own critical path.
 			if len(hb.PendingPhpLogRequests) > 0 {
 				go handlePendingPhpLogRequests(client, hb.PendingPhpLogRequests)
+			}
+
+			// Same non-blocking reasoning as the malware scan/PHP log cases above - a script can
+			// run for up to its own configured timeout, and must never delay the next heartbeat.
+			// handlePendingAutomationJobs dispatches each job into its own goroutine internally
+			// (not wrapped in `go` here) since it also needs to de-dup against jobs already
+			// in flight from a previous heartbeat before deciding whether to spawn one at all.
+			if len(hb.PendingAutomationJobs) > 0 {
+				handlePendingAutomationJobs(client, hb.PendingAutomationJobs)
+			}
+
+			// Runs every heartbeat (not just when non-empty) - ApplyUsbPolicy itself needs to
+			// see an empty list to know a previously-active Block entry was removed and
+			// re-enable whatever it had disabled. In its own goroutine since it shells out to
+			// PowerShell (registry + Disable-PnpDevice) per matching device, same non-blocking
+			// reasoning as the malware scan/PHP log cases above. No-op on non-Windows builds -
+			// see usbpolicy_other.go.
+			go ApplyUsbPolicy(client, hb.UsbBlockList)
+
+			// Same non-blocking reasoning - a watched file could sit on a slow network share,
+			// and this must never delay the next heartbeat.
+			if len(hb.WatchedFiles) > 0 {
+				go func() {
+					for _, change := range CheckWatchedFiles(hb.WatchedFiles) {
+						if err := client.PostFileIntegrityEvent(change); err != nil {
+							log.Printf("file integrity event upload failed (%s): %v", change.FilePath, err)
+						}
+					}
+				}()
 			}
 
 			shouldCaptureManual := hb.PendingScreenshotRequest && !hb.PrivacyMode

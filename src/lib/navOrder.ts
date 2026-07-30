@@ -1,27 +1,30 @@
-// Per-browser sidebar customization (move top-level menus and their submenu items up/down),
-// persisted the same way as the existing sidebar collapse-rail preference
-// (logmonitor-sidebar-collapsed in SidebarShell.tsx) — localStorage, no DB table, since this
-// is a personal UI arrangement rather than data other admins need to see.
-export const NAV_ORDER_KEY = "logmonitor-sidebar-order";
+// Per-browser sidebar customization, persisted the same way as the existing sidebar
+// collapse-rail preference (logmonitor-sidebar-collapsed in SidebarShell.tsx) — localStorage,
+// no DB table, since this is a personal UI arrangement rather than data other admins need to
+// see. Categories themselves are NOT reorderable — their order is a fixed, curated taxonomy
+// by function (the entire point of the sidebar reorganization), not something to scramble via
+// drag-and-drop. What IS still reorderable: entries within a category (links and subgroups,
+// keyed by category), and items within a subgroup (keyed by subgroup) - two levels, same
+// scope as the pre-reorganization sidebar had (top-items + group-items), just nested one
+// level deeper under categories now.
+export const NAV_ORDER_KEY = "logmonitor-sidebar-order-v2";
 
 export interface SidebarOrder {
-  topOrder: string[]; // TOP_ITEMS hrefs, custom order
-  groupOrder: string[]; // NAV_GROUPS labels, custom order
-  itemOrder: Record<string, string[]>; // group label -> item hrefs, custom order
+  entryOrder: Record<string, string[]>; // category key -> ordered list of entry keys
+  itemOrder: Record<string, string[]>; // subgroup key -> ordered list of item hrefs
 }
 
 export function loadNavOrder(): SidebarOrder {
   try {
     const raw = localStorage.getItem(NAV_ORDER_KEY);
-    if (!raw) return { topOrder: [], groupOrder: [], itemOrder: {} };
+    if (!raw) return { entryOrder: {}, itemOrder: {} };
     const parsed = JSON.parse(raw);
     return {
-      topOrder: Array.isArray(parsed.topOrder) ? parsed.topOrder : [],
-      groupOrder: Array.isArray(parsed.groupOrder) ? parsed.groupOrder : [],
+      entryOrder: typeof parsed.entryOrder === "object" && parsed.entryOrder ? parsed.entryOrder : {},
       itemOrder: typeof parsed.itemOrder === "object" && parsed.itemOrder ? parsed.itemOrder : {},
     };
   } catch {
-    return { topOrder: [], groupOrder: [], itemOrder: {} };
+    return { entryOrder: {}, itemOrder: {} };
   }
 }
 

@@ -53,12 +53,14 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
       LastIp: string | null;
       MacAddress: string | null;
       ScreenshotIntervalMinutes: number | null;
+      BrowserActivityIntervalMinutes: number | null;
       PrivacyMode: boolean;
       EnrolledAt: string;
       ConsentAcceptedAt: string | null;
     }>(`
       SELECT d.DeviceId, d.Hostname, d.OS, d.OsVersion, d.AgentVersion, d.Department, d.StaffId, s.Name AS StaffName,
-        d.LastHeartbeat, d.LastIp, d.MacAddress, d.ScreenshotIntervalMinutes, d.PrivacyMode, d.EnrolledAt, d.ConsentAcceptedAt
+        d.LastHeartbeat, d.LastIp, d.MacAddress, d.ScreenshotIntervalMinutes, d.BrowserActivityIntervalMinutes,
+        d.PrivacyMode, d.EnrolledAt, d.ConsentAcceptedAt
       FROM Devices d
       LEFT JOIN Staff s ON s.Id = d.StaffId
       WHERE d.DeviceId = @deviceId
@@ -124,6 +126,7 @@ export default async function DeviceDetailPage({ params }: { params: Promise<{ d
     macAddress: device.MacAddress,
     online: device.LastHeartbeat ? Date.now() - new Date(device.LastHeartbeat).getTime() <= 90000 : false,
     screenshotIntervalMinutes: device.ScreenshotIntervalMinutes,
+    browserActivityIntervalMinutes: device.BrowserActivityIntervalMinutes,
     privacyMode: device.PrivacyMode,
     enrolledAt: device.EnrolledAt,
     consentAcceptedAt: device.ConsentAcceptedAt,
