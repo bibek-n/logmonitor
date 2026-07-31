@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows && !legacy_win7
 
 package main
 
