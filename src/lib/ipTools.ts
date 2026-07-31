@@ -1,4 +1,5 @@
 import dns from "dns";
+import net from "net";
 
 const dnsPromises = dns.promises;
 
@@ -139,56 +140,139 @@ export async function proxyVpnDetection(target: string): Promise<string> {
   return lines.join("\n");
 }
 
-// --- WHOIS Lookup (via RDAP) ---
-// RDAP is the modern, structured, IANA-standardized replacement for legacy WHOIS text
-// parsing — rdap.org acts as a bootstrap redirector to the authoritative registry for any
-// domain or IP, so one endpoint works for both without us needing per-TLD/per-RIR server lists.
-function pickVcardField(vcardArray: unknown, field: string): string | null {
-  if (!Array.isArray(vcardArray) || vcardArray.length < 2 || !Array.isArray(vcardArray[1])) return null;
-  const entry = (vcardArray[1] as unknown[]).find((e) => Array.isArray(e) && e[0] === field) as unknown[] | undefined;
-  return entry && typeof entry[3] !== "undefined" ? String(entry[3]) : null;
+// --- WHOIS Lookup (raw WHOIS protocol, RFC 3912) ---
+// A real port-43 WHOIS client rather than an RDAP/JSON summary: RDAP has no coverage for many
+// ccTLDs (e.g. .se has no RDAP endpoint at all — confirmed against rdap.org, which 404s for it),
+// while every TLD's registry still answers the original text protocol. This returns the
+// registry's own raw text verbatim (same output a `whois` CLI would print), which is what
+// carries registrar/organization details (e.g. .se's `registrar:` line) - never attempts to
+// deanonymize a registry-redacted holder/registrant field (e.g. .se's opaque `holder:` handle,
+// withheld under Swedish privacy law per that server's own banner) - only what the registry
+// itself discloses is ever shown.
+const WHOIS_QUERY_TIMEOUT_MS = 10000;
+const WHOIS_PORT = 43;
+
+function rawWhoisQuery(server: string, query: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: server, port: WHOIS_PORT });
+    let data = "";
+    const timer = setTimeout(() => {
+      socket.destroy();
+      reject(new Error(`WHOIS query to ${server} timed out.`));
+    }, WHOIS_QUERY_TIMEOUT_MS);
+    socket.on("connect", () => socket.write(`${query}\r\n`));
+    socket.on("data", (chunk) => {
+      data += chunk.toString("utf8");
+    });
+    socket.on("end", () => {
+      clearTimeout(timer);
+      resolve(data);
+    });
+    socket.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
 }
 
-export async function whoisLookup(target: string): Promise<string> {
-  const kind = isValidIp(target) ? "ip" : "domain";
-  const url = `https://rdap.org/${kind}/${encodeURIComponent(target)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) {
-    if (res.status === 404) return `No WHOIS/RDAP record found for ${target}.`;
-    throw new Error(`RDAP lookup failed (HTTP ${res.status}).`);
-  }
-  const data = await res.json();
+// Many registries answer with only a thin record plus a pointer to the registrar's own (fuller)
+// WHOIS server - this is the standard one-hop referral every public whois client follows.
+export function extractReferralServer(text: string): string | null {
+  const match = text.match(/^\s*(?:Registrar WHOIS Server|Whois Server|ReferralServer)\s*:\s*(?:whois:\/\/)?(\S+?)\/?\s*$/im);
+  return match ? match[1] : null;
+}
 
-  const lines = [`WHOIS (RDAP) record for ${target}:`, ""];
-  if (data.ldhName) lines.push(`Domain: ${data.ldhName}`);
-  if (data.handle) lines.push(`Handle: ${data.handle}`);
-  if (Array.isArray(data.status) && data.status.length) lines.push(`Status: ${data.status.join(", ")}`);
-  if (Array.isArray(data.nameservers) && data.nameservers.length) {
-    lines.push(`Nameservers: ${data.nameservers.map((n: { ldhName?: string }) => n.ldhName).filter(Boolean).join(", ")}`);
-  }
-  if (kind === "ip") {
-    if (data.startAddress) lines.push(`Range: ${data.startAddress} - ${data.endAddress ?? ""}`);
-    if (data.name) lines.push(`Network Name: ${data.name}`);
-    if (data.country) lines.push(`Country: ${data.country}`);
-  }
+// IANA's own WHOIS server is the canonical bootstrap for "which server is authoritative for
+// this TLD" - avoids maintaining a hand-curated per-TLD server list that would silently rot.
+async function findTldWhoisServer(domain: string): Promise<string> {
+  const tld = domain.split(".").pop();
+  if (!tld) throw new Error(`Could not determine the TLD for ${domain}.`);
+  const referral = await rawWhoisQuery("whois.iana.org", tld);
+  const match = referral.match(/^\s*whois:\s*(\S+)/im);
+  if (!match) throw new Error(`No public WHOIS server is registered for .${tld} with IANA.`);
+  return match[1];
+}
 
-  if (Array.isArray(data.events)) {
-    for (const ev of data.events as { eventAction: string; eventDate: string }[]) {
-      lines.push(`${ev.eventAction}: ${new Date(ev.eventDate).toISOString().slice(0, 10)}`);
-    }
-  }
+interface RdapEntity {
+  roles?: string[];
+  vcardArray?: [string, unknown[]];
+  entities?: RdapEntity[];
+}
 
-  if (Array.isArray(data.entities)) {
-    for (const entity of data.entities as { roles?: string[]; vcardArray?: unknown }[]) {
-      const role = entity.roles?.join("/") ?? "entity";
-      const name = entity.vcardArray ? pickVcardField(entity.vcardArray, "fn") : null;
-      const org = entity.vcardArray ? pickVcardField(entity.vcardArray, "org") : null;
-      const label = name || org;
-      if (label) lines.push(`${role}: ${label}`);
-    }
+interface RdapIpResponse {
+  handle?: string;
+  startAddress?: string;
+  endAddress?: string;
+  name?: string;
+  type?: string;
+  country?: string;
+  entities?: RdapEntity[];
+}
+
+function pickVcardField(vcardArray: unknown, field: string): string | null {
+  if (!Array.isArray(vcardArray) || !Array.isArray(vcardArray[1])) return null;
+  const entry = (vcardArray[1] as unknown[][]).find((e) => Array.isArray(e) && e[0] === field);
+  return entry && typeof entry[3] === "string" ? entry[3] : null;
+}
+
+// Formats an RDAP IP-network response into the same plain key/value shape the raw-WHOIS
+// output above uses, so both paths read consistently in the UI.
+function formatRdapIp(data: RdapIpResponse, target: string): string {
+  const lines = [`RDAP lookup for ${target}:`, ""];
+  if (data.handle) lines.push(`handle:      ${data.handle}`);
+  if (data.name) lines.push(`network:     ${data.name}`);
+  if (data.startAddress && data.endAddress) lines.push(`range:       ${data.startAddress} - ${data.endAddress}`);
+  if (data.type) lines.push(`type:        ${data.type}`);
+  if (data.country) lines.push(`country:     ${data.country}`);
+
+  for (const entity of data.entities ?? []) {
+    const org = entity.vcardArray ? pickVcardField(entity.vcardArray, "fn") : null;
+    if (org && entity.roles?.length) lines.push(`${entity.roles.join("/")}:  ${org}`);
   }
 
   return lines.join("\n");
+}
+
+// ARIN's port-43 WHOIS service blocks/drops queries from many datacenter and cloud egress
+// ranges (confirmed: ARIN unreachable on port 43 from this network while reachable on 443,
+// and other RIRs' port 43 works fine from the same network) - RDAP is the documented modern
+// replacement and has full IP/RIR coverage via the same bootstrap registries, over plain
+// HTTPS, so it's used as a fallback for the IP case specifically rather than leaving IP
+// lookups broken on networks where ARIN's legacy WHOIS port is filtered.
+async function rdapIpFallback(target: string): Promise<string> {
+  const res = await fetch(`https://rdap.org/ip/${encodeURIComponent(target)}`, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`RDAP lookup failed (HTTP ${res.status}).`);
+  const data = (await res.json()) as RdapIpResponse;
+  return formatRdapIp(data, target);
+}
+
+export async function whoisLookup(target: string): Promise<string> {
+  const isIp = isValidIp(target);
+  const server = isIp ? "whois.arin.org" : await findTldWhoisServer(target);
+
+  let primary: string;
+  try {
+    primary = await rawWhoisQuery(server, target);
+  } catch (err) {
+    if (isIp) return rdapIpFallback(target);
+    throw err;
+  }
+
+  const referralServer = extractReferralServer(primary);
+
+  if (!referralServer || referralServer.toLowerCase() === server.toLowerCase()) {
+    return primary.trim();
+  }
+
+  try {
+    const secondary = await rawWhoisQuery(referralServer, target);
+    return `${primary.trim()}\n\n${secondary.trim()}`;
+  } catch {
+    // Some registrar/RIR WHOIS servers rate-limit or block automated queries - the registry-
+    // level response above is still a complete, valid answer on its own, so a failed referral
+    // hop isn't fatal to the whole lookup.
+    return primary.trim();
+  }
 }
 
 // --- Blacklist Check (DNSBL) ---
