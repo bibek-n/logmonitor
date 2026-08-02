@@ -1,4 +1,4 @@
-//go:build windows && !legacy_win7
+//go:build darwin
 
 package main
 
@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,18 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/h264reader"
 )
 
+// View-only on macOS: screen capture (below) works exactly like Windows, but remote INPUT
+// control does not exist here. Real mouse/keyboard synthesis on macOS (CGEventPost, via the
+// ApplicationServices/CoreGraphics frameworks) has no pure-Go path the way Windows' SendInput
+// does through golang.org/x/sys/windows - it needs cgo, which this project deliberately keeps
+// disabled everywhere (CGO_ENABLED=0 - see go.mod.win7's header comment and the release
+// workflow) so every platform can cross-compile from plain ubuntu-latest runners without a
+// macOS build host or Xcode command-line tools. Supporting real remote control here would mean
+// adding an actual macOS-hosted CI job with cgo enabled - a real infrastructure change, not
+// attempted in this pass. The data channel below is still wired up and receives input events
+// exactly like Windows does; handleRemoteInput (below) just intentionally discards them
+// instead of injecting anything, so an admin can see clearly (via remoteSupportLog) that a
+// control attempt arrived but wasn't actionable, rather than it silently vanishing.
 const captureFrameRate = 15
 
 var (
@@ -29,28 +42,37 @@ type liveSession struct {
 	stopPoll  chan struct{}
 }
 
-// ffmpegPath looks in PATH first, then next to chattray.exe itself - ffmpeg has no other
-// footprint in this app, so the simplest deployable option is dropping ffmpeg.exe alongside
-// the agent/chattray binaries rather than requiring a separate system-wide install step.
+// ffmpegPath looks in PATH first, then next to this running executable itself - same
+// reasoning as the Windows variant, just without the .exe suffix.
 func ffmpegPath() (string, error) {
 	if p, err := exec.LookPath("ffmpeg"); err == nil {
 		return p, nil
 	}
 	if exe, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exe), "ffmpeg.exe")
+		candidate := filepath.Join(filepath.Dir(exe), "ffmpeg")
 		if _, statErr := os.Stat(candidate); statErr == nil {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf("ffmpeg.exe not found in PATH or next to chattray.exe")
+	return "", fmt.Errorf("ffmpeg not found in PATH or next to the agent binary")
 }
 
-// startFfmpegCapture shells out to ffmpeg's gdigrab input (screen capture requires no
-// additional Windows APIs/permissions beyond what the logged-in user already has) and encodes
-// straight to a low-latency H.264 Annex-B elementary stream on stdout. ultrafast+zerolatency
-// trade compression efficiency for encode speed, which matters far more than bandwidth for an
-// interactive support session; a short, fixed GOP (keyint=30, no scene-cut insertion) bounds
-// how long the far end can be stuck on a broken frame after any packet loss.
+// startFfmpegCapture shells out to ffmpeg's avfoundation input (macOS's screen-capture
+// input device, the Darwin analog of gdigrab on Windows/x11grab-via-scrot-etc. on Linux) and
+// encodes straight to a low-latency H.264 Annex-B elementary stream on stdout - identical
+// encode settings to the Windows variant, same reasoning (encode speed over compression
+// efficiency for an interactive session, short fixed GOP to bound how long a lost packet can
+// stick the far end on a broken frame).
+//
+// "1:none" selects avfoundation capture device index 1 with no audio - by convention this is
+// the primary display on most Macs, but avfoundation's device *numbering* isn't guaranteed
+// stable across machines/macOS versions the way gdigrab's fixed "desktop" identifier is on
+// Windows (it depends on what other capture-capable devices - iOS screen sharing, capture
+// cards, etc. - are enumerated first). This is the one real known gap versus Windows/Linux
+// parity here: a device where the primary display isn't at index 1 will fail to start a
+// session, surfaced via remoteSupportLog, not silently. Worth revisiting (e.g. probing
+// `ffmpeg -f avfoundation -list_devices true -i ""` output at runtime to find "Capture
+// screen 0" reliably) if this turns out to matter across real hardware.
 func startFfmpegCapture(track *webrtc.TrackLocalStaticSample) (*exec.Cmd, error) {
 	ffmpeg, err := ffmpegPath()
 	if err != nil {
@@ -58,9 +80,9 @@ func startFfmpegCapture(track *webrtc.TrackLocalStaticSample) (*exec.Cmd, error)
 	}
 
 	cmd := exec.Command(ffmpeg,
-		"-f", "gdigrab",
+		"-f", "avfoundation",
 		"-framerate", fmt.Sprintf("%d", captureFrameRate),
-		"-i", "desktop",
+		"-i", "1:none",
 		"-vcodec", "libx264",
 		"-preset", "ultrafast",
 		"-tune", "zerolatency",
@@ -99,6 +121,29 @@ func startFfmpegCapture(track *webrtc.TrackLocalStaticSample) (*exec.Cmd, error)
 	return cmd, nil
 }
 
+// handleRemoteInput intentionally discards every event - see this file's package comment for
+// why real input injection isn't implemented on macOS. Logged (not silent) so an admin
+// reviewing remote-support.log can tell a control attempt arrived rather than assuming a bug
+// dropped it.
+func handleRemoteInput(data []byte, permissionsGranted string) {
+	if !hasPermission(permissionsGranted, "control") {
+		return
+	}
+	remoteSupportLog("remote input event received but macOS remote control is not supported (view-only) - discarding")
+}
+
+// hasPermission is duplicated from remotesupport_input_windows.go (that file's build tag
+// restricts it to GOOS=windows) - trivial enough that sharing it isn't worth restructuring
+// around, same reasoning as service_darwin.go's duplicated mustLoadConfig.
+func hasPermission(granted, want string) bool {
+	for _, p := range strings.Split(granted, ",") {
+		if strings.TrimSpace(p) == want {
+			return true
+		}
+	}
+	return false
+}
+
 func toPionICEServers(servers []iceServer) []webrtc.ICEServer {
 	out := make([]webrtc.ICEServer, 0, len(servers))
 	for _, s := range servers {
@@ -111,15 +156,10 @@ func toPionICEServers(servers []iceServer) []webrtc.ICEServer {
 	return out
 }
 
-// startLiveSession builds the pion PeerConnection as the OFFERER (per the Phase 1 sequence
-// diagram: the agent initiates once it sees Active, the admin console answers) and uses
-// vanilla/non-trickle ICE - it waits for gathering to complete and sends one offer with every
-// local candidate already embedded, then expects exactly one "answer" message back. This keeps
-// the signaling protocol over this app's HTTP long-poll relay to the bare minimum (one message
-// each way) rather than needing a steady trickle of individual ice-candidate messages in both
-// directions, which is fine because ICE gathering here typically completes in well under a
-// second (Phase 5's coturn TURN server is always available as a fallback candidate).
-func startLiveSession(cfg *chatConfig, session *remoteSessionInfo) error {
+// startLiveSession mirrors the Windows variant exactly (same PeerConnection/offer/signaling
+// shape - see that file's doc comment for the full protocol reasoning); the only differences
+// are startFfmpegCapture's avfoundation input above and handleRemoteInput's no-op above.
+func startLiveSession(cfg *ChatConfig, session *remoteSessionInfo) error {
 	currentLiveMu.Lock()
 	defer currentLiveMu.Unlock()
 
@@ -207,14 +247,11 @@ func startLiveSession(cfg *chatConfig, session *remoteSessionInfo) error {
 	go signalPollLoop(cfg, session.SessionID, pc, stopPoll)
 
 	currentLive = &liveSession{pc: pc, ffmpegCmd: ffmpegCmd, stopPoll: stopPoll}
-	remoteSupportLog("started live session %d", session.SessionID)
+	remoteSupportLog("started live session %d (view-only)", session.SessionID)
 	return nil
 }
 
-// signalPollLoop delivers the single expected "answer" and applies any ice-candidate messages
-// that arrive after (harmless if none ever do, since vanilla ICE already embedded every
-// candidate this side gathered before sending the offer).
-func signalPollLoop(cfg *chatConfig, sessionID int, pc *webrtc.PeerConnection, stop chan struct{}) {
+func signalPollLoop(cfg *ChatConfig, sessionID int, pc *webrtc.PeerConnection, stop chan struct{}) {
 	ticker := time.NewTicker(1500 * time.Millisecond)
 	defer ticker.Stop()
 	answered := false

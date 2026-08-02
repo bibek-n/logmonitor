@@ -81,6 +81,14 @@ type HeartbeatResponse struct {
 	PendingAutomationJobs          []PendingAutomationJob `json:"pendingAutomationJobs"`
 	UsbBlockList                   []UsbPolicyEntry       `json:"usbBlockList"`
 	WatchedFiles                   []string               `json:"watchedFiles"`
+	// AgentTargetVersion is the release tag an admin has explicitly approved for THIS
+	// device's DeviceType (Workstation vs Server) via the Agent Rollout dashboard - nil
+	// means "no rollout approved, hold at current version". Unlike every other field
+	// above, this deliberately does NOT mean "the latest GitHub release" - see
+	// update.go's CheckForUpdate, which only ever installs this exact approved tag, never
+	// whatever happens to be newest upstream. This is what lets employee PCs and servers
+	// be staged independently instead of both silently grabbing the same release.
+	AgentTargetVersion *string `json:"agentTargetVersion"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {

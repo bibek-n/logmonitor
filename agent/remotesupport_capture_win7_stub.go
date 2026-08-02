@@ -7,7 +7,7 @@ package main
 // under the Go 1.20/legacy toolchain" constraint that already stubs out the Browser Activity
 // collector for this build. A Windows 7 endpoint still enrolls and shows up in Remote Support's
 // device list, but live screen sharing isn't offered there.
-func startLiveSession(cfg *chatConfig, session *remoteSessionInfo) error {
+func startLiveSession(cfg *ChatConfig, session *remoteSessionInfo) error {
 	remoteSupportLog("remote support live session requested (id=%d) but this legacy Windows 7 build does not support it", session.SessionID)
 	return nil
 }

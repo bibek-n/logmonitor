@@ -1,9 +1,25 @@
 name: Agent Release
 
 # Triggered by pushing a tag like agent-v0.1.0. Cross-compiles the endpoint agent for
-# Windows and Linux and publishes the binaries to a GitHub Release. The Windows binary is
-# unsigned for now — this is the slot where a real Authenticode signing step gets added
-# once a code-signing certificate is available (see agent/README.md).
+# Windows, Linux, and macOS (12.0 Monterey+) and publishes the binaries to a GitHub Release.
+# The Windows binary is unsigned for now — this is the slot where a real Authenticode signing
+# step gets added once a code-signing certificate is available (see agent/README.md). The
+# macOS binaries are unsigned/unnotarized too - install-macos.sh strips the quarantine
+# attribute itself so Gatekeeper doesn't block a fresh download from running, but a real
+# Developer ID signature + notarization is the equivalent future slot there.
+#
+# Every macOS-specific file (screenshot_darwin.go, usb_darwin.go, software_darwin.go,
+# services_darwin.go, remotesupport_capture_darwin.go, etc.) only ever shells out to external
+# tools (screencapture, system_profiler, launchctl, ffmpeg) or uses pure-Go libraries (pion/
+# webrtc) - none of it needs cgo, so darwin cross-compiles from the same plain ubuntu-latest
+# runners as every other platform here, no macos-latest runner or Xcode command-line tools
+# needed. (Real remote-INPUT injection on macOS would need cgo - see that file's own comment
+# for why it's view-only there instead of adding that build complexity.)
+#
+# One binary per platform, not two: the chat/notifications/remote-support companion used to
+# be a separate chattray/logmonitor-chattray binary built from ./chattray - it's now just this
+# same binary invoked with "tray" instead of "run" (see agent/chatcompanion_run.go), so there's
+# only ever one download/update/version to keep track of per platform.
 on:
   push:
     tags:
@@ -30,20 +46,18 @@ jobs:
             goarch: arm64
             out: logmonitor-agent-linux-arm64
             pkg: .
-          # Chat companion — a separate small binary from the main agent (see the package
-          # comment in agent/chattray/main.go for why), built from its own subdirectory.
-          - goos: windows
-            goarch: amd64
-            out: chattray.exe
-            pkg: ./chattray
-          - goos: linux
-            goarch: amd64
-            out: logmonitor-chattray-linux-amd64
-            pkg: ./chattray
-          - goos: linux
+          # Apple Silicon (M1+) - the more common target for anything still receiving macOS
+          # updates going forward.
+          - goos: darwin
             goarch: arm64
-            out: logmonitor-chattray-linux-arm64
-            pkg: ./chattray
+            out: logmonitor-agent-darwin-arm64
+            pkg: .
+          # Intel Macs - still fully supported by macOS 12-14, relevant as long as any of
+          # those are enrolled.
+          - goos: darwin
+            goarch: amd64
+            out: logmonitor-agent-darwin-amd64
+            pkg: .
     steps:
       - uses: actions/checkout@v4
 
@@ -72,9 +86,9 @@ jobs:
   # Windows 7 box turned out to be 32-bit, and Windows gives no useful error for an
   # architecture mismatch (just "this version of %1 is not compatible", no crash log, no
   # visible failure at all if launched from a GUI) — found the hard way onboarding one.
-  # Only builds Windows targets - Windows 7 is the one legacy-OS case this exists for. Covers
-  # the chat companion too now, not just the main agent - it's a separate `package main`
-  # under ./chattray (see that package's own comment for why), built the same way.
+  # Only builds Windows targets - Windows 7 is the one legacy-OS case this exists for. The
+  # chat companion mode (tray subcommand) is built in automatically now, same as every other
+  # platform - no separate ./chattray package/binary anymore.
   build-win7:
     runs-on: ubuntu-latest
     strategy:
@@ -86,12 +100,6 @@ jobs:
           - goarch: 386
             out: agent-win7-x86.exe
             pkg: .
-          - goarch: amd64
-            out: chattray-win7.exe
-            pkg: ./chattray
-          - goarch: 386
-            out: chattray-win7-x86.exe
-            pkg: ./chattray
     steps:
       - uses: actions/checkout@v4
 
@@ -115,7 +123,7 @@ jobs:
         # from this build - modernc.org/sqlite isn't pinned into go.mod.win7's dependency set
         # (see that file's header comment), and browserhistory_stub.go provides a no-op in
         # its place, same "windows-only feature, stub everywhere else" shape as
-        # chattray/remotesupport_stub.go.
+        # remotesupport_stub.go.
         run: go build -trimpath -tags legacy_win7 -ldflags="-s -w -X main.AgentVersion=${{ github.ref_name }}" -o "${{ matrix.out }}" "${{ matrix.pkg }}"
 
       - uses: actions/upload-artifact@v4

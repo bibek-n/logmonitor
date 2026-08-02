@@ -1,10 +1,10 @@
 // Remote Support (Phase 3, employee side). This file is the cross-platform half: it polls
-// the ChatToken-gated /chat/session route (the same low-privilege credential the chat feature
-// already uses - see main.go's comment on why chattray never holds the device's full API key)
-// and hands off to startLiveSession/stopLiveSession, which are implemented for real only on
-// Windows (remotesupport_capture_windows.go + remotesupport_input_windows.go) and stubbed out
-// everywhere else (remotesupport_stub.go), the same per-platform-file pattern already used for
-// runTray and hasDesktopSession.
+// the ChatToken-gated /chat/session route (the same low-privilege credential the chat companion
+// mode already uses - see chatcompanion_run.go's comment on why it never touches the device's
+// full API key) and hands off to startLiveSession/stopLiveSession, which are implemented for
+// real only on Windows (remotesupport_capture_windows.go + remotesupport_input_windows.go) and
+// stubbed out everywhere else (remotesupport_stub.go), the same per-platform-file pattern
+// already used for runTray and hasDesktopSession.
 package main
 
 import (
@@ -61,7 +61,7 @@ type remoteSessionResponse struct {
 // fetchRemoteSession polls /chat/session, which reports every status (Pending/Active/
 // Ended/Rejected/Expired) for the device's most recent session - see chat/session/route.ts.
 // A nil session (with no error) means "nothing going on right now", not a failure.
-func fetchRemoteSession(cfg *chatConfig) (*remoteSessionInfo, error) {
+func fetchRemoteSession(cfg *ChatConfig) (*remoteSessionInfo, error) {
 	u := fmt.Sprintf("%s/api/agent/remote-support/chat/session?deviceId=%s&token=%s",
 		cfg.ServerURL, url.QueryEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 	resp, err := httpClient.Get(u)
@@ -100,7 +100,7 @@ type signalPostResponse struct {
 
 // postSignal sends this agent's SDP offer (there is no per-candidate trickle - see
 // remotesupport_capture_windows.go for why vanilla/non-trickle ICE was chosen).
-func postSignal(cfg *chatConfig, sessionID int, messageType, payload string) error {
+func postSignal(cfg *ChatConfig, sessionID int, messageType, payload string) error {
 	body, err := json.Marshal(signalPostBody{
 		DeviceID: cfg.DeviceID, Token: cfg.ChatToken, SessionID: sessionID, Type: messageType, Payload: payload,
 	})
@@ -130,7 +130,7 @@ type signalGetResponse struct {
 
 // pollSignal is a one-shot pop (see signalingRelay.ts) - every call consumes and returns only
 // messages enqueued since the last call.
-func pollSignal(cfg *chatConfig, sessionID int) ([]signalMessage, error) {
+func pollSignal(cfg *ChatConfig, sessionID int) ([]signalMessage, error) {
 	u := fmt.Sprintf("%s/api/agent/remote-support/chat/signal?deviceId=%s&token=%s&sessionId=%d",
 		cfg.ServerURL, url.QueryEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken), sessionID)
 	resp, err := httpClient.Get(u)
@@ -148,7 +148,7 @@ func pollSignal(cfg *chatConfig, sessionID int) ([]signalMessage, error) {
 	return out.Messages, nil
 }
 
-func remoteSupportConsentURL(cfg *chatConfig) string {
+func remoteSupportConsentURL(cfg *ChatConfig) string {
 	return fmt.Sprintf("%s/remote-support-consent/%s?token=%s", cfg.ServerURL, url.PathEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 }
 
@@ -185,7 +185,7 @@ func remoteSupportLog(format string, args ...interface{}) {
 // experience: opening the consent tab the moment a request appears, and starting/stopping the
 // real capture+control session as the backend's Status column moves through
 // Pending -> Active -> Ended/Rejected/Expired.
-func runRemoteSupportPoll(cfg *chatConfig) {
+func runRemoteSupportPoll(cfg *ChatConfig) {
 	var consentOpenedForSession int
 	var liveSessionID int
 	liveRunning := false

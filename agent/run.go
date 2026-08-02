@@ -194,7 +194,11 @@ func Run(cfg *Config, stop <-chan struct{}) {
 				lastHardware = now
 			}
 			if now.Sub(lastUpdateCheck) >= updateInterval {
-				CheckForUpdate(AgentVersion)
+				targetVersion := ""
+				if hb.AgentTargetVersion != nil {
+					targetVersion = *hb.AgentTargetVersion
+				}
+				CheckForUpdate(AgentVersion, targetVersion)
 				lastUpdateCheck = now
 			}
 			if now.Sub(lastLogs) >= logsInterval {

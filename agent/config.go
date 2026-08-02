@@ -60,11 +60,12 @@ func SaveConfig(cfg *Config) error {
 }
 
 // ChatConfig is a deliberately separate, narrower file from Config: it holds only what the
-// chat companion (agent/chattray) needs — never the device's APIKey. The companion runs in
-// the logged-in user's own desktop session (not as SYSTEM/root like the main agent), so this
-// file is written world-readable; ChatToken only ever grants access to that one employee's
-// own chat thread, never telemetry, so that's an acceptable trade for not having to run the
-// companion privileged just to read a credential file.
+// chat companion mode ("agent tray" - see chatcompanion_run.go) needs — never the device's
+// APIKey. The companion runs in the logged-in user's own desktop session (not as SYSTEM/root
+// like the main agent's service mode), so this file is written world-readable; ChatToken only
+// ever grants access to that one employee's own chat thread, never telemetry, so that's an
+// acceptable trade for not having to run the companion privileged just to read a credential
+// file.
 type ChatConfig struct {
 	ServerURL string `json:"serverUrl"`
 	DeviceID  string `json:"deviceId"`

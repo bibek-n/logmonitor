@@ -12,7 +12,7 @@ import (
 // the same beeep path the main agent already uses successfully (agent/notify.go). No tray
 // icon, no click-to-open; the notification body carries the chat URL so the employee can
 // open it manually (most desktop notification daemons render a URL as tappable/copyable).
-func runTray(cfg *chatConfig) {
+func runTray(cfg *ChatConfig) {
 	lastUnread := 0
 	for {
 		resp, err := pollUnread(cfg)

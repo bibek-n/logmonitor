@@ -122,8 +122,20 @@ func platformAssetName() string {
 }
 
 func fetchLatestRelease() (*githubRelease, error) {
+	return fetchReleaseByURL(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", updateRepo))
+}
+
+// fetchReleaseByTag looks up one specific release by tag name rather than "whatever's
+// newest" - this is what lets CheckForUpdate install exactly the version an admin approved
+// via the server's Agent Rollout gate (see HeartbeatResponse.AgentTargetVersion), never
+// something newer that happens to have been tagged upstream in the meantime.
+func fetchReleaseByTag(tag string) (*githubRelease, error) {
+	return fetchReleaseByURL(fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", updateRepo, tag))
+}
+
+func fetchReleaseByURL(url string) (*githubRelease, error) {
 	client := http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", updateRepo))
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -166,28 +178,38 @@ func verifyChecksum(assetName string, assetBytes []byte, checksumsText string) e
 	return fmt.Errorf("no checksum entry found for %s", assetName)
 }
 
-// CheckForUpdate compares the running version against the latest GitHub release tag. If
-// newer, it downloads + verifies the matching binary, swaps it into place (relying on
-// the same rename-a-running-executable behavior most Go self-updaters use — this works
-// on Windows because NTFS allows renaming an open file's directory entry even while its
-// data is mapped by the running process, and on Linux because the process keeps running
-// against the renamed inode), writes a pending-update marker, and exits non-zero so the
-// service supervisor (Windows SCM / systemd Restart=on-failure) relaunches the new
+// CheckForUpdate installs targetVersion — the release tag the server's Agent Rollout gate
+// approved for this device's DeviceType via the most recent heartbeat (empty string means
+// no rollout has been approved yet, so this is a no-op and the device holds at its current
+// version). This deliberately does NOT pull GitHub's "latest" release directly - see
+// fetchReleaseByTag - so employee-PC and server rollouts can be staged independently
+// instead of every enrolled device grabbing the same release the moment it's published.
+//
+// If newer than currentVersion, it downloads + verifies the matching binary, swaps it into
+// place (relying on the same rename-a-running-executable behavior most Go self-updaters use
+// — this works on Windows because NTFS allows renaming an open file's directory entry even
+// while its data is mapped by the running process, and on Linux because the process keeps
+// running against the renamed inode), writes a pending-update marker, and exits non-zero so
+// the service supervisor (Windows SCM / systemd Restart=on-failure) relaunches the new
 // binary. Never partially "applies" on error — any failure just leaves the old binary
 // running untouched.
-func CheckForUpdate(currentVersion string) {
+func CheckForUpdate(currentVersion, targetVersion string) {
+	if targetVersion == "" {
+		return // no rollout approved for this device yet - hold at current version
+	}
+
 	assetName := platformAssetName()
 	if assetName == "" {
 		return
 	}
 
-	rel, err := fetchLatestRelease()
+	rel, err := fetchReleaseByTag(targetVersion)
 	if err != nil {
-		log.Printf("update check failed: %v", err)
+		log.Printf("update check failed (target %s): %v", targetVersion, err)
 		return
 	}
 	if rel.TagName == "" || !isNewerVersion(currentVersion, rel.TagName) {
-		return // already current, or remote isn't actually newer (never downgrade)
+		return // already current, or the approved target isn't actually newer (never downgrade)
 	}
 
 	var assetURL, checksumsURL string

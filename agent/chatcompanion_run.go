@@ -1,8 +1,11 @@
-// Command chattray is a small, separate companion to the main LogMonitor agent. The main
-// agent runs as a Windows Service / Linux systemd system unit — neither has access to the
-// logged-in user's desktop session, so neither can show a tray icon or a clickable
-// notification. This binary instead runs IN that session (autostarted at login) and does
-// exactly one thing: poll for unread chat messages and let the employee open the chat.
+// The chat companion mode ("agent tray"): the main agent runs as a Windows Service / Linux
+// systemd system unit — neither has access to the logged-in user's desktop session, so neither
+// can show a tray icon or a clickable notification. This mode instead runs IN that session
+// (autostarted at login, same binary invoked with the "tray" subcommand instead of "run" - see
+// installChatCompanion/uninstallChatCompanion) and does exactly one thing: poll for unread chat
+// messages/admin notifications and let the employee open the chat. It authenticates with the
+// low-privilege ChatToken (see ChatConfig in config.go), never the device's full API key - the
+// autostart entry only ever needs to hold this one narrow-scope credential.
 package main
 
 import (
@@ -17,45 +20,9 @@ import (
 	"time"
 )
 
-// Duplicated (deliberately) from the main agent's Config/ChatConfig in ../config.go: this
-// binary is a separate `package main` (Go doesn't allow importing another package literally
-// named "main"), and the schema here is small and stable, so a light duplication is simpler
-// and lower-risk than restructuring the main agent's package layout just to share ~10 lines.
-type chatConfig struct {
-	ServerURL string `json:"serverUrl"`
-	DeviceID  string `json:"deviceId"`
-	ChatToken string `json:"chatToken"`
-}
-
-func chatConfigPath() string {
-	if runtime.GOOS == "windows" {
-		root := os.Getenv("ProgramData")
-		if root == "" {
-			root = `C:\ProgramData`
-		}
-		return filepath.Join(root, "LogMonitorAgent", "chat-config.json")
-	}
-	return "/etc/logmonitor-agent/chat-config.json"
-}
-
-func loadChatConfig() (*chatConfig, error) {
-	data, err := os.ReadFile(chatConfigPath())
-	if err != nil {
-		return nil, err
-	}
-	var cfg chatConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-	if cfg.ServerURL == "" || cfg.DeviceID == "" || cfg.ChatToken == "" {
-		return nil, fmt.Errorf("chat config incomplete")
-	}
-	return &cfg, nil
-}
-
 const pollInterval = 20 * time.Second
 
-func chatPageURL(cfg *chatConfig) string {
+func chatPageURL(cfg *ChatConfig) string {
 	return fmt.Sprintf("%s/chat/%s?token=%s", cfg.ServerURL, url.PathEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 }
 
@@ -67,7 +34,7 @@ type unreadResponse struct {
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-func pollUnread(cfg *chatConfig) (*unreadResponse, error) {
+func pollUnread(cfg *ChatConfig) (*unreadResponse, error) {
 	u := fmt.Sprintf("%s/api/agent/chat-unread?deviceId=%s&token=%s", cfg.ServerURL, url.QueryEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 	resp, err := httpClient.Get(u)
 	if err != nil {
@@ -94,7 +61,7 @@ type notificationsResponse struct {
 	Notifications []adminNotification `json:"notifications"`
 }
 
-func pollNotifications(cfg *chatConfig) (*notificationsResponse, error) {
+func pollNotifications(cfg *ChatConfig) (*notificationsResponse, error) {
 	u := fmt.Sprintf("%s/api/agent/notifications?deviceId=%s&token=%s", cfg.ServerURL, url.QueryEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 	resp, err := httpClient.Get(u)
 	if err != nil {
@@ -151,8 +118,10 @@ func openBrowser(target string) {
 	_ = exec.Command("xdg-open", target).Start()
 }
 
-func main() {
-	cfg, err := loadChatConfig()
+// runChatCompanion is the entry point for "agent tray" (formerly the separate chattray.exe/
+// logmonitor-chattray binary - see cmd dispatch in main.go). Never returns.
+func runChatCompanion() {
+	cfg, err := LoadChatConfig()
 	if err != nil {
 		// Not enrolled yet, or chat wasn't set up for this device — exit quietly. The
 		// autostart entry just tries again next login; this is a bonus feature and should

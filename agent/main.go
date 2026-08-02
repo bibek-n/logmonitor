@@ -28,9 +28,16 @@ func usage() {
 		fmt.Println("                                                             actually authorized this install.")
 		fmt.Println("  agent.exe uninstall                                       Stop and remove the Windows service")
 		fmt.Println("  agent.exe run                                             Run in the foreground (for testing)")
+		fmt.Println("  agent.exe tray                                            Chat/notifications companion mode (autostarted per-user; see")
+		fmt.Println("                                                             installChatCompanion - not meant to be run manually)")
 	} else {
-		fmt.Println("  agent enroll --token=<TOKEN> --server=<SERVER_URL> --consent-accepted   Enroll this device (normally called by install.sh)")
-		fmt.Println("  agent run                                                               Run in the foreground (normally invoked by systemd)")
+		fmt.Println("  agent enroll --token=<TOKEN> --server=<SERVER_URL> --consent-accepted   Enroll this device (normally called by")
+		fmt.Println("                                                                           install.sh on Linux / install-macos.sh on macOS)")
+		fmt.Println("  agent run                                                               Run in the foreground (normally invoked by")
+		fmt.Println("                                                                           systemd on Linux / launchd on macOS)")
+		fmt.Println("  agent tray                                                              Chat/notifications companion mode (autostarted per-user")
+		fmt.Println("                                                                           desktop session by install.sh/install-macos.sh; not meant")
+		fmt.Println("                                                                           to be run manually)")
 	}
 }
 
@@ -57,6 +64,8 @@ func main() {
 			fmt.Fprintln(os.Stderr, "run failed:", err)
 			os.Exit(1)
 		}
+	case "tray":
+		runChatCompanion()
 	default:
 		usage()
 		os.Exit(1)

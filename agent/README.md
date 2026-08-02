@@ -10,9 +10,10 @@ form data, or anything from an excluded (e.g. medical/banking/legal) domain, whi
 out on-device before anything is sent.
 
 Monitoring only starts after local consent is given (a native dialog on Windows during
-`install`, an interactive terminal prompt on Linux during `install.sh`). This agent must
-only be deployed to company-owned devices, with staff informed via written policy that
-monitoring is in effect — see the compliance notice on the Enroll Device admin page.
+`install`, an interactive terminal prompt on Linux/macOS during `install.sh`/
+`install-macos.sh`). This agent must only be deployed to company-owned devices, with staff
+informed via written policy that monitoring is in effect — see the compliance notice on the
+Enroll Device admin page.
 
 ## Install
 
@@ -35,6 +36,16 @@ curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/insta
 This downloads the release binary, prompts for consent at the terminal, enrolls the
 device, and installs/starts a systemd unit (`logmonitor-agent.service`).
 
+**macOS** (12.0 Monterey or later):
+
+```
+curl -fsSL https://raw.githubusercontent.com/bibek-n/logmonitor/main/agent/install-macos.sh | sudo TOKEN=<TOKEN> SERVER_URL=<SERVER_URL> bash
+```
+
+Same flow as Linux (downloads the release binary, prompts for consent at the terminal,
+enrolls the device), but installs/starts a LaunchDaemon (`com.logmonitor.agent`) instead of a
+systemd unit. Works on both Apple Silicon and Intel Macs.
+
 Get a `<TOKEN>` from the admin dashboard's **Enroll Device** page — each token is one-time
 use and expires after 24 hours.
 
@@ -50,8 +61,21 @@ use and expires after 24 hours.
   desktop-targeted install path.
 - **Windows agent ships unsigned.** Until a real code-signing certificate is wired into
   the release pipeline, `agent.exe` will trigger a SmartScreen warning.
-- **Uninstall has no password protection yet** (`agent.exe uninstall` runs immediately)
-  — that's a planned follow-up, not implemented in this version.
+- **macOS agent ships unsigned/unnotarized.** `install-macos.sh` strips the quarantine
+  attribute itself so a fresh download isn't blocked by Gatekeeper, but there's no Developer
+  ID signature or notarization yet — the equivalent future slot to Windows' code-signing item
+  above.
+- **macOS screenshot capture only covers the main display**, not every monitor on a
+  multi-display Mac (see `screenshot_darwin.go`'s own comment) — a real gap versus Windows/
+  Linux, not something worth pretending isn't there.
+- **macOS Remote Support is view-only.** Screen sharing works the same as Windows/Linux, but
+  there's no remote mouse/keyboard control on macOS — real input injection needs cgo
+  (CGO_ENABLED=0 is a deliberate constraint across every platform this agent supports, see
+  `remotesupport_capture_darwin.go`'s comment), which would need an actual macOS-hosted build
+  step to add properly.
+- **Uninstall has no password protection yet** (`agent.exe uninstall` /
+  `logmonitor-agent uninstall` runs immediately) — that's a planned follow-up, not
+  implemented in this version.
 
 ## Uninstall
 
@@ -74,6 +98,15 @@ sudo /usr/local/bin/logmonitor-agent uninstall
 Stops and disables the `logmonitor-agent` systemd unit, removes the unit file, reloads
 systemd, deletes `/etc/logmonitor-agent` (config + log-shipping state), and removes the
 binary itself. One command, nothing left behind.
+
+**macOS** (as root):
+
+```
+sudo /usr/local/bin/logmonitor-agent uninstall
+```
+
+Same shape as Linux: unloads and removes the `com.logmonitor.agent` LaunchDaemon plist,
+deletes `/etc/logmonitor-agent`, and removes the binary itself.
 
 If you're on an agent version older than v0.4.1, `uninstall` didn't work on Linux and
 Windows service installs could fail with "service did not respond to the start or control

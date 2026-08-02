@@ -46,6 +46,11 @@ const (
 	// Seconds between the Unix epoch (1970-01-01) and the Windows/Chrome epoch
 	// (1601-01-01) - Chrome's visit_time column is microseconds since the latter.
 	chromeEpochDeltaMicro = int64(11644473600) * 1_000_000
+
+	// Seconds between the Unix epoch (1970-01-01) and the "Mac absolute time" / Core Data
+	// epoch (2001-01-01) - Safari's history_visits.visit_time column is (fractional) seconds
+	// since the latter.
+	safariEpochDeltaSeconds = int64(978307200)
 )
 
 // browserActivityEventPayload is the wire shape posted to /api/agent/browser-activity -
@@ -140,6 +145,23 @@ func userProfileRoots() []string {
 		return roots
 	}
 
+	if runtime.GOOS == "darwin" {
+		entries, err := os.ReadDir("/Users")
+		if err != nil {
+			return nil
+		}
+		// "Shared" is a real folder under /Users on every Mac, not a user account - same
+		// exclusion spirit as Windows' Public/Default skip list above.
+		var roots []string
+		for _, e := range entries {
+			if !e.IsDir() || strings.EqualFold(e.Name(), "shared") {
+				continue
+			}
+			roots = append(roots, filepath.Join("/Users", e.Name()))
+		}
+		return roots
+	}
+
 	entries, err := os.ReadDir("/home")
 	if err != nil {
 		return nil
@@ -154,24 +176,43 @@ func userProfileRoots() []string {
 }
 
 func chromeUserDataDir(userDir string) string {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		return filepath.Join(userDir, "AppData", "Local", "Google", "Chrome", "User Data")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "Google", "Chrome")
+	default:
+		return filepath.Join(userDir, ".config", "google-chrome")
 	}
-	return filepath.Join(userDir, ".config", "google-chrome")
 }
 
 func edgeUserDataDir(userDir string) string {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		return filepath.Join(userDir, "AppData", "Local", "Microsoft", "Edge", "User Data")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "Microsoft Edge")
+	default:
+		return filepath.Join(userDir, ".config", "microsoft-edge")
 	}
-	return filepath.Join(userDir, ".config", "microsoft-edge")
 }
 
 func firefoxProfilesDir(userDir string) string {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		return filepath.Join(userDir, "AppData", "Roaming", "Mozilla", "Firefox", "Profiles")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "Firefox", "Profiles")
+	default:
+		return filepath.Join(userDir, ".mozilla", "firefox")
 	}
-	return filepath.Join(userDir, ".mozilla", "firefox")
+}
+
+// safariHistoryFile is macOS-only - Safari isn't available on Windows/Linux, so unlike the
+// three functions above this has no non-darwin branch; CollectBrowserHistory only calls it
+// under a runtime.GOOS == "darwin" guard.
+func safariHistoryFile(userDir string) string {
+	return filepath.Join(userDir, "Library", "Safari", "History.db")
 }
 
 // chromiumProfileHistoryFiles covers both the default profile and any additional
@@ -402,6 +443,73 @@ func collectFromFirefox(placesPath, key string, state *browserActivityState) ([]
 	return out, true
 }
 
+// collectFromSafari mirrors collectFromChromium/collectFromFirefox exactly (same first-run
+// seed behavior, same cursor persistence) against Safari's History.db schema: history_visits
+// (visit_time, title, history_item) joined to history_items (url) - a genuinely different
+// schema from both Chromium's and Firefox's, not just a different epoch. visit_time is
+// fractional seconds (a REAL column) since the Mac absolute time epoch (2001-01-01), so it's
+// truncated to whole seconds before conversion - sub-second precision isn't meaningful for
+// this feature's dwell-time granularity anyway.
+func collectFromSafari(historyPath, key string, state *browserActivityState) ([]rawVisit, bool) {
+	tmpPath, cleanup, err := copySqliteForReadonly(historyPath)
+	if err != nil {
+		return nil, false
+	}
+	defer cleanup()
+
+	db, err := sql.Open("sqlite", tmpPath+"?mode=ro")
+	if err != nil {
+		return nil, false
+	}
+	defer db.Close()
+
+	cursor, known := state.Cursors[key]
+	if !known {
+		var maxTime sql.NullFloat64
+		_ = db.QueryRow(`SELECT MAX(visit_time) FROM history_visits`).Scan(&maxTime)
+		state.Cursors[key] = int64(maxTime.Float64)
+		return nil, true
+	}
+
+	rows, err := db.Query(`
+		SELECT history_items.url, history_visits.title, history_visits.visit_time
+		FROM history_visits JOIN history_items ON history_visits.history_item = history_items.id
+		WHERE history_visits.visit_time > ?
+		ORDER BY history_visits.visit_time DESC
+		LIMIT ?`, cursor, browserHistoryMaxRowsPerSource)
+	if err != nil {
+		return nil, false
+	}
+	defer rows.Close()
+
+	var out []rawVisit
+	newCursor := cursor
+	for rows.Next() {
+		var rawURL string
+		var title sql.NullString
+		var visitTime float64
+		if err := rows.Scan(&rawURL, &title, &visitTime); err != nil {
+			continue
+		}
+		visitTimeInt := int64(visitTime)
+		if visitTimeInt > newCursor {
+			newCursor = visitTimeInt
+		}
+		domain, ok := bareDomainFromURL(rawURL)
+		if !ok {
+			continue
+		}
+		out = append(out, rawVisit{
+			Browser:   "safari",
+			Domain:    domain,
+			Title:     title.String,
+			VisitedAt: time.Unix(visitTimeInt+safariEpochDeltaSeconds, 0).UTC(),
+		})
+	}
+	state.Cursors[key] = newCursor
+	return out, true
+}
+
 // --- Exclusion filter + dwell computation + batch assembly ---------------------------------
 
 // isDomainExcluded is the agent-side primary enforcement point for sensitive-domain
@@ -526,6 +634,14 @@ func CollectBrowserHistory(excludedSuffixes []string) []browserActivityEventPayl
 			v, changed := collectFromFirefox(placesPath, cursorKey(username, "firefox", placesPath), state)
 			visits = append(visits, v...)
 			stateChanged = stateChanged || changed
+		}
+		if runtime.GOOS == "darwin" {
+			safariPath := safariHistoryFile(userDir)
+			if _, err := os.Stat(safariPath); err == nil {
+				v, changed := collectFromSafari(safariPath, cursorKey(username, "safari", safariPath), state)
+				visits = append(visits, v...)
+				stateChanged = stateChanged || changed
+			}
 		}
 	}
 

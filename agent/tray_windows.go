@@ -20,7 +20,7 @@ func debugLog(format string, args ...interface{}) {
 	}
 	dir = filepath.Join(dir, "LogMonitorAgent")
 	_ = os.MkdirAll(dir, 0o755)
-	f, err := os.OpenFile(filepath.Join(dir, "chattray-debug.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filepath.Join(dir, "chat-tray-debug.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
@@ -31,7 +31,7 @@ func debugLog(format string, args ...interface{}) {
 // Real tray icon on Windows via tadvi/systray (already an indirect dependency of the main
 // agent through beeep, so this adds no new dependency). Win32 message loops are
 // thread-affine, so this must own the OS thread it runs on.
-func runTray(cfg *chatConfig) {
+func runTray(cfg *ChatConfig) {
 	runtime.LockOSThread()
 
 	debugLog("runTray starting")

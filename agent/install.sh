@@ -111,28 +111,25 @@ fi
 
 if [ "$HAS_DESKTOP" -eq 1 ]; then
   echo "Desktop session detected for $DESKTOP_USER - installing chat companion..."
-  COMPANION_URL="https://github.com/$REPO/releases/latest/download/logmonitor-chattray-linux-$GOARCH"
-  if curl -fsSL "$COMPANION_URL" -o "$INSTALL_DIR/logmonitor-chattray" 2>/dev/null; then
-    chmod 755 "$INSTALL_DIR/logmonitor-chattray"
-    USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
-    if [ -n "$USER_HOME" ]; then
-      AUTOSTART_DIR="$USER_HOME/.config/autostart"
-      mkdir -p "$AUTOSTART_DIR"
-      cat > "$AUTOSTART_DIR/logmonitor-chat.desktop" <<EOF
+  # No separate binary to download anymore - the chat/notifications/remote-support companion
+  # is just this same agent binary invoked with "tray" instead of "run" (one binary, one
+  # download, one update mechanism - see chatcompanion_run.go).
+  USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
+  if [ -n "$USER_HOME" ]; then
+    AUTOSTART_DIR="$USER_HOME/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
+    cat > "$AUTOSTART_DIR/logmonitor-chat.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=LogMonitor Chat
-Exec=$INSTALL_DIR/logmonitor-chattray
+Exec=$INSTALL_DIR/$BINARY_NAME tray
 X-GNOME-Autostart-enabled=true
 NoDisplay=false
 EOF
-      chown -R "$DESKTOP_USER":"$DESKTOP_USER" "$AUTOSTART_DIR/logmonitor-chat.desktop"
-      # Launch now so it's live without waiting for the next login — best-effort, depends on
-      # this root shell being able to reach the user's session bus/display.
-      sudo -u "$DESKTOP_USER" DISPLAY="${DISPLAY:-:0}" "$INSTALL_DIR/logmonitor-chattray" >/dev/null 2>&1 &
-    fi
-  else
-    echo "Warning: could not download chat companion - skipping (main agent install still succeeded)." >&2
+    chown -R "$DESKTOP_USER":"$DESKTOP_USER" "$AUTOSTART_DIR/logmonitor-chat.desktop"
+    # Launch now so it's live without waiting for the next login — best-effort, depends on
+    # this root shell being able to reach the user's session bus/display.
+    sudo -u "$DESKTOP_USER" DISPLAY="${DISPLAY:-:0}" "$INSTALL_DIR/$BINARY_NAME" tray >/dev/null 2>&1 &
   fi
 else
   echo "No desktop session detected - skipping chat companion (this looks like a headless server)."
