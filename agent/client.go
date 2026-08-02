@@ -89,6 +89,9 @@ type HeartbeatResponse struct {
 	// whatever happens to be newest upstream. This is what lets employee PCs and servers
 	// be staged independently instead of both silently grabbing the same release.
 	AgentTargetVersion *string `json:"agentTargetVersion"`
+	// PendingPowerAction is "reboot", "shutdown", or nil - see run.go, which ACKs (via
+	// AckPowerAction below) BEFORE executing it, never after.
+	PendingPowerAction *string `json:"pendingPowerAction"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {
@@ -300,6 +303,14 @@ func (c *Client) PostFileIntegrityEvent(ch FileIntegrityChange) error {
 		"oldValue":   ch.OldValue,
 		"newValue":   ch.NewValue,
 	})
+}
+
+// AckPowerAction marks the pending reboot/shutdown request fulfilled server-side. Must
+// succeed BEFORE the caller executes the actual OS-level command - see run.go and the
+// comment in scripts/migrate-power-actions.ts for why that ordering is load-bearing, not
+// just tidy bookkeeping.
+func (c *Client) AckPowerAction() error {
+	return c.postJSON("/api/agent/power-action-ack", map[string]interface{}{})
 }
 
 func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {

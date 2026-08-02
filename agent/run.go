@@ -62,6 +62,34 @@ func Run(cfg *Config, stop <-chan struct{}) {
 				continue
 			}
 
+			// Remote reboot/shutdown: ACK first (clears the pending request server-side), and
+			// only proceed to actually execute the command if that ack succeeds - if the ack
+			// fails (network blip), skip execution entirely and let the next heartbeat retry
+			// the whole ack-then-execute sequence. Doing it the other way around (execute
+			// then ack) would mean a shutdown whose ack never landed reboots this same request
+			// right back into effect the moment the device is manually powered on again. This
+			// deliberately runs before every other heartbeat-driven action below since nothing
+			// else matters once the machine is about to go down.
+			if hb.PendingPowerAction != nil {
+				action := *hb.PendingPowerAction
+				if ackErr := client.AckPowerAction(); ackErr != nil {
+					log.Printf("power action ack failed, will retry next heartbeat: %v", ackErr)
+				} else {
+					switch action {
+					case "reboot":
+						log.Printf("executing admin-approved reboot request")
+						if err := RebootNow(); err != nil {
+							log.Printf("reboot command failed: %v", err)
+						}
+					case "shutdown":
+						log.Printf("executing admin-approved shutdown request")
+						if err := ShutdownNow(); err != nil {
+							log.Printf("shutdown command failed: %v", err)
+						}
+					}
+				}
+			}
+
 			active := hb.ScreenshotIntervalMinutes != nil && !hb.PrivacyMode
 			if active && !screenshotMonitoringActive {
 				notify("LogMonitor Agent", "Screenshot monitoring is now active on this device.")
