@@ -53,22 +53,27 @@ func CollectMetrics() MetricsPayload {
 		var worstFreeGB, worstTotalGB float64
 		seenDevices := map[string]bool{}
 		for _, p := range parts {
-			usage, err := disk.Usage(p.Mountpoint)
-			if err != nil {
+			// Pseudo-filesystems and repeat mounts of an already-seen device must be excluded
+			// BEFORE the worst-usage comparison below, not just from the Volumes list - a
+			// read-only squashfs snap mount (Ubuntu mounts every installed snap this way) has
+			// zero free space by design and always reports 100% used, which was previously
+			// winning "worst" and being reported as the whole system's disk usage regardless
+			// of how much real free space the actual root filesystem had.
+			if pseudoFsTypes[strings.ToLower(p.Fstype)] || seenDevices[p.Device] {
 				continue
 			}
+			usage, err := disk.Usage(p.Mountpoint)
+			if err != nil || usage.Total == 0 {
+				continue
+			}
+			seenDevices[p.Device] = true
+
 			if usage.UsedPercent > worst {
 				worst = usage.UsedPercent
 				worstFreeGB = float64(usage.Free) / (1024 * 1024 * 1024)
 				worstTotalGB = float64(usage.Total) / (1024 * 1024 * 1024)
 			}
 
-			// Same device mounted at multiple points (bind mounts) only needs reporting once,
-			// and pseudo-filesystems never represent real disk capacity - see pseudoFsTypes.
-			if usage.Total == 0 || pseudoFsTypes[strings.ToLower(p.Fstype)] || seenDevices[p.Device] {
-				continue
-			}
-			seenDevices[p.Device] = true
 			out.Volumes = append(out.Volumes, VolumeInfo{
 				MountPoint:  p.Mountpoint,
 				Device:      p.Device,
