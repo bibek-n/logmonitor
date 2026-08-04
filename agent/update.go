@@ -268,6 +268,12 @@ func CheckForUpdate(currentVersion, targetVersion string) {
 		log.Printf("failed to write update marker (continuing anyway): %v", err)
 	}
 
+	// The Windows Service is about to restart onto the new binary via the os.Exit(1) below -
+	// but the separate tray-mode companion process (Windows only; no-op elsewhere) is
+	// independent of the service and would otherwise keep running the old in-memory code
+	// indefinitely, since nothing tells it the file on disk changed underneath it.
+	restartChatCompanion()
+
 	log.Printf("updated %s -> %s, restarting", currentVersion, rel.TagName)
 	os.Exit(1) // non-zero so the service supervisor relaunches us
 }

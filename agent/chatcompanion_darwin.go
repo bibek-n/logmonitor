@@ -10,3 +10,7 @@ package main
 func installChatCompanion() {}
 
 func uninstallChatCompanion() {}
+
+// No-op here - same reasoning as chatcompanion_linux.go's stub: no persistent tray process
+// exists on this platform to restart (see tray_darwin.go).
+func restartChatCompanion() {}

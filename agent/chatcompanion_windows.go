@@ -239,3 +239,22 @@ func uninstallChatCompanion() {
 
 	_ = exec.Command("schtasks", "/Delete", "/TN", chatAutostartTaskName, "/F").Run()
 }
+
+// restartChatCompanion is called right after CheckForUpdate (update.go) successfully swaps in
+// a new binary. The Windows Service gets restarted onto that new binary automatically (the
+// SCM relaunches it once this process exits non-zero, right after this call returns) - but
+// the separate tray-mode companion is just a normal, independently-running process with no
+// reason to notice the file on disk underneath it changed. Left alone, it keeps running the
+// old in-memory code indefinitely, so an update would never actually reach it until the
+// employee happens to log out and back in. Ending it here and relaunching immediately closes
+// that gap: same taskkill technique as uninstallChatCompanion (session-filtered so this never
+// touches the service process itself), followed by the exact same "launch for whoever's
+// already logged in" step ensureChatCompanionAutostart already uses.
+func restartChatCompanion() {
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+	_ = exec.Command("taskkill", "/IM", filepath.Base(exePath), "/FI", "SESSION ne 0", "/F").Run()
+	launchChatCompanionForActiveSessions(exePath)
+}
