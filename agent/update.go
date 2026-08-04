@@ -18,6 +18,25 @@ import (
 
 const updateRepo = "bibek-n/logmonitor"
 
+// renameWithRetry exists because os.Rename on a currently-executing Windows binary was
+// confirmed live (on a real device) to intermittently fail with "Access is denied" for a
+// brief window, clearing up moments later with no other change - see the call sites in
+// CheckForUpdate. 5 attempts with short exponential backoff (100ms doubling to 1.6s, ~3.1s
+// total worst case) comfortably rides out a transient hold without meaningfully delaying an
+// update or risking a long hang if something is genuinely, permanently wrong.
+func renameWithRetry(oldpath, newpath string) error {
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if err := os.Rename(oldpath, newpath); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		time.Sleep(time.Duration(100<<attempt) * time.Millisecond)
+	}
+	return lastErr
+}
+
 // How long a freshly-applied update gets to prove itself (via a successful heartbeat)
 // before EvaluatePendingUpdate gives up and rolls back to the previous binary.
 const updateConfirmWindow = 3 * time.Minute
@@ -253,14 +272,21 @@ func CheckForUpdate(currentVersion, targetVersion string) {
 		log.Printf("failed to write new binary: %v", err)
 		return
 	}
-	if err := os.Rename(exePath, oldPath); err != nil {
+	// Renaming your own currently-executing image on Windows intermittently fails with
+	// "Access is denied" for a brief window - confirmed live on a real device (bibek-pc) that
+	// otherwise, moments later, could rename the exact same file just fine as a separate
+	// process. Most likely a transient hold on the file (e.g. antivirus real-time scanning
+	// triggered by filesystem activity in the same folder) rather than a real, permanent
+	// permissions problem - retrying briefly rides it out instead of abandoning a fully-
+	// downloaded, checksum-verified update over what clears up on its own within seconds.
+	if err := renameWithRetry(exePath, oldPath); err != nil {
 		log.Printf("failed to back up current binary: %v", err)
 		_ = os.Remove(newPath)
 		return
 	}
-	if err := os.Rename(newPath, exePath); err != nil {
+	if err := renameWithRetry(newPath, exePath); err != nil {
 		log.Printf("failed to install new binary, restoring previous: %v", err)
-		_ = os.Rename(oldPath, exePath) // best-effort restore
+		_ = renameWithRetry(oldPath, exePath) // best-effort restore
 		return
 	}
 
