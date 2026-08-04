@@ -210,7 +210,7 @@ func runRemoteSupportPoll(cfg *ChatConfig) {
 		switch session.Status {
 		case "Pending":
 			if consentOpenedForSession != session.SessionID {
-				openBrowser(remoteSupportConsentURL(cfg))
+				openBrowser(remoteSupportConsentURL(cfg), 420, 640)
 				consentOpenedForSession = session.SessionID
 			}
 		case "Active":

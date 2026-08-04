@@ -41,7 +41,7 @@ func runTray(cfg *ChatConfig) {
 		return
 	}
 
-	openChat := func() { openBrowser(chatPageURL(cfg)) }
+	openChat := func() { openBrowser(chatPageURL(cfg), 420, 640) }
 
 	tray.AppendMenu("Open Chat", openChat)
 	tray.AppendSeparator()
@@ -69,7 +69,10 @@ func runTray(cfg *ChatConfig) {
 				if resp.UnreadCount > 0 {
 					_ = tray.SetTooltip(fmt.Sprintf("LogMonitor Chat — %d new message(s)", resp.UnreadCount))
 					if resp.UnreadCount > lastUnread {
-						_ = tray.ShowMessage("New message from IT Support", "Click the tray icon to open the chat.", false)
+						// Same reasoning as the admin-notification popup below: a native
+						// balloon here never actually opened anything when clicked, so just
+						// open the chat itself instead of showing something unclickable.
+						openChat()
 					}
 				} else {
 					_ = tray.SetTooltip("LogMonitor Chat")
@@ -84,8 +87,14 @@ func runTray(cfg *ChatConfig) {
 			} else if len(nresp.Notifications) > 0 {
 				debugLog("pollNotifications returned %d notification(s)", len(nresp.Notifications))
 				for _, n := range nresp.Notifications {
-					showErr := tray.ShowMessage("Notification from Admin", n.Message, false)
-					debugLog("ShowMessage(%q) returned err=%v", n.Message, showErr)
+					// A native balloon tip (tray.ShowMessage) is capped at a few seconds by
+					// Windows itself regardless of what's requested, and this library never
+					// wires up a click event for one at all - a small app-mode window we open
+					// ourselves has neither limitation: it stays open until our own timer
+					// closes it (3 minutes), and clicking it opens the chat (see
+					// NotificationPopupClient.tsx).
+					openBrowser(notificationPopupURL(cfg, n.Message), 360, 200)
+					debugLog("opened notification popup for %q", n.Message)
 				}
 			}
 			time.Sleep(pollInterval)

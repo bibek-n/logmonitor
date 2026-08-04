@@ -26,6 +26,15 @@ func chatPageURL(cfg *ChatConfig) string {
 	return fmt.Sprintf("%s/chat/%s?token=%s", cfg.ServerURL, url.PathEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken))
 }
 
+// notificationPopupURL is what agent/tray_windows.go opens for an admin notification instead
+// of a native balloon tip (see NotificationPopupClient.tsx for why: a balloon's on-screen
+// duration is capped by the OS regardless of what an app requests, and clicking one never did
+// anything - this way both are fully under our control).
+func notificationPopupURL(cfg *ChatConfig, message string) string {
+	return fmt.Sprintf("%s/notification-popup/%s?token=%s&message=%s",
+		cfg.ServerURL, url.PathEscape(cfg.DeviceID), url.QueryEscape(cfg.ChatToken), url.QueryEscape(message))
+}
+
 type unreadResponse struct {
 	OK            bool `json:"ok"`
 	ChatAvailable bool `json:"chatAvailable"`
@@ -99,13 +108,16 @@ func chromiumAppModePaths() []string {
 	return paths
 }
 
-func openBrowser(target string) {
+// width/height only ever apply to the Windows Chromium-app-mode path - the plain-open
+// fallbacks (default browser, xdg-open) have no equivalent sizing control, which is fine
+// since they're already a degraded experience compared to the app-mode window.
+func openBrowser(target string, width, height int) {
 	if runtime.GOOS == "windows" {
 		for _, browserPath := range chromiumAppModePaths() {
 			if _, err := os.Stat(browserPath); err != nil {
 				continue
 			}
-			cmd := exec.Command(browserPath, "--app="+target, "--window-size=420,640")
+			cmd := exec.Command(browserPath, "--app="+target, fmt.Sprintf("--window-size=%d,%d", width, height))
 			if cmd.Start() == nil {
 				return
 			}
