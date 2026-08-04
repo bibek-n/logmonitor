@@ -66,6 +66,10 @@ func RunService() error {
 		return err
 	}
 	configureRestartOnFailure()
+	// Backgrounded so a slow schtasks call (or several, one per logged-in user) can never
+	// delay the SCM start-acknowledgment below and risk the exact timeout Arguments (further
+	// up this file) already goes out of its way to avoid.
+	go ensureChatCompanionAutostart()
 	return s.Run()
 }
 

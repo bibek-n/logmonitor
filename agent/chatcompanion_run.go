@@ -131,6 +131,13 @@ func runChatCompanion() {
 	if !hasDesktopSession() {
 		os.Exit(0)
 	}
+	// Now that the service can also launch this via a Scheduled Task on its own (see
+	// ensureChatCompanionAutostart), on top of the original per-user Registry Run key, more
+	// than one autostart path can fire for the same session - this makes double-launching
+	// harmless instead of showing two tray icons.
+	if !acquireTraySingleInstanceLock() {
+		os.Exit(0)
+	}
 	go runRemoteSupportPoll(cfg)
 	runTray(cfg)
 }
