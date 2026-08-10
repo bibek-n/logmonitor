@@ -160,6 +160,15 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			// see usbpolicy_other.go.
 			go ApplyUsbPolicy(client, hb.UsbBlockList)
 
+			// Website Access Control enforcement: same unconditional/every-heartbeat/own-goroutine
+			// convention as ApplyUsbPolicy just above, for the same reason - ApplyWacBlocklist
+			// itself needs to see an empty list to know a previously-applied hosts-file block (and
+			// any DoH policy value it set) should be reversed. No-op on non-Windows builds - see
+			// wacblock_other.go. Ships inert for any device where the server hasn't explicitly
+			// enabled website blocking (Devices.WebsiteBlockingEnabled), in which case
+			// hb.WacBlockedDomains is always an empty list - see /api/agent/heartbeat/route.ts.
+			go ApplyWacBlocklist(client, hb.WacBlockedDomains)
+
 			// Same non-blocking reasoning - a watched file could sit on a slow network share,
 			// and this must never delay the next heartbeat.
 			if len(hb.WatchedFiles) > 0 {

@@ -81,6 +81,13 @@ type HeartbeatResponse struct {
 	PendingAutomationJobs          []PendingAutomationJob `json:"pendingAutomationJobs"`
 	UsbBlockList                   []UsbPolicyEntry       `json:"usbBlockList"`
 	WatchedFiles                   []string               `json:"watchedFiles"`
+	// WacBlockedDomains is Website Access Control's enforcement list for THIS device - always
+	// sent (even empty), never omitted, same "always send, diff locally" convention as
+	// UsbBlockList above. Populated server-side only when Devices.WebsiteBlockingEnabled is set
+	// for this device (opt-in per device, same guarantee as ScreenshotIntervalMinutes/
+	// BrowserActivityIntervalMinutes - see /api/agent/heartbeat/route.ts). Applied via
+	// ApplyWacBlocklist (wacblock_windows.go); no-op on non-Windows builds (wacblock_other.go).
+	WacBlockedDomains []string `json:"wacBlockedDomains"`
 	// AgentTargetVersion is the release tag an admin has explicitly approved for THIS
 	// device's DeviceType (Workstation vs Server) via the Agent Rollout dashboard - nil
 	// means "no rollout approved, hold at current version". Unlike every other field
@@ -108,7 +115,25 @@ func (c *Client) authRequest(method, path string, body io.Reader, contentType st
 }
 
 func (c *Client) Heartbeat() (*HeartbeatResponse, error) {
-	body, _ := json.Marshal(map[string]string{"agentVersion": AgentVersion, "currentUser": CurrentLoggedInUser()})
+	// Website Access Control: reports back what the most recent ApplyWacBlocklist run actually
+	// applied (and any error hit along the way) via the same heartbeat round-trip, rather than a
+	// separate endpoint - see /api/agent/heartbeat/route.ts, which persists these into
+	// Devices.WacLastAppliedAt/WacLastError only when present. wacAppliedDomains is always sent
+	// (even nil/empty) so a device that goes from blocking something to blocking nothing
+	// correctly clears its last-applied state server-side too. WacStatus() is a no-op returning
+	// (nil, "") on non-Windows builds - see wacblock_other.go.
+	wacApplied, wacErr := WacStatus()
+	payload := map[string]interface{}{
+		"agentVersion":      AgentVersion,
+		"currentUser":       CurrentLoggedInUser(),
+		"wacAppliedDomains": wacApplied,
+	}
+	if wacErr != "" {
+		payload["wacError"] = wacErr
+	} else {
+		payload["wacError"] = nil
+	}
+	body, _ := json.Marshal(payload)
 	req, err := c.authRequest("POST", "/api/agent/heartbeat", bytes.NewReader(body), "application/json")
 	if err != nil {
 		return nil, err
