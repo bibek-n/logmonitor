@@ -13,6 +13,7 @@ const (
 	securityInterval      = 3 * time.Minute
 	networkInterval       = 3 * time.Minute
 	hardwareInterval      = 24 * time.Hour
+	localUsersInterval    = 24 * time.Hour
 	usbPollInterval       = 8 * time.Second
 	updateInterval        = 1 * time.Hour
 	logsInterval          = 60 * time.Second
@@ -34,7 +35,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	var browserActivityMonitoringActive bool
 	var lastIntervalCapture time.Time
 	var lastBrowserHistory time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
 
 	// USB detection runs on its own fast ticker rather than piggybacking on the main
 	// heartbeat loop below - the heartbeat interval is 30s, which made a plug/unplug take
@@ -229,6 +230,12 @@ func Run(cfg *Config, stop <-chan struct{}) {
 					log.Printf("hardware info upload failed: %v", err)
 				}
 				lastHardware = now
+			}
+			if now.Sub(lastLocalUsers) >= localUsersInterval {
+				if err := client.PostLocalUsers(CollectLocalUsers()); err != nil {
+					log.Printf("local users upload failed: %v", err)
+				}
+				lastLocalUsers = now
 			}
 			if now.Sub(lastUpdateCheck) >= updateInterval {
 				targetVersion := ""

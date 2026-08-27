@@ -268,6 +268,10 @@ func (c *Client) PostSoftware(s []SoftwareInfo) error {
 	return c.postJSON("/api/agent/software", map[string]interface{}{"software": s})
 }
 
+func (c *Client) PostLocalUsers(u []LocalUserInfo) error {
+	return c.postJSON("/api/agent/local-users", map[string]interface{}{"localUsers": u})
+}
+
 func (c *Client) PostLogs(entries []LogEntry) error {
 	return c.postJSON("/api/agent/logs", map[string]interface{}{"entries": entries})
 }
