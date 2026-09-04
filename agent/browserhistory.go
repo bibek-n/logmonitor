@@ -1,4 +1,4 @@
-//go:build !legacy_win7
+﻿//go:build !legacy_win7
 
 package main
 
@@ -17,8 +17,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Browser Activity Audit: reads each local user's Chrome/Edge/Firefox history database
-// directly off disk (never a browser extension - see the approved plan for why) and ships
+// Browser Activity Audit: reads each local user's Chrome/Edge/Firefox/Brave/Vivaldi/Opera
+// (and Safari on macOS) history database directly off disk (never a browser extension - see
+// the approved plan for why) and ships
 // {browser, domain, pageTitle, visitedAt, dwellSeconds} tuples to the server. Only ever
 // active when the server's heartbeat response carries a non-nil
 // BrowserActivityIntervalMinutes for this device (see run.go) - an admin must explicitly
@@ -215,6 +216,45 @@ func safariHistoryFile(userDir string) string {
 	return filepath.Join(userDir, "Library", "Safari", "History.db")
 }
 
+// braveUserDataDir and vivaldiUserDataDir share Chrome's exact profile layout (Default /
+// Profile N subfolders, same History sqlite schema) - both are Chromium forks, just under a
+// different vendor folder name, so collectFromChromium handles them unmodified.
+func braveUserDataDir(userDir string) string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(userDir, "AppData", "Local", "BraveSoftware", "Brave-Browser", "User Data")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "BraveSoftware", "Brave-Browser")
+	default:
+		return filepath.Join(userDir, ".config", "BraveSoftware", "Brave-Browser")
+	}
+}
+
+func vivaldiUserDataDir(userDir string) string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(userDir, "AppData", "Local", "Vivaldi", "User Data")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "Vivaldi")
+	default:
+		return filepath.Join(userDir, ".config", "vivaldi")
+	}
+}
+
+// operaUserDataDir differs from the others in two ways worth noting: it lives under Roaming
+// on Windows (not Local), and a plain install has no "Default" subfolder at all - History
+// sits directly in this root (see operaProfileHistoryFiles below for how that's handled).
+func operaUserDataDir(userDir string) string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(userDir, "AppData", "Roaming", "Opera Software", "Opera Stable")
+	case "darwin":
+		return filepath.Join(userDir, "Library", "Application Support", "com.operasoftware.Opera")
+	default:
+		return filepath.Join(userDir, ".config", "opera")
+	}
+}
+
 // chromiumProfileHistoryFiles covers both the default profile and any additional
 // "Profile N" the user created - Chrome/Edge share this exact directory layout.
 func chromiumProfileHistoryFiles(userDataDir string) []string {
@@ -237,6 +277,24 @@ func chromiumProfileHistoryFiles(userDataDir string) []string {
 		}
 	}
 	return files
+}
+
+// operaProfileHistoryFiles covers Opera's own layout, which differs from Chrome/Edge/Brave/
+// Vivaldi's: a plain install has no "Default" subfolder - History sits directly in the root -
+// though the "Add Person" feature does create numbered subfolders exactly like Chrome's, so
+// both are checked rather than assuming only one layout is in play.
+func operaProfileHistoryFiles(operaDir string) []string {
+	var files []string
+	if candidate := filepath.Join(operaDir, "History"); fileExists(candidate) {
+		files = append(files, candidate)
+	}
+	files = append(files, chromiumProfileHistoryFiles(operaDir)...)
+	return files
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // firefoxPlacesFiles covers every profile directory Firefox created (the random-looking
@@ -635,6 +693,21 @@ func CollectBrowserHistory(excludedSuffixes []string) []browserActivityEventPayl
 			visits = append(visits, v...)
 			stateChanged = stateChanged || changed
 		}
+		for _, historyPath := range chromiumProfileHistoryFiles(braveUserDataDir(userDir)) {
+			v, changed := collectFromChromium("brave", historyPath, cursorKey(username, "brave", historyPath), state)
+			visits = append(visits, v...)
+			stateChanged = stateChanged || changed
+		}
+		for _, historyPath := range chromiumProfileHistoryFiles(vivaldiUserDataDir(userDir)) {
+			v, changed := collectFromChromium("vivaldi", historyPath, cursorKey(username, "vivaldi", historyPath), state)
+			visits = append(visits, v...)
+			stateChanged = stateChanged || changed
+		}
+		for _, historyPath := range operaProfileHistoryFiles(operaUserDataDir(userDir)) {
+			v, changed := collectFromChromium("opera", historyPath, cursorKey(username, "opera", historyPath), state)
+			visits = append(visits, v...)
+			stateChanged = stateChanged || changed
+		}
 		if runtime.GOOS == "darwin" {
 			safariPath := safariHistoryFile(userDir)
 			if _, err := os.Stat(safariPath); err == nil {
@@ -651,3 +724,4 @@ func CollectBrowserHistory(excludedSuffixes []string) []browserActivityEventPayl
 
 	return buildPayload(visits, excludedSuffixes)
 }
+
