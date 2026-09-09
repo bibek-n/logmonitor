@@ -201,16 +201,60 @@ func parseActiveSessionUsers(output string) []string {
 	return users
 }
 
+// domainQualifiedUsername resolves a bare account name (as returned by "query user", e.g.
+// "john.doe") to its fully-qualified "AUTHORITY\Name" form via a SID round-trip. This is the
+// actual fix for chat/notifications never launching for an already-logged-in DOMAIN account:
+// schtasks' /RU flag only accepts a bare name for a LOCAL account - for a domain account it
+// needs "DOMAIN\username", and silently fails to resolve (logged, non-fatal, so it looked
+// like nothing happened) when given just the short name "query user" reports. Local accounts
+// are unaffected either way, since a bare name was already their correct /RU form - this
+// just makes domain accounts work the same way local accounts always did.
+//
+// The NTAccount -> SID -> NTAccount round-trip is the standard, reliable way to fully qualify
+// an ambiguous short name in Windows: .NET's account resolver checks well-known accounts, the
+// local SAM, the machine's domain, and trusted domains, in that order, and the SID it finds
+// always translates back to an unambiguous "AUTHORITY\Name" string - regardless of whether
+// the account turned out to be local or domain. Best-effort like everything else in this
+// file: any failure just falls back to the original bare name, degrading to the previous
+// (local-account-only-working) behavior rather than blocking the feature entirely.
+func domainQualifiedUsername(shortUsername string) string {
+	script := fmt.Sprintf(
+		`(New-Object System.Security.Principal.NTAccount(%s)).Translate([System.Security.Principal.SecurityIdentifier]).Translate([System.Security.Principal.NTAccount]).Value`,
+		psQuote(shortUsername),
+	)
+	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	if err != nil {
+		return shortUsername
+	}
+	qualified := strings.TrimSpace(string(out))
+	if qualified == "" {
+		return shortUsername
+	}
+	return qualified
+}
+
+// psQuote wraps a value for embedding in a PowerShell -Command string, doubling any embedded
+// single quote (PowerShell's own escape for a literal ' inside a '...'-quoted string).
+// shortUsername only ever comes from parsing "query user"'s own output, never an external/
+// untrusted source, but this costs nothing and removes any need to reason about it.
+func psQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
 // A short-lived, per-user Scheduled Task - the exact same recipe already proven to work
 // manually (see the incident this was written for), just automated: schtasks' /RU + /IT
 // flags are what makes Task Scheduler launch the action inside that specific user's already-
 // active interactive session, which a SYSTEM-context service has no other simple way to do.
 func launchChatCompanionForUser(exePath, username string) {
-	taskName := "LogMonitorChatLaunch-" + username
+	qualifiedUsername := domainQualifiedUsername(username)
+	// A Scheduled Task name can't contain "\", which "DOMAIN\username" always does for a
+	// domain account - sanitized separately from the /RU value, which needs the real
+	// backslash-qualified form to correctly resolve.
+	taskName := "LogMonitorChatLaunch-" + strings.NewReplacer(`\`, "_", "/", "_").Replace(qualifiedUsername)
 	create := exec.Command("schtasks", "/Create", "/TN", taskName, "/TR", fmt.Sprintf(`"%s" tray`, exePath),
-		"/SC", "ONCE", "/ST", "23:59", "/RU", username, "/IT", "/F")
+		"/SC", "ONCE", "/ST", "23:59", "/RU", qualifiedUsername, "/IT", "/F")
 	if err := create.Run(); err != nil {
-		log.Printf("chat companion immediate launch for %s failed to schedule (non-fatal): %v", username, err)
+		log.Printf("chat companion immediate launch for %s failed to schedule (non-fatal): %v", qualifiedUsername, err)
 		return
 	}
 	_ = exec.Command("schtasks", "/Run", "/TN", taskName).Run()
