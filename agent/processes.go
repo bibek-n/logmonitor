@@ -29,6 +29,15 @@ type ProcessInfo struct {
 	Status      string  `json:"status"`
 	ExePath     string  `json:"exePath"`
 	Sha256      string  `json:"sha256"`
+	// Active/idle seconds and window title are Phase 3 (Employee Application Activity
+	// Monitoring) additions - deltas since this process's *last reported* snapshot, not
+	// cumulative totals (see foreground.go's drainForegroundDeltas), populated by run.go
+	// only when this device is opted into the new tracking. omitempty so an agent build
+	// with foreground tracking compiled out (or simply disabled) posts a payload
+	// byte-for-byte identical to before this feature existed.
+	ActiveSeconds int    `json:"activeSeconds,omitempty"`
+	IdleSeconds   int    `json:"idleSeconds,omitempty"`
+	WindowTitle   string `json:"windowTitle,omitempty"`
 }
 
 type hashCacheEntry struct {

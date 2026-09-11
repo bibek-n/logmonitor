@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"runtime"
 	"time"
@@ -99,6 +100,14 @@ type HeartbeatResponse struct {
 	// PendingPowerAction is "reboot", "shutdown", or nil - see run.go, which ACKs (via
 	// AckPowerAction below) BEFORE executing it, never after.
 	PendingPowerAction *string `json:"pendingPowerAction"`
+	// Employee Application Activity Monitoring (Phase 3): same opt-in-per-device nil-means-off
+	// convention as ScreenshotIntervalMinutes/BrowserActivityIntervalMinutes above. The other
+	// three fields are only ever meaningfully non-default when this one is non-nil - see
+	// /api/agent/heartbeat/route.ts's appActivitySettings gating.
+	AppActivityIntervalMinutes      *int     `json:"appActivityIntervalMinutes"`
+	AppActivityIdleTimeoutSeconds   *int     `json:"appActivityIdleTimeoutSeconds"`
+	AppActivityCollectWindowTitles  bool     `json:"appActivityCollectWindowTitles"`
+	AppActivityExcludedProcessNames []string `json:"appActivityExcludedProcessNames"`
 }
 
 func (c *Client) authRequest(method, path string, body io.Reader, contentType string) (*http.Request, error) {
@@ -258,6 +267,30 @@ func (c *Client) PostNetworkInfo(n NetworkInfo) error {
 
 func (c *Client) PostProcesses(p []ProcessInfo) error {
 	return c.postJSON("/api/agent/processes", map[string]interface{}{"processes": p})
+}
+
+var processSpoolInstance = newSpool("app-activity-processes")
+
+// sendProcessesWithSpool is PostProcesses's retry-safe wrapper (see spool.go) - the first
+// collector in this agent to get one. Any backlog from a previous outage is flushed, in
+// order, before the current batch is even attempted, so a device that comes back online
+// after being offline for a while reports its history in the order it happened rather than
+// newest-first.
+func (c *Client) sendProcessesWithSpool(procs []ProcessInfo) {
+	for _, batch := range processSpoolInstance.drainProcessBatches() {
+		if err := c.PostProcesses(batch); err != nil {
+			log.Printf("spooled process batch re-send failed, re-spooling: %v", err)
+			processSpoolInstance.append(batch)
+			// Don't send the current batch out of order ahead of one that just failed
+			// again - spool it too and retry the whole backlog together next cycle.
+			processSpoolInstance.append(procs)
+			return
+		}
+	}
+	if err := c.PostProcesses(procs); err != nil {
+		log.Printf("process snapshot upload failed, spooling for retry: %v", err)
+		processSpoolInstance.append(procs)
+	}
 }
 
 func (c *Client) PostServices(s []ServiceInfo) error {

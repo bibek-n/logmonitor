@@ -33,6 +33,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 
 	var screenshotMonitoringActive bool
 	var browserActivityMonitoringActive bool
+	var appActivityMonitoringActive bool
 	var lastIntervalCapture time.Time
 	var lastBrowserHistory time.Time
 	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
@@ -47,6 +48,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	go runMalwarePolling(client, stop)
 	go runPhpPolling(client, stop)
 	go runWeblogTailing(client, stop)
+	go runForegroundPolling(stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -125,6 +127,26 @@ func Run(cfg *Config, stop <-chan struct{}) {
 				lastBrowserHistory = time.Now()
 			}
 
+			// Employee Application Activity Monitoring: foreground/idle tracking is driven
+			// entirely by the heartbeat's own fields, same as browser activity above - an
+			// admin's change (device opt-in/out, idle timeout, window-title toggle, excluded
+			// apps) takes effect within one heartbeat interval, not whenever runForegroundPolling
+			// next happens to notice. runForegroundPolling itself is always running (started
+			// once above); this just updates the flags it reads on its own ticker.
+			appActivityActive := hb.AppActivityIntervalMinutes != nil && !hb.PrivacyMode
+			idleTimeoutSeconds := 300
+			if hb.AppActivityIdleTimeoutSeconds != nil {
+				idleTimeoutSeconds = *hb.AppActivityIdleTimeoutSeconds
+			}
+			SetForegroundTrackingConfig(appActivityActive, idleTimeoutSeconds, hb.AppActivityCollectWindowTitles)
+			SetForegroundExcludedProcessNames(hb.AppActivityExcludedProcessNames)
+			if appActivityActive && !appActivityMonitoringActive {
+				notify("LogMonitor Agent", "Application activity monitoring is now active on this device.")
+			} else if !appActivityActive && appActivityMonitoringActive {
+				notify("LogMonitor Agent", "Application activity monitoring has stopped on this device.")
+			}
+			appActivityMonitoringActive = appActivityActive
+
 			if metrics := CollectMetrics(); true {
 				if err := client.PostMetrics(metrics); err != nil {
 					log.Printf("metrics upload failed: %v", err)
@@ -196,9 +218,21 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			now := time.Now()
 
 			if now.Sub(lastProcesses) >= processesInterval {
-				if err := client.PostProcesses(CollectProcesses()); err != nil {
-					log.Printf("process snapshot upload failed: %v", err)
+				procs := CollectProcesses()
+				// Merge in whatever active/idle-second deltas and window titles
+				// runForegroundPolling has accumulated since the last drain - empty/zero for
+				// every process on a device that isn't opted into app activity tracking (or on
+				// non-Windows builds, see foreground_other.go), in which case this is a no-op
+				// and the payload is unchanged from before this feature existed.
+				deltas := drainForegroundDeltas()
+				for i := range procs {
+					if d, ok := deltas[procs[i].Name]; ok {
+						procs[i].ActiveSeconds = d.ActiveSeconds
+						procs[i].IdleSeconds = d.IdleSeconds
+						procs[i].WindowTitle = d.WindowTitle
+					}
 				}
+				client.sendProcessesWithSpool(procs)
 				lastProcesses = now
 			}
 			if now.Sub(lastServices) >= servicesInterval {
