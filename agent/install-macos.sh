@@ -63,7 +63,11 @@ else
   exit 1
 fi
 
-if [ "${CONSENT,,}" != "y" ] && [ "${CONSENT,,}" != "yes" ]; then
+# tr, not bash 4+'s ${CONSENT,,} - macOS ships /bin/bash 3.2 (Apple never upgraded past the
+# last GPLv2 release), which doesn't support that syntax and fails with "bad substitution",
+# aborting the install before consent can even be confirmed - confirmed live on a real Mac.
+CONSENT_LOWER=$(printf '%s' "$CONSENT" | tr '[:upper:]' '[:lower:]')
+if [ "$CONSENT_LOWER" != "y" ] && [ "$CONSENT_LOWER" != "yes" ]; then
   echo "Consent was not given — aborting installation."
   exit 1
 fi

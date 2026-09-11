@@ -49,7 +49,11 @@ else
   exit 1
 fi
 
-if [ "${CONSENT,,}" != "y" ] && [ "${CONSENT,,}" != "yes" ]; then
+# tr, not bash 4+'s ${CONSENT,,} - portable to any /bin/sh-compatible bash this script might
+# run under (confirmed a real, install-blocking problem on macOS's stock bash 3.2 - see
+# install-macos.sh's identical fix), even though a modern Linux box's bash is normally 4+.
+CONSENT_LOWER=$(printf '%s' "$CONSENT" | tr '[:upper:]' '[:lower:]')
+if [ "$CONSENT_LOWER" != "y" ] && [ "$CONSENT_LOWER" != "yes" ]; then
   echo "Consent was not given — aborting installation."
   exit 1
 fi
