@@ -135,6 +135,13 @@ func platformAssetName() string {
 			return "logmonitor-agent-linux-arm64"
 		}
 		return "logmonitor-agent-linux-amd64"
+	case "darwin":
+		// Asset names match install-macos.sh's own download URL convention
+		// (logmonitor-agent-darwin-$GOARCH) - see agent-release.yml.
+		if runtime.GOARCH == "arm64" {
+			return "logmonitor-agent-darwin-arm64"
+		}
+		return "logmonitor-agent-darwin-amd64"
 	default:
 		return ""
 	}
