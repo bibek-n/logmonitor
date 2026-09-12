@@ -6,10 +6,13 @@ require (
 	github.com/gen2brain/beeep v0.11.2
 	github.com/kardianos/service v1.3.0
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 	github.com/pion/webrtc/v4 v4.2.17
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af
+	github.com/webview/webview_go v0.0.0-20240831120633-6173450d4dd6
 	golang.org/x/sys v0.46.0
+	modernc.org/sqlite v1.55.0
 )
 
 require (
@@ -23,7 +26,6 @@ require (
 	github.com/jackmordaunt/icns/v3 v3.0.1 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
@@ -57,5 +59,4 @@ require (
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.55.0 // indirect
 )

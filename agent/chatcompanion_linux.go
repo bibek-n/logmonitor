@@ -14,3 +14,8 @@ func uninstallChatCompanion() {}
 // tray_linux.go - each poll cycle just fires a one-shot beeep.Notify, nothing long-running
 // keeps old in-memory code around the way Windows's tray-mode process does).
 func restartChatCompanion() {}
+
+// No-op here - Phase 1 of the tray tamper-protection watchdog (run.go's chatWatchdogInterval
+// ticker) only covers Windows, whose ensureChatCompanionAutostart this mirrors. Linux gets its
+// own real self-heal (XDG autostart re-registration + relaunch) in a later phase.
+func ensureChatCompanionAutostart() {}

@@ -14,3 +14,8 @@ func uninstallChatCompanion() {}
 // No-op here - same reasoning as chatcompanion_linux.go's stub: no persistent tray process
 // exists on this platform to restart (see tray_darwin.go).
 func restartChatCompanion() {}
+
+// No-op here - Phase 1 of the tray tamper-protection watchdog (run.go's chatWatchdogInterval
+// ticker) only covers Windows, whose ensureChatCompanionAutostart this mirrors. macOS gets its
+// own real self-heal (LaunchAgent bootstrap + relaunch) in a later phase.
+func ensureChatCompanionAutostart() {}

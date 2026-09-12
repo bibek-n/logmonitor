@@ -41,14 +41,12 @@ func runTray(cfg *ChatConfig) {
 		return
 	}
 
-	openChat := func() { openBrowser(chatPageURL(cfg), 420, 640) }
+	openChat := func() { openNativeWindow("chat", chatPageURL(cfg), 420, 640, "LogMonitor Chat") }
 
+	// No "Exit" item — tamper-protection requirement: nothing in this menu can quit the
+	// process. (The tray still restarts on its own if killed some other way — see the
+	// watchdog ticker in run.go.)
 	tray.AppendMenu("Open Chat", openChat)
-	tray.AppendSeparator()
-	tray.AppendMenu("Exit", func() {
-		tray.Stop()
-		os.Exit(0)
-	})
 	tray.OnClick(openChat)
 
 	// Resource ID 1 - the icon embedded via rsrc_windows.syso (generated from chat-icon.ico
@@ -89,11 +87,12 @@ func runTray(cfg *ChatConfig) {
 				for _, n := range nresp.Notifications {
 					// A native balloon tip (tray.ShowMessage) is capped at a few seconds by
 					// Windows itself regardless of what's requested, and this library never
-					// wires up a click event for one at all - a small app-mode window we open
+					// wires up a click event for one at all - a small native window we open
 					// ourselves has neither limitation: it stays open until our own timer
 					// closes it (3 minutes), and clicking it opens the chat (see
 					// NotificationPopupClient.tsx).
-					openBrowser(notificationPopupURL(cfg, n.Message), 360, 200)
+					kind := fmt.Sprintf("notification-%d", n.ID)
+					openNativeWindow(kind, notificationPopupURL(cfg, n.Message), 360, 200, "LogMonitor Notification")
 					debugLog("opened notification popup for %q", n.Message)
 				}
 			}

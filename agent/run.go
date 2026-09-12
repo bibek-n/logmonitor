@@ -18,6 +18,7 @@ const (
 	updateInterval        = 1 * time.Hour
 	logsInterval          = 60 * time.Second
 	windowsUpdateInterval = 6 * time.Hour
+	chatWatchdogInterval  = 3 * time.Minute
 )
 
 // Run is the agent's main loop: heartbeat + basic metrics every heartbeatIntervalSeconds,
@@ -49,6 +50,15 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	go runPhpPolling(client, stop)
 	go runWeblogTailing(client, stop)
 	go runForegroundPolling(stop)
+
+	// Tamper-protection watchdog for the tray/chat companion process: ensureChatCompanionAutostart
+	// is already safe to call repeatedly (a relaunch attempt against an already-running tray just
+	// hits its own named-mutex singleton lock and exits immediately - see
+	// acquireTraySingleInstanceLock in chatcompanion_windows.go), so calling it on a timer is a
+	// no-op when nothing's wrong and a real self-heal when an employee has killed the tray (e.g.
+	// via Task Manager) since the last check. No-op on non-Windows builds for now - see the
+	// ensureChatCompanionAutostart stubs in chatcompanion_darwin.go/chatcompanion_linux.go.
+	go runChatCompanionWatchdog(stop)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -330,6 +340,23 @@ func runUsbPolling(client *Client, stop <-chan struct{}) {
 			return
 		case <-ticker.C:
 			pollUsbDevices(client, known)
+		}
+	}
+}
+
+// runChatCompanionWatchdog re-asserts the chat companion's autostart registration and relaunches
+// it for any already-logged-in session on a fixed timer, independent of the heartbeat interval -
+// see the call site in Run for why this is safe to call repeatedly.
+func runChatCompanionWatchdog(stop <-chan struct{}) {
+	ticker := time.NewTicker(chatWatchdogInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			ensureChatCompanionAutostart()
 		}
 	}
 }
