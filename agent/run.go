@@ -99,6 +99,11 @@ func Run(cfg *Config, stop <-chan struct{}) {
 						if err := ShutdownNow(); err != nil {
 							log.Printf("shutdown command failed: %v", err)
 						}
+					case "logoff":
+						log.Printf("executing admin-approved logoff request")
+						if err := LogoffNow(); err != nil {
+							log.Printf("logoff command failed: %v", err)
+						}
 					}
 				}
 			}

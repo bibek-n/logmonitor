@@ -97,8 +97,8 @@ type HeartbeatResponse struct {
 	// whatever happens to be newest upstream. This is what lets employee PCs and servers
 	// be staged independently instead of both silently grabbing the same release.
 	AgentTargetVersion *string `json:"agentTargetVersion"`
-	// PendingPowerAction is "reboot", "shutdown", or nil - see run.go, which ACKs (via
-	// AckPowerAction below) BEFORE executing it, never after.
+	// PendingPowerAction is "reboot", "shutdown", "logoff", or nil - see run.go, which ACKs
+	// (via AckPowerAction below) BEFORE executing it, never after.
 	PendingPowerAction *string `json:"pendingPowerAction"`
 	// Employee Application Activity Monitoring (Phase 3): same opt-in-per-device nil-means-off
 	// convention as ScreenshotIntervalMinutes/BrowserActivityIntervalMinutes above. The other
