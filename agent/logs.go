@@ -25,9 +25,10 @@ type LogEntry struct {
 }
 
 type logFileState struct {
-	Offsets       map[string]int64 `json:"offsets"`
-	JournalSince  string           `json:"journalSince"`
-	EventLogSince string           `json:"eventLogSince"`
+	Offsets               map[string]int64 `json:"offsets"`
+	JournalSince          string           `json:"journalSince"`
+	EventLogSince         string           `json:"eventLogSince"`
+	SecurityEventLogSince string           `json:"securityEventLogSince"`
 }
 
 const maxLogLinesPerFile = 500

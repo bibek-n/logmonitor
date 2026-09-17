@@ -7,18 +7,19 @@ import (
 )
 
 const (
-	processesInterval     = 90 * time.Second
-	servicesInterval      = 8 * time.Minute
-	softwareInterval      = 24 * time.Hour
-	securityInterval      = 3 * time.Minute
-	networkInterval       = 3 * time.Minute
-	hardwareInterval      = 24 * time.Hour
-	localUsersInterval    = 24 * time.Hour
-	usbPollInterval       = 8 * time.Second
-	updateInterval        = 1 * time.Hour
-	logsInterval          = 60 * time.Second
-	windowsUpdateInterval = 6 * time.Hour
-	chatWatchdogInterval  = 3 * time.Minute
+	processesInterval                 = 90 * time.Second
+	servicesInterval                  = 8 * time.Minute
+	softwareInterval                  = 24 * time.Hour
+	securityInterval                  = 3 * time.Minute
+	networkInterval                   = 3 * time.Minute
+	hardwareInterval                  = 24 * time.Hour
+	localUsersInterval                = 24 * time.Hour
+	usbPollInterval                   = 8 * time.Second
+	updateInterval                    = 1 * time.Hour
+	logsInterval                      = 60 * time.Second
+	windowsUpdateInterval             = 6 * time.Hour
+	chatWatchdogInterval              = 3 * time.Minute
+	wazuhOfficeSecurityEventsInterval = 3 * time.Minute
 )
 
 // Run is the agent's main loop: heartbeat + basic metrics every heartbeatIntervalSeconds,
@@ -37,7 +38,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	var appActivityMonitoringActive bool
 	var lastIntervalCapture time.Time
 	var lastBrowserHistory time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate, lastWazuhOfficeSecurityEvents time.Time
 
 	// USB detection runs on its own fast ticker rather than piggybacking on the main
 	// heartbeat loop below - the heartbeat interval is 30s, which made a plug/unplug take
@@ -307,6 +308,14 @@ func Run(cfg *Config, stop <-chan struct{}) {
 					log.Printf("windows update status upload failed: %v", err)
 				}
 				lastWindowsUpdate = now
+			}
+			if now.Sub(lastWazuhOfficeSecurityEvents) >= wazuhOfficeSecurityEventsInterval {
+				if events := CollectWazuhOfficeSecurityEvents(); len(events) > 0 {
+					if err := client.PostWazuhOfficeEvents(events); err != nil {
+						log.Printf("wazuh office security event upload failed: %v", err)
+					}
+				}
+				lastWazuhOfficeSecurityEvents = now
 			}
 		}
 	}
