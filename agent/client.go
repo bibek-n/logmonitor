@@ -100,6 +100,10 @@ type HeartbeatResponse struct {
 	// PendingPowerAction is "reboot", "shutdown", "logoff", or nil - see run.go, which ACKs
 	// (via AckPowerAction below) BEFORE executing it, never after.
 	PendingPowerAction *string `json:"pendingPowerAction"`
+	// PendingWakeRequests: Wake-on-LAN relay work for THIS device to perform on behalf of a
+	// powered-off device on its own subnet - see wakerelay.go. Empty for every device that
+	// isn't currently acting as a relay.
+	PendingWakeRequests []WakeRequest `json:"pendingWakeRequests"`
 	// Employee Application Activity Monitoring (Phase 3): same opt-in-per-device nil-means-off
 	// convention as ScreenshotIntervalMinutes/BrowserActivityIntervalMinutes above. The other
 	// three fields are only ever meaningfully non-default when this one is non-nil - see
@@ -373,6 +377,12 @@ func (c *Client) PostFileIntegrityEvent(ch FileIntegrityChange) error {
 // just tidy bookkeeping.
 func (c *Client) AckPowerAction() error {
 	return c.postJSON("/api/agent/power-action-ack", map[string]interface{}{})
+}
+
+// AckWakeRequests marks the given Wake-on-LAN relay requests fulfilled server-side. Called
+// AFTER the magic packets went out (unlike AckPowerAction) - see handlePendingWakeRequests.
+func (c *Client) AckWakeRequests(ids []int) error {
+	return c.postJSON("/api/agent/wake-ack", map[string]interface{}{"ids": ids})
 }
 
 func (c *Client) PostUsbEvent(eventType string, d UsbDeviceInfo) error {

@@ -109,6 +109,13 @@ func Run(cfg *Config, stop <-chan struct{}) {
 				}
 			}
 
+			// Wake-on-LAN relay: own goroutine, so a slow send never delays the next heartbeat.
+			// Unlike the power action above this sends first and acks after - see
+			// handlePendingWakeRequests.
+			if len(hb.PendingWakeRequests) > 0 {
+				go handlePendingWakeRequests(client, hb.PendingWakeRequests)
+			}
+
 			active := hb.ScreenshotIntervalMinutes != nil && !hb.PrivacyMode
 			if active && !screenshotMonitoringActive {
 				notify("LogMonitor Agent", "Screenshot monitoring is now active on this device.")
