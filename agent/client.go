@@ -104,6 +104,8 @@ type HeartbeatResponse struct {
 	// powered-off device on its own subnet - see wakerelay.go. Empty for every device that
 	// isn't currently acting as a relay.
 	PendingWakeRequests []WakeRequest `json:"pendingWakeRequests"`
+	// PendingUpdateRequests: admin-queued Security & Updates jobs (currently only kind "scan") - see updates.go.
+	PendingUpdateRequests []UpdateRequest `json:"pendingUpdateRequests"`
 	// Employee Application Activity Monitoring (Phase 3): same opt-in-per-device nil-means-off
 	// convention as ScreenshotIntervalMinutes/BrowserActivityIntervalMinutes above. The other
 	// three fields are only ever meaningfully non-default when this one is non-nil - see
@@ -378,6 +380,9 @@ func (c *Client) PostFileIntegrityEvent(ch FileIntegrityChange) error {
 func (c *Client) AckPowerAction() error {
 	return c.postJSON("/api/agent/power-action-ack", map[string]interface{}{})
 }
+
+// PostUpdateScan uploads one Security & Updates scan (pending/failed updates, reboot flag, definitions).
+func (c *Client) PostUpdateScan(s UpdateScan) error { return c.postJSON("/api/agent/update-scan", s) }
 
 // AckWakeRequests marks the given Wake-on-LAN relay requests fulfilled server-side. Called
 // AFTER the magic packets went out (unlike AckPowerAction) - see handlePendingWakeRequests.

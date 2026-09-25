@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -66,6 +67,11 @@ func main() {
 		}
 	case "tray":
 		runChatCompanion()
+	case "scan-updates":
+		// Diagnostic: run one Security & Updates scan locally and print the JSON that would be uploaded.
+		// Read-only; needs no enrollment. Run it elevated to see exactly what the service (SYSTEM/root) sees.
+		out, _ := json.MarshalIndent(CollectUpdates(), "", "  ")
+		fmt.Println(string(out))
 	default:
 		usage()
 		os.Exit(1)

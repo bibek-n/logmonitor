@@ -18,6 +18,7 @@ const (
 	updateInterval                    = 1 * time.Hour
 	logsInterval                      = 60 * time.Second
 	windowsUpdateInterval             = 6 * time.Hour
+	updateScanInterval                = 6 * time.Hour
 	chatWatchdogInterval              = 3 * time.Minute
 	wazuhOfficeSecurityEventsInterval = 3 * time.Minute
 )
@@ -38,7 +39,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	var appActivityMonitoringActive bool
 	var lastIntervalCapture time.Time
 	var lastBrowserHistory time.Time
-	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate, lastWazuhOfficeSecurityEvents time.Time
+	var lastProcesses, lastServices, lastSoftware, lastSecurity, lastNetwork, lastHardware, lastLocalUsers, lastUpdateCheck, lastLogs, lastWindowsUpdate, lastWazuhOfficeSecurityEvents, lastUpdateScan time.Time
 
 	// USB detection runs on its own fast ticker rather than piggybacking on the main
 	// heartbeat loop below - the heartbeat interval is 30s, which made a plug/unplug take
@@ -114,6 +115,12 @@ func Run(cfg *Config, stop <-chan struct{}) {
 			// handlePendingWakeRequests.
 			if len(hb.PendingWakeRequests) > 0 {
 				go handlePendingWakeRequests(client, hb.PendingWakeRequests)
+			}
+
+			// Security & Updates scans requested from the dashboard - own goroutine (a Windows Update or
+			// softwareupdate search can take minutes); RunUpdateScan itself skips overlapping scans.
+			if len(hb.PendingUpdateRequests) > 0 {
+				go handlePendingUpdateRequests(client, hb.PendingUpdateRequests)
 			}
 
 			active := hb.ScreenshotIntervalMinutes != nil && !hb.PrivacyMode
@@ -323,6 +330,15 @@ func Run(cfg *Config, stop <-chan struct{}) {
 					}
 				}
 				lastWazuhOfficeSecurityEvents = now
+			}
+			// Scheduled Security & Updates scan for every OS: first one ~2 minutes after start (so a fresh
+			// install shows data quickly without adding to startup load), then every updateScanInterval.
+			if lastUpdateScan.IsZero() {
+				lastUpdateScan = now.Add(-updateScanInterval + 2*time.Minute)
+			}
+			if now.Sub(lastUpdateScan) >= updateScanInterval {
+				go RunUpdateScan(client, "scheduled", 0)
+				lastUpdateScan = now
 			}
 		}
 	}
