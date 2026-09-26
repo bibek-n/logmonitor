@@ -149,7 +149,11 @@ func installWindows(items []UpdateItem) ([]InstallItemResult, bool, string) {
 		return results, false, ""
 	}
 	script := windowsInstallScriptHead + strings.Join(quoted, ",\n") + windowsInstallScriptBody
-	out := runPowerShellScript(2*time.Hour, script)
+	out, diag := runPowerShellDiag(2*time.Hour, script)
+	if out == "" {
+		// Nothing came back: surface WHY as the fatal line the parser reports for every requested update.
+		out = "E\tPowerShell produced no output - " + diag
+	}
 	parsed, reboot, _ := parseWindowsInstallOutput(out, runnable)
 	return append(results, parsed...), reboot, out
 }

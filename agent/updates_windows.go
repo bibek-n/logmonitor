@@ -65,11 +65,11 @@ try {
 `
 
 func collectUpdatesPlatform() UpdateScan {
-	out := runPowerShellScript(10*time.Minute, windowsUpdateScript)
+	out, diag := runPowerShellDiag(10*time.Minute, windowsUpdateScript)
 	s := parseWindowsUpdateOutput(out)
 	if out == "" {
 		s.Complete = false
-		s.Warnings = append(s.Warnings, "search: Windows Update scan returned no output (timed out or PowerShell failed)")
+		s.Warnings = append(s.Warnings, "search: Windows Update scan returned no output - "+diag)
 	}
 	s.RebootRequired = rebootPending()
 	return s
