@@ -95,6 +95,51 @@ export async function POST(req: NextRequest) {
   // never running against a stale list for more than one heartbeat interval.
   const excludedDomainSuffixes = device.browserActivityIntervalMinutes !== null ? await listExcludedDomainStrings() : [];
 
+  // Wake-on-LAN relay: requests for THIS device to send a magic packet on behalf of a powered-off
+  // device on its own subnet (see src/lib/wakeRelay.ts, agent/wakerelay.go). Sent until acked via
+  // /api/agent/wake-ack (at-least-once), and never past ExpiresAt so a stale request can't fire
+  // hours later. Guarded so a problem here can never take down every agent's heartbeat.
+  let pendingWakeRequests: { id: number; mac: string }[] = [];
+  try {
+    const pendingWakeResult = await db
+      .request()
+      .input("deviceId", sql.VarChar, device.deviceId)
+      .query<{ Id: number; TargetMac: string }>(
+        "SELECT Id, TargetMac FROM PendingWakeRequests WHERE RelayDeviceId = @deviceId AND FulfilledAt IS NULL AND ExpiresAt > SYSUTCDATETIME()"
+      );
+    pendingWakeRequests = pendingWakeResult.recordset.map((r) => ({ id: r.Id, mac: r.TargetMac }));
+  } catch (err) {
+    console.error("heartbeat: failed to read PendingWakeRequests", err);
+  }
+
+  // Security & Updates: admin-queued update scans for THIS device (see src/lib/securityUpdates and
+  // agent/updates.go). Cleared when the agent's scan result arrives at /api/agent/update-scan, and never
+  // sent past ExpiresAt. Guarded so a problem here can never take down every agent's heartbeat.
+  // Approved installs (Kind 'install') are handed out only until the agent reports "running" (StartedAt) - after that a
+  // request is never sent again, so an install runs at most once. AllowDisruptive is only ever set with a recorded confirmation.
+  let pendingUpdateRequests: { id: number; kind: string; updateKeys?: string[]; allowDisruptive?: boolean }[] = [];
+  try {
+    const pendingUpdateResult = await db
+      .request()
+      .input("deviceId", sql.VarChar, device.deviceId)
+      .query<{ Id: number; Kind: string; PayloadJson: string | null; AllowDisruptive: boolean }>(
+        "SELECT Id, Kind, PayloadJson, AllowDisruptive FROM PendingUpdateRequests WHERE DeviceId = @deviceId AND ((Kind = 'scan') OR (Kind = 'install' AND StartedAt IS NULL)) AND FulfilledAt IS NULL AND ExpiresAt > SYSUTCDATETIME()"
+      );
+    pendingUpdateRequests = pendingUpdateResult.recordset.map((r) => {
+      if (r.Kind !== "install") return { id: r.Id, kind: r.Kind };
+      let keys: string[] = [];
+      try {
+        const parsed = JSON.parse(r.PayloadJson ?? "{}") as { keys?: unknown };
+        if (Array.isArray(parsed.keys)) keys = parsed.keys.filter((k): k is string => typeof k === "string");
+      } catch {
+        keys = [];
+      }
+      return { id: r.Id, kind: r.Kind, updateKeys: keys, allowDisruptive: !!r.AllowDisruptive };
+    });
+  } catch (err) {
+    console.error("heartbeat: failed to read PendingUpdateRequests", err);
+  }
+
   return NextResponse.json({
     ok: true,
     screenshotIntervalMinutes: device.screenshotIntervalMinutes,
@@ -103,6 +148,8 @@ export async function POST(req: NextRequest) {
     privacyMode: device.privacyMode,
     pendingScreenshotRequest: (pendingResult.recordset[0]?.Cnt ?? 0) > 0,
     pendingMalwareScanRequest: (pendingMalwareScanResult.recordset[0]?.Cnt ?? 0) > 0,
+    pendingWakeRequests,
+    pendingUpdateRequests,
     pendingPhpLogRequests: pendingPhpLogResult.recordset.map((r) => ({ id: r.Id, version: r.Version, sapi: r.Sapi })),
     pendingAutomationJobs: pendingAutomationJobs.map((j) => ({
       requestId: j.requestId,

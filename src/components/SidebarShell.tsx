@@ -37,6 +37,8 @@ export default function SidebarShell({
   remoteAccessAccess = false,
   itAssetLogsheetAccess = false,
   browserActivityAccess = false,
+  securityUpdatesAccess = false,
+  serverRoomAccess = false,
 }: {
   children: ReactNode;
   qaAccess?: boolean;
@@ -48,6 +50,8 @@ export default function SidebarShell({
   remoteAccessAccess?: boolean;
   itAssetLogsheetAccess?: boolean;
   browserActivityAccess?: boolean;
+  securityUpdatesAccess?: boolean;
+  serverRoomAccess?: boolean;
 }) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
@@ -155,6 +159,8 @@ export default function SidebarShell({
         remoteAccessAccess={remoteAccessAccess}
         itAssetLogsheetAccess={itAssetLogsheetAccess}
         browserActivityAccess={browserActivityAccess}
+        securityUpdatesAccess={securityUpdatesAccess}
+        serverRoomAccess={serverRoomAccess}
       />
 
       <div style={{ display: collapsed ? "none" : "block" }}>{children}</div>

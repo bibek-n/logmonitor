@@ -412,6 +412,25 @@
           }
         }
       },
+      "securityUpdates": {
+        "label": "Security & Updates",
+        "entries": {
+          "dashboard": "Dashboard",
+          "devices": "Devices & Scans",
+          "schedules": "Update Schedules",
+          "history": "Update History"
+        }
+      },
+      "serverRoom": {
+        "label": "Server Room",
+        "entries": {
+          "dashboard": "Dashboard",
+          "entries": "Server Room Entries",
+          "tasks": "Tasks",
+          "incidents": "Incidents",
+          "audit": "Audit History"
+        }
+      },
       "networkManagement": {
         "label": "नेटवर्क व्यवस्थापन",
         "entries": {

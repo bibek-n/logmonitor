@@ -29,6 +29,7 @@ import {
   Ban,
   Gauge,
   History,
+  CalendarClock,
   Network,
   Fingerprint,
   BookOpen,
@@ -314,6 +315,27 @@ export const NAV_CATEGORIES: NavCategory[] = [
     ],
   },
   {
+    key: "securityUpdates",
+    label: "Security & Updates",
+    items: [
+      link("/dashboard/security-updates", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/security-updates/devices", "devices", "Devices & Scans", Monitor),
+      link("/dashboard/security-updates/schedules", "schedules", "Update Schedules", CalendarClock),
+      link("/dashboard/security-updates/history", "history", "Update History", History),
+    ],
+  },
+  {
+    key: "serverRoom",
+    label: "Server Room",
+    items: [
+      link("/dashboard/server-room", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/server-room/entries", "entries", "Server Room Entries", KeyRound),
+      link("/dashboard/server-room/tasks", "tasks", "Tasks", ListChecks),
+      link("/dashboard/server-room/incidents", "incidents", "Incidents", Siren),
+      link("/dashboard/server-room/audit", "audit", "Audit History", History),
+    ],
+  },
+  {
     key: "websiteManagement",
     label: "Website Management",
     items: [
@@ -459,6 +481,8 @@ export const GATED_CATEGORY_KEYS = {
   remoteAccess: "ra_view",
   itAssetLogsheet: "ita_view",
   browserActivity: "ba_view",
+  securityUpdates: "su_view",
+  serverRoom: "sr_view",
 } as const;
 
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -469,6 +493,8 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   remoteAccess: Terminal,
   itAssetLogsheet: Boxes,
   browserActivity: History,
+  securityUpdates: Download,
+  serverRoom: Server,
   websiteManagement: Globe2,
   websiteApiMonitoring: Activity,
   automation: Bot,

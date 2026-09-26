@@ -13,6 +13,8 @@ import { getAutomationSession } from "@/lib/requireAutomationPermission";
 import { getRemoteAccessSession } from "@/lib/requireRemoteAccessPermission";
 import { getItAssetSession } from "@/lib/requireItAssetPermission";
 import { getBrowserActivitySession } from "@/lib/requireBrowserActivityPermission";
+import { getSecurityUpdatesSession } from "@/lib/requireSecurityUpdatesPermission";
+import { getServerRoomSession } from "@/lib/requireServerRoomPermission";
 import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from "@/lib/dateFormat";
 import { resolveLocale } from "@/i18n/routing";
 import SidebarShell from "@/components/SidebarShell";
@@ -57,6 +59,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const remoteAccessAccess = await getRemoteAccessSession("ra_view");
   const itAssetLogsheetAccess = await getItAssetSession("ita_view");
   const browserActivityAccess = await getBrowserActivitySession("ba_view");
+  const securityUpdatesAccess = await getSecurityUpdatesSession("su_view");
+  const serverRoomAccess = await getServerRoomSession("sr_view");
   // Populates the request-scoped locale so every Server Component under this layout can
   // call getTranslations()/getMessages() with no args and still resolve correctly — the
   // dashboard has no [locale] URL segment, so requestLocale would otherwise never be set.
@@ -77,6 +81,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           remoteAccessAccess={remoteAccessAccess !== null}
           itAssetLogsheetAccess={itAssetLogsheetAccess !== null}
           browserActivityAccess={browserActivityAccess !== null}
+          securityUpdatesAccess={securityUpdatesAccess !== null}
+          serverRoomAccess={serverRoomAccess !== null}
         >
           <div className="dash-user">
             <div className="name">

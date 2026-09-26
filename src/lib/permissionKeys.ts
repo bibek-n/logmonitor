@@ -173,4 +173,22 @@ export const PERMISSION_KEYS = [
   "ba_device_enable",
   "ba_audit_log_view",
   "ba_delete",
+  // Security & Updates module - enforced via requireSecurityUpdatesPermission(), scoped only to
+  // /api/admin/security-updates/** routes. Same superuser convention: Admin bypasses these.
+  // su_install / su_schedule gate approved installs and scheduled updates (installs always need admin
+  // confirmation for disruptive updates: OS, kernel, firmware, critical, or reboot-requiring).
+  "su_view",
+  "su_scan",
+  "su_install",
+  "su_schedule",
+  "su_history",
+  "su_export",
+  // Server Room module - enforced via requireServerRoomPermission(), scoped only to /api/admin/server-room/**.
+  // Admin bypasses these. sr_record = record server room entries/exits and tasks; sr_incidents = create and
+  // manage incidents; sr_audit = view the operations audit history; sr_export = CSV export.
+  "sr_view",
+  "sr_record",
+  "sr_incidents",
+  "sr_audit",
+  "sr_export",
 ];
