@@ -76,10 +76,13 @@ type UpdateScan struct {
 	RequestID       int                `json:"requestId,omitempty"`
 }
 
-// UpdateRequest is one admin-queued job from the heartbeat. Only Kind "scan" exists so far.
+// UpdateRequest is one admin-queued job from the heartbeat. Kind "scan" (read-only check) or "install" (approved
+// installation of UpdateKeys - see updates_install.go for the safety rules that apply on the device).
 type UpdateRequest struct {
-	ID   int    `json:"id"`
-	Kind string `json:"kind"`
+	ID              int      `json:"id"`
+	Kind            string   `json:"kind"`
+	UpdateKeys      []string `json:"updateKeys"`
+	AllowDisruptive bool     `json:"allowDisruptive"`
 }
 
 var updateScanRunning int32
@@ -106,8 +109,11 @@ func RunUpdateScan(client *Client, trigger string, requestID int) {
 // server can never make an older agent do something it does not understand.
 func handlePendingUpdateRequests(client *Client, reqs []UpdateRequest) {
 	for _, r := range reqs {
-		if r.Kind == "scan" {
+		switch r.Kind {
+		case "scan":
 			RunUpdateScan(client, "admin", r.ID)
+		case "install":
+			RunUpdateInstall(client, r)
 		}
 	}
 }

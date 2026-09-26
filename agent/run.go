@@ -62,6 +62,10 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	// ensureChatCompanionAutostart stubs in chatcompanion_darwin.go/chatcompanion_linux.go.
 	go runChatCompanionWatchdog(stop)
 
+	// A leftover in-flight marker means the previous agent process died in the middle of an approved update install:
+	// tell the server (it is never repeated automatically).
+	go reportInterruptedInstall(client)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 

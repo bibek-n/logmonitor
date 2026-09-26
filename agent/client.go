@@ -384,6 +384,39 @@ func (c *Client) AckPowerAction() error {
 // PostUpdateScan uploads one Security & Updates scan (pending/failed updates, reboot flag, definitions).
 func (c *Client) PostUpdateScan(s UpdateScan) error { return c.postJSON("/api/agent/update-scan", s) }
 
+// PostUpdateResult reports the state/result of an admin-approved install request ("running" first, then the outcome).
+// Unlike postJSON it also reads the body's `ok`: the server answers HTTP 200 with ok:false when it will NOT let this
+// request start (already started, expired, cancelled...), and the agent must treat that as "do not install".
+func (c *Client) PostUpdateResult(r InstallResult) error {
+	body, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	req, err := c.authRequest("POST", "/api/agent/update-result", bytes.NewReader(body), "application/json")
+	if err != nil {
+		return err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("POST /api/agent/update-result failed: HTTP %d", resp.StatusCode)
+	}
+	var out struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return fmt.Errorf("update-result: unreadable response: %w", err)
+	}
+	if !out.OK {
+		return fmt.Errorf("update-result rejected by server: %s", out.Error)
+	}
+	return nil
+}
+
 // AckWakeRequests marks the given Wake-on-LAN relay requests fulfilled server-side. Called
 // AFTER the magic packets went out (unlike AckPowerAction) - see handlePendingWakeRequests.
 func (c *Client) AckWakeRequests(ids []int) error {
