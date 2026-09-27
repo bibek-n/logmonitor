@@ -87,8 +87,38 @@ func candidateLogPaths() map[string][]string {
 		"nginx_access":  {"/var/log/nginx/access.log"},
 		"nginx_error":   {"/var/log/nginx/error.log"},
 		"mysql":         {"/var/log/mysql/error.log", "/var/log/mysqld.log"},
-		"php":           {"/var/log/php_errors.log", "/var/log/php-fpm/error.log", "/var/log/php8.1-fpm.log"},
+		"php":           {"/var/log/php_errors.log", "/var/log/php-fpm/error.log"},
 	}
+}
+
+// phpFpmVersionLogGlob matches PHP-FPM's per-version log file convention on Debian/Ubuntu
+// (php7.4-fpm.log, php8.1-fpm.log, php8.2-fpm.log, ...). candidateLogPaths above used to guess
+// php8.1-fpm.log specifically, which silently missed every server running a different PHP
+// version - and a hosting box commonly runs more than one at once (different sites pinned to
+// different versions via the ondrej/php PPA or similar). Same glob-and-tail-every-match
+// approach as collectNginxVhostLogs, just without a per-file "site" label since these logs
+// aren't per-vhost.
+var phpFpmVersionLogGlob = func() string {
+	if runtime.GOOS == "windows" {
+		return ""
+	}
+	return "/var/log/php*-fpm.log"
+}
+
+func collectPhpFpmVersionLogs(state *logFileState, budget *int) []LogEntry {
+	pattern := phpFpmVersionLogGlob()
+	if pattern == "" {
+		return nil
+	}
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil
+	}
+	var entries []LogEntry
+	for _, path := range matches {
+		entries = append(entries, tailFileWithBudget(path, state, budget, "php", "")...)
+	}
+	return entries
 }
 
 // nginxVhostLogGlobs returns, per log source, the glob pattern nginx installs commonly use
@@ -298,6 +328,7 @@ func CollectNewLogLines() []LogEntry {
 
 	entries = append(entries, collectNginxVhostLogs(&state, &budget)...)
 	entries = append(entries, collectApacheVhostLogs(&state, &budget)...)
+	entries = append(entries, collectPhpFpmVersionLogs(&state, &budget)...)
 	entries = append(entries, collectMssqlLogs(&state, &budget)...)
 	entries = append(entries, collectSystemLog(&state)...)
 
