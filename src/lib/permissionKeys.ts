@@ -191,4 +191,23 @@ export const PERMISSION_KEYS = [
   "sr_incidents",
   "sr_audit",
   "sr_export",
+  // Web Access Control module - enforced via requireWebAccessControlPermission(), scoped
+  // only to /api/admin/web-access-control/** routes. Same superuser convention: Admin
+  // bypasses these. This is staff-based website access management layered on the existing
+  // Staff table (a NEW "Staff Groups" concept - Admin/Accounts/Sales/HR/General Staff -
+  // distinct from the Roles/RolePermissions axis these very keys belong to). No live Sophos
+  // Firewall sync exists yet (see src/lib/webAccessControl/sophosFirewallService.ts); rules
+  // are fully stored/enforceable in this app's own model regardless, and
+  // wac_sophos_sync_manage only gates *attempting* a sync (which honestly reports
+  // NotConnected today) so it's granted independently of the CRUD keys.
+  "wac_view",
+  "wac_staff_group_manage",
+  "wac_rule_create",
+  "wac_rule_edit",
+  "wac_rule_delete",
+  "wac_allowlist_manage",
+  "wac_schedule_manage",
+  "wac_settings_manage",
+  "wac_sophos_sync_manage",
+  "wac_audit_log_view",
 ];

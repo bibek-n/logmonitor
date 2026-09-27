@@ -262,6 +262,14 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/mail-security/connectors", "mailConnectors", "Mail Connectors", Plug),
         link("/dashboard/mail-security/reports", "mailReports", "Reports", BarChart2),
       ]),
+      group("webAccessControl", "Web Access Control", ShieldCheck, [
+        link("/dashboard/web-access-control", "dashboard", "Dashboard", LayoutDashboard),
+        link("/dashboard/web-access-control/groups", "staffGroups", "Staff Groups", Users),
+        link("/dashboard/web-access-control/rules", "websiteRules", "Website Rules", Filter),
+        link("/dashboard/web-access-control/allowlist", "criticalAllowlist", "Critical Allowlist", ShieldCheck),
+        link("/dashboard/web-access-control/schedules", "schedules", "Schedules", Clock),
+        link("/dashboard/web-access-control/audit-log", "auditLog", "Audit Log", ScrollText),
+      ]),
     ],
   },
   {
@@ -470,6 +478,7 @@ export const GATED_GROUP_KEYS = {
   codeQuality: "cq_view",
   laravelSecurity: "ls_view",
   mailProtection: "mail_view",
+  webAccessControl: "wac_view",
 } as const;
 
 // Unlike GATED_GROUP_KEYS (a subgroup nested inside an always-visible category), Website &

@@ -39,6 +39,7 @@ export default function SidebarShell({
   browserActivityAccess = false,
   securityUpdatesAccess = false,
   serverRoomAccess = false,
+  webAccessControlAccess = false,
 }: {
   children: ReactNode;
   qaAccess?: boolean;
@@ -52,6 +53,7 @@ export default function SidebarShell({
   browserActivityAccess?: boolean;
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
+  webAccessControlAccess?: boolean;
 }) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
@@ -161,6 +163,7 @@ export default function SidebarShell({
         browserActivityAccess={browserActivityAccess}
         securityUpdatesAccess={securityUpdatesAccess}
         serverRoomAccess={serverRoomAccess}
+        webAccessControlAccess={webAccessControlAccess}
       />
 
       <div style={{ display: collapsed ? "none" : "block" }}>{children}</div>

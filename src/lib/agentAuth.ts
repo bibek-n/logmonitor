@@ -9,6 +9,7 @@ export interface AuthenticatedDevice {
   screenshotIntervalMinutes: number | null;
   browserActivityIntervalMinutes: number | null;
   privacyMode: boolean;
+  websiteBlockingEnabled: boolean;
 }
 
 export function generateApiKey(): string {
@@ -53,6 +54,7 @@ interface DeviceAuthRow {
   ScreenshotIntervalMinutes: number | null;
   BrowserActivityIntervalMinutes: number | null;
   PrivacyMode: boolean;
+  WebsiteBlockingEnabled: boolean;
 }
 
 // Authenticates an agent request via the `X-Device-Id` + `Authorization: Bearer <apiKey>`
@@ -70,7 +72,7 @@ export async function authenticateDevice(req: Request): Promise<AuthenticatedDev
     .request()
     .input("deviceId", sql.VarChar, deviceId)
     .query<DeviceAuthRow>(
-      "SELECT Id, DeviceId, Hostname, ApiKeyHash, StaffId, ScreenshotIntervalMinutes, BrowserActivityIntervalMinutes, PrivacyMode FROM Devices WHERE DeviceId = @deviceId"
+      "SELECT Id, DeviceId, Hostname, ApiKeyHash, StaffId, ScreenshotIntervalMinutes, BrowserActivityIntervalMinutes, PrivacyMode, WebsiteBlockingEnabled FROM Devices WHERE DeviceId = @deviceId"
     );
 
   const device = result.recordset[0];
@@ -85,5 +87,6 @@ export async function authenticateDevice(req: Request): Promise<AuthenticatedDev
     screenshotIntervalMinutes: device.ScreenshotIntervalMinutes,
     browserActivityIntervalMinutes: device.BrowserActivityIntervalMinutes,
     privacyMode: device.PrivacyMode,
+    websiteBlockingEnabled: device.WebsiteBlockingEnabled,
   };
 }

@@ -3,6 +3,7 @@ import { getDb, sql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/agentAuth";
 import { getPendingJobsForDevice } from "@/lib/automation/repository";
 import { listExcludedDomainStrings } from "@/lib/browserActivity/repository";
+import { getBlockedDomainsForStaff } from "@/lib/webAccessControl/enforcement";
 
 function clientIp(req: NextRequest): string | null {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -25,17 +26,30 @@ export async function POST(req: NextRequest) {
   const agentVersion = typeof body?.agentVersion === "string" ? body.agentVersion : null;
   const currentUser = typeof body?.currentUser === "string" && body.currentUser ? body.currentUser : null;
 
+  // Website Access Control enforcement receipt: reuses this same heartbeat round-trip rather than a new endpoint (see
+  // agent/client.go's Heartbeat, which always sends wacAppliedDomains as an array - possibly empty - and wacError as
+  // string|null). Presence of wacAppliedDomains as an array is the signal that THIS agent build understands WAC
+  // enforcement at all; an older agent simply omits the field, and in that case WacLastAppliedAt/WacLastError below
+  // are left untouched rather than overwritten with a stale/absent report.
+  const wacAppliedDomains: string[] | null = Array.isArray(body?.wacAppliedDomains)
+    ? (body.wacAppliedDomains as unknown[]).filter((d): d is string => typeof d === "string")
+    : null;
+  const wacError = typeof body?.wacError === "string" ? body.wacError : null;
+  const wacReportPresent = wacAppliedDomains !== null;
+
   await db
     .request()
     .input("deviceId", sql.VarChar, device.deviceId)
     .input("ip", sql.VarChar, ip)
     .input("agentVersion", sql.NVarChar, agentVersion)
     .input("currentUser", sql.NVarChar, currentUser)
+    .input("wacError", sql.NVarChar, wacError)
     .query(`
       UPDATE Devices
       SET LastHeartbeat = SYSUTCDATETIME(), LastIp = @ip,
         AgentVersion = COALESCE(@agentVersion, AgentVersion),
         CurrentUser = COALESCE(@currentUser, CurrentUser)
+        ${wacReportPresent ? ", WacLastAppliedAt = SYSUTCDATETIME(), WacLastError = @wacError" : ""}
       WHERE DeviceId = @deviceId
     `);
 
@@ -140,6 +154,15 @@ export async function POST(req: NextRequest) {
     console.error("heartbeat: failed to read PendingUpdateRequests", err);
   }
 
+  // Website Access Control enforcement: only resolved (and only ever sent non-empty) when an admin has explicitly
+  // opted THIS device into local website blocking AND it has an assigned staff member to resolve rules against - see
+  // scripts/migrate-web-access-control-enforcement.ts for why WebsiteBlockingEnabled defaults to false for every
+  // device, including already-enrolled ones. getBlockedDomainsForStaff (src/lib/webAccessControl/enforcement.ts) is
+  // the only place that turns the rules engine's per-domain decisions into the flat domain list the agent's
+  // hosts-file blocking (agent/wacblock_windows.go) actually needs.
+  const wacBlockedDomains =
+    device.websiteBlockingEnabled && device.staffId !== null ? await getBlockedDomainsForStaff(device.staffId) : [];
+
   return NextResponse.json({
     ok: true,
     screenshotIntervalMinutes: device.screenshotIntervalMinutes,
@@ -150,6 +173,7 @@ export async function POST(req: NextRequest) {
     pendingMalwareScanRequest: (pendingMalwareScanResult.recordset[0]?.Cnt ?? 0) > 0,
     pendingWakeRequests,
     pendingUpdateRequests,
+    wacBlockedDomains,
     pendingPhpLogRequests: pendingPhpLogResult.recordset.map((r) => ({ id: r.Id, version: r.Version, sapi: r.Sapi })),
     pendingAutomationJobs: pendingAutomationJobs.map((j) => ({
       requestId: j.requestId,

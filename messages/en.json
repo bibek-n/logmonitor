@@ -497,6 +497,17 @@
               "mailConnectors": "Mail Connectors",
               "mailReports": "Reports"
             }
+          },
+          "webAccessControl": {
+            "label": "Web Access Control",
+            "items": {
+              "dashboard": "Dashboard",
+              "staffGroups": "Staff Groups",
+              "websiteRules": "Website Rules",
+              "criticalAllowlist": "Critical Allowlist",
+              "schedules": "Schedules",
+              "auditLog": "Audit Log"
+            }
           }
         }
       },

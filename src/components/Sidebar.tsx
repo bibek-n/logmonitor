@@ -23,6 +23,7 @@ interface SidebarProps {
   browserActivityAccess?: boolean;
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
+  webAccessControlAccess?: boolean;
 }
 
 const ACCESS_BY_GROUP_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" | "onExpandRail">> = {
@@ -30,6 +31,7 @@ const ACCESS_BY_GROUP_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" |
   [GATED_GROUP_KEYS.codeQuality]: "codeQualityAccess",
   [GATED_GROUP_KEYS.laravelSecurity]: "laravelSecurityAccess",
   [GATED_GROUP_KEYS.mailProtection]: "mailSecurityAccess",
+  [GATED_GROUP_KEYS.webAccessControl]: "webAccessControlAccess",
 };
 
 const ACCESS_BY_CATEGORY_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" | "onExpandRail">> = {
@@ -60,10 +62,11 @@ export default function Sidebar({
   browserActivityAccess = false,
   securityUpdatesAccess = false,
   serverRoomAccess = false,
+  webAccessControlAccess = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess };
+  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess, webAccessControlAccess };
 
   // Every subgroup is visible to every authenticated user except the ones gated by a
   // permission key (GATED_GROUP_KEYS) - resolved server-side in DashboardLayout and threaded
@@ -85,7 +88,7 @@ export default function Sidebar({
           // eslint-disable-next-line react-hooks/exhaustive-deps
         }),
       })),
-    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess]
+    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess, webAccessControlAccess]
   );
 
   function isActive(href: string) {

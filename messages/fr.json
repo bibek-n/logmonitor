@@ -497,6 +497,17 @@
               "mailConnectors": "Connecteurs de Messagerie",
               "mailReports": "Rapports"
             }
+          },
+          "webAccessControl": {
+            "label": "ContrÃ´le d'AccÃ¨s Web",
+            "items": {
+              "dashboard": "Tableau de Bord",
+              "staffGroups": "Groupes de Personnel",
+              "websiteRules": "RÃ¨gles de Sites Web",
+              "criticalAllowlist": "Liste d'Autorisation Critique",
+              "schedules": "Horaires",
+              "auditLog": "Journal d'Audit"
+            }
           }
         }
       },
