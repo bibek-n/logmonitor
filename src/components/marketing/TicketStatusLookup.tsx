@@ -4,13 +4,17 @@ import { useState, FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { MKT } from "@/lib/marketingTheme";
 
+// White background + dark text, matching the login page's own form fields - MKT.ink is white
+// now (for text sitting directly on the page/card background), which would be invisible
+// against a plain white input left unset.
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.65rem 0.8rem",
   borderRadius: 8,
   border: `1px solid ${MKT.border}`,
+  background: "#fff",
   fontSize: "0.9rem",
-  color: MKT.ink,
+  color: "#1E1B2E",
 };
 
 interface TicketStatusResult {
@@ -66,7 +70,7 @@ export function TicketStatusLookup() {
           required
         />
         <input style={inputStyle} type="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} required />
-        {error && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>{error}</div>}
+        {error && <div style={{ color: "#F87171", fontSize: "0.85rem" }}>{error}</div>}
         <button
           type="submit"
           disabled={loading}
@@ -77,7 +81,7 @@ export function TicketStatusLookup() {
       </form>
 
       {result && (
-        <div style={{ border: `1px solid ${MKT.border}`, borderRadius: 10, padding: "1.25rem" }}>
+        <div style={{ background: MKT.surface, border: `1px solid ${MKT.border}`, borderRadius: 10, padding: "1.25rem" }}>
           <div className="flex items-center justify-between mb-2">
             <strong style={{ color: MKT.ink }}>{result.ticketNumber}</strong>
             <span style={{ background: MKT.surfaceAlt, color: MKT.ink, padding: "0.2rem 0.6rem", borderRadius: 999, fontSize: "0.78rem", fontWeight: 600 }}>

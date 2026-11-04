@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   title: "Tulips Unified Admin Center",
   description: "Monitor, secure, manage, and automate your IT infrastructure from one command center.",
   manifest: "/manifest.json",
+  // This is an internal IT admin tool (plus its support/contact pages) - none of it should
+  // ever turn up in a search engine. Set at the root so every route inherits it (no page sets
+  // its own `robots`, so nothing overrides this); src/app/robots.ts backs it with an actual
+  // disallow-all robots.txt too, since some crawlers only honor one signal or the other.
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default async function RootLayout({

@@ -1,13 +1,258 @@
 "use client";
 
-import { Suspense, useState, useEffect, FormEvent } from "react";
+import { Suspense, useState, useEffect, useRef, FormEvent, ChangeEvent, KeyboardEvent, ClipboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import { signIn } from "next-auth/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
+import {
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  Fingerprint,
+  ShieldCheck,
+  KeyRound,
+  AlertCircle,
+  Info,
+  ArrowLeft,
+  Loader2,
+  BookOpen,
+  MessageCircle,
+} from "lucide-react";
 import { TulipsLogo } from "@/components/branding/TulipsLogo";
+import { Link } from "@/i18n/navigation";
+import "./login.css";
 
 const RESEND_COOLDOWN_SECONDS = 30;
+const OTP_LENGTH = 6;
+
+// A small original flat-style mascot standing beside the card - not a copy of any stock
+// illustration, just an homage to the "character leaning on the form" look of the reference
+// design this page was asked to match.
+function LoginMascot() {
+  return (
+    <svg width="132" height="212" viewBox="0 0 132 212" fill="none" aria-hidden="true">
+      <ellipse cx="66" cy="204" rx="38" ry="7" fill="rgba(0,0,0,0.18)" />
+      <rect x="42" y="134" width="18" height="60" rx="9" fill="#1e293b" />
+      <rect x="72" y="134" width="18" height="60" rx="9" fill="#1e293b" />
+      <rect x="37" y="186" width="28" height="14" rx="7" fill="#f97316" />
+      <rect x="67" y="186" width="28" height="14" rx="7" fill="#f97316" />
+      <rect x="33" y="72" width="66" height="70" rx="22" fill="#14b8a6" />
+      <rect x="28" y="88" width="58" height="15" rx="7.5" fill="#0d9488" transform="rotate(-14 57 95)" />
+      <rect x="46" y="88" width="58" height="15" rx="7.5" fill="#0d9488" transform="rotate(14 75 95)" />
+      <rect x="58" y="58" width="16" height="18" fill="#f3b991" />
+      <circle cx="66" cy="42" r="26" fill="#f3b991" />
+      <path d="M40 38c2-16 15-26 26-26s24 10 26 26c-6-6-16-10-26-10s-20 4-26 10Z" fill="#2d1b0e" />
+      <circle cx="58" cy="44" r="2.2" fill="#2d1b0e" />
+      <circle cx="74" cy="44" r="2.2" fill="#2d1b0e" />
+      <path d="M59 52c3 2.5 11 2.5 14 0" stroke="#2d1b0e" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+// Mouse-tracked 3D tilt wrapper around the sign-in card. Disabled entirely under
+// prefers-reduced-motion so it never fights a user's OS-level motion preference.
+function TiltCard({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [reduced, setReduced] = useState(false);
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const rotateX = useSpring(useTransform(my, [-0.5, 0.5], [10, -10]), { stiffness: 200, damping: 25 });
+  const rotateY = useSpring(useTransform(mx, [-0.5, 0.5], [-10, 10]), { stiffness: 200, damping: 25 });
+
+  useEffect(() => {
+    setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
+
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (reduced || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
+  }
+  function handleLeave() {
+    mx.set(0);
+    my.set(0);
+  }
+
+  return (
+    <div style={{ perspective: 1600 }}>
+      <motion.div
+        ref={ref}
+        onMouseMove={handleMove}
+        onMouseLeave={handleLeave}
+        style={{ rotateX: reduced ? 0 : rotateX, rotateY: reduced ? 0 : rotateY, transformStyle: "preserve-3d" }}
+        className="login-card"
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+function FloatingInput({
+  id,
+  label,
+  icon,
+  type = "text",
+  value,
+  onChange,
+  autoComplete,
+  required,
+  autoFocus,
+  maxLength,
+  rightSlot,
+  inputStyle,
+  placeholderWhenActive,
+}: {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  type?: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  autoComplete?: string;
+  required?: boolean;
+  autoFocus?: boolean;
+  maxLength?: number;
+  rightSlot?: React.ReactNode;
+  inputStyle?: React.CSSProperties;
+  placeholderWhenActive?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const active = focused || value.length > 0;
+  return (
+    <div className={`login-field${active ? " active" : ""}`}>
+      <span className="login-field-icon">{icon}</span>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        autoComplete={autoComplete}
+        required={required}
+        autoFocus={autoFocus}
+        maxLength={maxLength}
+        placeholder={active ? placeholderWhenActive ?? "" : ""}
+        style={inputStyle}
+      />
+      <label htmlFor={id}>{label}</label>
+      {rightSlot && <span className="login-field-right">{rightSlot}</span>}
+    </div>
+  );
+}
+
+// Six (or N) individually-focusable digit boxes backing a single string value - paste and
+// type-ahead both fan out across boxes so a pasted/autofilled code lands in one action.
+function OtpBoxes({
+  idPrefix,
+  value,
+  onChange,
+  length = OTP_LENGTH,
+  disabled,
+  autoFocus,
+}: {
+  idPrefix: string;
+  value: string;
+  onChange: (next: string) => void;
+  length?: number;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}) {
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
+
+  function setDigit(i: number, digit: string) {
+    const chars = value.split("");
+    while (chars.length < length) chars.push("");
+    chars[i] = digit;
+    onChange(chars.join("").slice(0, length));
+  }
+
+  function fanOut(startIndex: number, text: string) {
+    const digits = text.replace(/\D/g, "").slice(0, length - startIndex).split("");
+    if (digits.length === 0) return;
+    const next = value.split("");
+    while (next.length < length) next.push("");
+    digits.forEach((c, idx) => {
+      next[startIndex + idx] = c;
+    });
+    onChange(next.join("").slice(0, length));
+    refs.current[Math.min(startIndex + digits.length, length - 1)]?.focus();
+  }
+
+  function handleChange(i: number, e: ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (!raw) {
+      setDigit(i, "");
+      return;
+    }
+    if (raw.length > 1) {
+      fanOut(i, raw);
+      return;
+    }
+    setDigit(i, raw);
+    if (i < length - 1) refs.current[i + 1]?.focus();
+  }
+
+  function handleKeyDown(i: number, e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace" && !value[i] && i > 0) {
+      refs.current[i - 1]?.focus();
+      setDigit(i - 1, "");
+    }
+  }
+
+  function handlePaste(i: number, e: ClipboardEvent<HTMLInputElement>) {
+    const text = e.clipboardData.getData("text");
+    if (!/\d/.test(text)) return;
+    e.preventDefault();
+    fanOut(i, text);
+  }
+
+  return (
+    <div className="otp-boxes">
+      {Array.from({ length }).map((_, i) => (
+        <input
+          key={i}
+          id={`${idPrefix}-${i}`}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          inputMode="numeric"
+          maxLength={1}
+          value={value[i] ?? ""}
+          disabled={disabled}
+          autoFocus={autoFocus && i === 0}
+          onChange={(e) => handleChange(i, e)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          onPaste={(e) => handlePaste(i, e)}
+          className="otp-box"
+        />
+      ))}
+    </div>
+  );
+}
+
+function Alert({ tone, icon, children }: { tone: "error" | "info" | "warning"; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
+      className={`login-alert login-alert-${tone}`}
+    >
+      {icon}
+      <span>{children}</span>
+    </motion.div>
+  );
+}
 
 function LoginForm() {
   const t = useTranslations("login");
@@ -16,6 +261,7 @@ function LoginForm() {
   const [stage, setStage] = useState<"credentials" | "otp" | "totp">("credentials");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
   const [commitToken, setCommitToken] = useState<string | null>(null);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
@@ -208,213 +454,260 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <div
-        className="hidden lg:flex flex-col justify-between"
-        style={{
-          flex: "0 0 42%",
-          padding: "3rem",
-          background: "linear-gradient(135deg, var(--primary, #00c2ff), #0b1220)",
-          color: "#fff",
-        }}
-      >
-        <div>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <TulipsLogo height={40} padded />
-          </div>
-          <h2 style={{ fontSize: "1.9rem", fontWeight: 800, lineHeight: 1.25, marginBottom: "1rem" }}>
-            {t("heading")}
-          </h2>
-          <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "rgba(255,255,255,0.85)", maxWidth: 400, marginBottom: "1.5rem" }}>
-            {t("brandDescription")}
-          </p>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {[t("brandFeature1"), t("brandFeature2"), t("brandFeature3"), t("brandFeature4")].map((feature) => (
-              <li key={feature} className="flex items-center gap-2" style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.9)" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", flexShrink: 0 }} />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.6)" }}>
-          &copy; {new Date().getFullYear()} Tulips Technologies
-        </p>
+    <div className="login-page">
+      <div className="login-bg" aria-hidden="true">
+        <div className="login-orb login-orb-a" />
+        <div className="login-orb login-orb-b" />
+        <div className="login-orb login-orb-c" />
       </div>
 
-      <div className="flex flex-1 items-center justify-center" style={{ padding: "1.5rem", background: "var(--bg, var(--surface-2))" }}>
-        <div
-          className="card"
-          style={{
-            maxWidth: 380,
-            boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div className="flex flex-col items-center" style={{ marginBottom: "1.5rem" }}>
-            <div style={{ marginBottom: "0.75rem" }}>
+      {/* Public, unauthenticated help entry points - someone who can't sign in (locked out,
+          forgot password, no account yet) still needs a way to reach IT. Both targets are the
+          existing public marketing-site pages (no login required), not the internal
+          /dashboard/help-center or /dashboard/chat admin tools, which require an admin session
+          and would just bounce back here. */}
+      <div className="login-topbar">
+        <Link href="/support" className="login-topbar-link">
+          <BookOpen size={15} />
+          Help Center
+        </Link>
+        <Link href="/support/tickets/new" className="login-topbar-link">
+          <MessageCircle size={15} />
+          Contact Support
+        </Link>
+      </div>
+
+      <div className="login-center">
+        <div className="login-composition">
+          <div className="login-mascot">
+            <div className="login-mascot-inner">
+              <LoginMascot />
+            </div>
+          </div>
+
+          <TiltCard>
+          <div className="flex flex-col items-center" style={{ marginBottom: "1.75rem" }}>
+            <div style={{ marginBottom: "0.85rem" }}>
               <TulipsLogo height={38} padded />
             </div>
-            <h1 style={{ margin: 0 }}>{t("heading")}</h1>
-            <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: "0.35rem 0 0" }}>{t("brandSubtitle")}</p>
+            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--lp-ink)" }}>{t("heading")}</h1>
+            <p style={{ fontSize: "0.85rem", color: "var(--lp-ink-muted)", margin: "0.35rem 0 0" }}>{t("brandSubtitle")}</p>
           </div>
-          {idleLogout && !error && (
-            <div className="error" style={{ background: "var(--warning, #f59e0b)" }}>
-              {t("idleLogoutMessage")}
-            </div>
-          )}
-          {error && <div className="error">{error}</div>}
-          {info && !error && (
-            <div className="error" style={{ background: "var(--info, #06b6d4)" }}>
-              {info}
-            </div>
-          )}
 
-          {stage === "credentials" ? (
-          <form onSubmit={handleCredentialsSubmit}>
-            <div className="field">
-              <label htmlFor="username">{t("usernameLabel")}</label>
-              <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="password">{t("passwordLabel")}</label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <button className="submit" type="submit" disabled={loading}>
-              {loading ? t("signingIn") : t("signIn")}
-            </button>
-            {passkeySupported && (
-              <button
-                type="button"
-                className="submit"
-                style={{ marginTop: "0.5rem", background: "transparent", border: "1px solid var(--border, #E2E8F0)", color: "var(--ink, #0F172A)" }}
-                onClick={handlePasskeySignIn}
-                disabled={passkeyLoading}
-              >
-                {passkeyLoading ? "Waiting for Face ID / Touch ID..." : "Sign in with Face ID / Touch ID"}
-              </button>
+          <AnimatePresence>
+            {idleLogout && !error && (
+              <Alert key="idle" tone="warning" icon={<Info size={16} />}>
+                {t("idleLogoutMessage")}
+              </Alert>
             )}
-          </form>
-        ) : stage === "otp" ? (
-          <form onSubmit={handleOtpSubmit}>
-            <div className="field">
-              <label htmlFor="otp">{t("otpLabel")}</label>
-              <input
-                id="otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                required
-                autoFocus
-              />
-            </div>
-            <button className="submit" type="submit" disabled={loading || otp.length !== 6}>
-              {loading ? t("verifying") : t("verify")}
-            </button>
-            <button
-              type="button"
-              className="submit"
-              style={{ background: "transparent", color: "var(--ink-muted, #64748b)", marginTop: "0.5rem" }}
-              onClick={handleResend}
-              disabled={loading || resendSecondsLeft > 0}
-            >
-              {resendSecondsLeft > 0 ? t("resendCodeWithSeconds", { seconds: resendSecondsLeft }) : t("resendCode")}
-            </button>
-            <button
-              type="button"
-              className="submit"
-              style={{ background: "transparent", color: "var(--ink-muted, #64748b)" }}
-              onClick={() => {
-                setStage("credentials");
-                setOtp("");
-                setError(null);
-                setInfo(null);
-              }}
-              disabled={loading}
-            >
-              {t("back")}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleOtpSubmit}>
-            <div className="field">
-              <label htmlFor="totp">{useRecoveryCode ? t("recoveryCodeLabel") : t("totpLabel")}</label>
-              {useRecoveryCode ? (
-                <input
-                  id="totp"
-                  type="text"
-                  autoComplete="one-time-code"
-                  maxLength={9}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.toUpperCase())}
+          </AnimatePresence>
+          <AnimatePresence>
+            {error && (
+              <Alert key="error" tone="error" icon={<AlertCircle size={16} />}>
+                {error}
+              </Alert>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {info && !error && (
+              <Alert key="info" tone="info" icon={<Info size={16} />}>
+                {info}
+              </Alert>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            {stage === "credentials" ? (
+              <motion.form
+                key="credentials"
+                onSubmit={handleCredentialsSubmit}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <FloatingInput
+                  id="username"
+                  label={t("usernameLabel")}
+                  icon={<User size={17} />}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
                   required
-                  autoFocus
-                  placeholder="XXXX-XXXX"
                 />
-              ) : (
-                <input
-                  id="totp"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                <FloatingInput
+                  id="password"
+                  label={t("passwordLabel")}
+                  icon={<Lock size={17} />}
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
-                  autoFocus
+                  rightSlot={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      style={{ background: "none", border: "none", cursor: "pointer", display: "flex", color: "inherit" }}
+                      tabIndex={-1}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  }
                 />
-              )}
-            </div>
-            <button className="submit" type="submit" disabled={loading || otp.length === 0}>
-              {loading ? t("verifying") : t("verify")}
-            </button>
-            <button
-              type="button"
-              className="submit"
-              style={{ background: "transparent", color: "var(--ink-muted, #64748b)", marginTop: "0.5rem" }}
-              onClick={() => {
-                setUseRecoveryCode((prev) => !prev);
-                setOtp("");
-                setError(null);
-              }}
-              disabled={loading}
-            >
-              {useRecoveryCode ? t("useAuthenticatorInstead") : t("useRecoveryCodeInstead")}
-            </button>
-            <button
-              type="button"
-              className="submit"
-              style={{ background: "transparent", color: "var(--ink-muted, #64748b)" }}
-              onClick={() => {
-                setStage("credentials");
-                setOtp("");
-                setError(null);
-                setInfo(null);
-                setUseRecoveryCode(false);
-              }}
-              disabled={loading}
-            >
-              {t("back")}
-            </button>
-          </form>
-        )}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-0.5rem", marginBottom: "0.75rem" }}>
+                  <Link href="/forgot-password" style={{ fontSize: "0.78rem", color: "var(--lp-ink-muted)", textDecoration: "none" }}>
+                    Forgot password?
+                  </Link>
+                </div>
+                <motion.button whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }} className="login-btn-primary" type="submit" disabled={loading}>
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 size={16} className="animate-spin" />
+                      {t("signingIn")}
+                    </span>
+                  ) : (
+                    t("signIn")
+                  )}
+                </motion.button>
+                {passkeySupported && (
+                  <>
+                    <div className="login-divider">
+                      <span>or</span>
+                    </div>
+                    <div className="flex justify-center">
+                      <motion.button
+                        whileHover={passkeyLoading ? undefined : { scale: 1.08 }}
+                        whileTap={passkeyLoading ? undefined : { scale: 0.92 }}
+                        type="button"
+                        className={`login-passkey-circle${passkeyLoading ? " loading" : ""}`}
+                        onClick={handlePasskeySignIn}
+                        disabled={passkeyLoading}
+                        aria-label="Sign in with Face ID / Touch ID"
+                        title="Sign in with Face ID / Touch ID"
+                      >
+                        <span className="login-passkey-ring" aria-hidden="true" />
+                        {passkeyLoading ? <Loader2 size={22} className="animate-spin" /> : <Fingerprint size={22} />}
+                      </motion.button>
+                    </div>
+                    <p className="login-passkey-caption">
+                      {passkeyLoading ? "Waiting for Face ID / Touch ID…" : "Sign in with Face ID / Touch ID"}
+                    </p>
+                  </>
+                )}
+              </motion.form>
+            ) : stage === "otp" ? (
+              <motion.form
+                key="otp"
+                onSubmit={handleOtpSubmit}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="flex flex-col items-center" style={{ marginBottom: "1.1rem" }}>
+                  <span style={{ width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.14)", color: "#fff", marginBottom: "0.6rem" }}>
+                    <ShieldCheck size={20} />
+                  </span>
+                  <label htmlFor="otp-0" style={{ fontSize: "0.85rem", color: "var(--lp-ink-muted)", marginBottom: "0.75rem" }}>
+                    {t("otpLabel")}
+                  </label>
+                  <OtpBoxes idPrefix="otp" value={otp} onChange={setOtp} disabled={loading} autoFocus />
+                </div>
+                <motion.button whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }} className="login-btn-primary" type="submit" disabled={loading || otp.length !== 6}>
+                  {loading ? t("verifying") : t("verify")}
+                </motion.button>
+                <button type="button" className="login-btn-ghost" onClick={handleResend} disabled={loading || resendSecondsLeft > 0}>
+                  {resendSecondsLeft > 0 ? t("resendCodeWithSeconds", { seconds: resendSecondsLeft }) : t("resendCode")}
+                </button>
+                <button
+                  type="button"
+                  className="login-btn-ghost"
+                  onClick={() => {
+                    setStage("credentials");
+                    setOtp("");
+                    setError(null);
+                    setInfo(null);
+                  }}
+                  disabled={loading}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    <ArrowLeft size={14} />
+                    {t("back")}
+                  </span>
+                </button>
+              </motion.form>
+            ) : (
+              <motion.form
+                key="totp"
+                onSubmit={handleOtpSubmit}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="flex flex-col items-center" style={{ marginBottom: "1.1rem" }}>
+                  <span style={{ width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.14)", color: "#fff", marginBottom: "0.6rem" }}>
+                    <KeyRound size={20} />
+                  </span>
+                  <label htmlFor={useRecoveryCode ? "recovery" : "totp-0"} style={{ fontSize: "0.85rem", color: "var(--lp-ink-muted)", marginBottom: "0.75rem" }}>
+                    {useRecoveryCode ? t("recoveryCodeLabel") : t("totpLabel")}
+                  </label>
+                  {useRecoveryCode ? (
+                    <FloatingInput
+                      id="recovery"
+                      label={t("recoveryCodeLabel")}
+                      icon={<KeyRound size={17} />}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.toUpperCase())}
+                      autoComplete="one-time-code"
+                      required
+                      autoFocus
+                      maxLength={9}
+                      placeholderWhenActive="XXXX-XXXX"
+                      inputStyle={{ textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: "monospace" }}
+                    />
+                  ) : (
+                    <OtpBoxes idPrefix="totp" value={otp} onChange={setOtp} disabled={loading} autoFocus />
+                  )}
+                </div>
+                <motion.button whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }} className="login-btn-primary" type="submit" disabled={loading || otp.length === 0}>
+                  {loading ? t("verifying") : t("verify")}
+                </motion.button>
+                <button
+                  type="button"
+                  className="login-btn-ghost"
+                  onClick={() => {
+                    setUseRecoveryCode((prev) => !prev);
+                    setOtp("");
+                    setError(null);
+                  }}
+                  disabled={loading}
+                >
+                  {useRecoveryCode ? t("useAuthenticatorInstead") : t("useRecoveryCodeInstead")}
+                </button>
+                <button
+                  type="button"
+                  className="login-btn-ghost"
+                  onClick={() => {
+                    setStage("credentials");
+                    setOtp("");
+                    setError(null);
+                    setInfo(null);
+                    setUseRecoveryCode(false);
+                  }}
+                  disabled={loading}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    <ArrowLeft size={14} />
+                    {t("back")}
+                  </span>
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+          </TiltCard>
         </div>
       </div>
     </div>

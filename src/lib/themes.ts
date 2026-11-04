@@ -5,7 +5,7 @@ export interface ThemeDef {
 }
 
 export const THEMES: ThemeDef[] = [
-  { id: "midnight", label: "Midnight", swatch: "#3b82f6" },
+  { id: "midnight", label: "Midnight", swatch: "#8b5cf6" },
   { id: "light", label: "Light", swatch: "#2563eb" },
   { id: "ocean", label: "Ocean", swatch: "#38bdf8" },
   { id: "emerald", label: "Emerald", swatch: "#10b981" },

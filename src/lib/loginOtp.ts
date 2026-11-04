@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { getDb, sql } from "./db";
 import { sendNotificationEmail } from "./notifyEmail";
+import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "./authCore";
 
 export const OTP_EXPIRY_MINUTES = 10;
 export const OTP_MAX_ATTEMPTS = 5;
@@ -37,6 +38,16 @@ ${POLICY_TEXT}
 
 If this wasn't you, contact your administrator right away.`,
   },
+  password_reset: {
+    subject: "Reset your Tulips Unified Admin Center password",
+    body: `We received a request to reset the password for your Tulips Unified Admin Center account ({{username}}).
+
+Reset your password: {{resetUrl}}
+
+This link expires in {{expiryMinutes}} minutes and can only be used once. If you didn't request this, you can safely ignore this email — your password won't be changed.
+
+${POLICY_TEXT}`,
+  },
 };
 
 export function generateOtpCode(): string {
@@ -50,6 +61,11 @@ export function renderTemplate(body: string, vars: Record<string, string>): stri
 export function getDashboardUrl(): string {
   const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "https://logs.tulipshrm.com:4433";
   return `${base}/dashboard`;
+}
+
+export function getPasswordResetUrl(token: string): string {
+  const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "https://logs.tulipshrm.com:4433";
+  return `${base}/reset-password?token=${encodeURIComponent(token)}`;
 }
 
 async function getTemplate(key: string): Promise<{ subject: string; body: string }> {
@@ -84,5 +100,15 @@ export async function sendLoginSuccessEmail(to: string, vars: { name: string; da
     to,
     subject: renderTemplate(template.subject, allVars),
     body: renderTemplate(template.body, allVars),
+  });
+}
+
+export async function sendPasswordResetEmail(to: string, username: string, resetUrl: string): Promise<void> {
+  const template = await getTemplate("password_reset");
+  const vars = { username, resetUrl, expiryMinutes: String(PASSWORD_RESET_TOKEN_TTL_MINUTES) };
+  await sendNotificationEmail({
+    to,
+    subject: renderTemplate(template.subject, vars),
+    body: renderTemplate(template.body, vars),
   });
 }

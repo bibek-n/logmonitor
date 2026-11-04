@@ -6,7 +6,7 @@ export function ServiceCard({ icon, title, description }: { icon: string; title:
   return (
     <div
       style={{
-        background: "#fff",
+        background: MKT.surface,
         border: `1px solid ${MKT.border}`,
         borderRadius: 12,
         padding: "1.5rem",
@@ -20,7 +20,7 @@ export function ServiceCard({ icon, title, description }: { icon: string; title:
           width: 44,
           height: 44,
           borderRadius: 10,
-          background: "color-mix(in srgb, " + MKT.primary + " 12%, white)",
+          background: "color-mix(in srgb, " + MKT.primary + " 18%, transparent)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

@@ -20,7 +20,7 @@ export function NewsTicker() {
 
   if (loading && items.length === 0) {
     return (
-      <div style={{ background: MKT.ink, color: "rgba(255,255,255,0.7)", padding: "0.4rem 0.9rem", fontSize: "0.8rem" }}>
+      <div style={{ background: MKT.surface, color: MKT.inkMuted, padding: "0.4rem 0.9rem", fontSize: "0.8rem" }}>
         Loading latest news...
       </div>
     );
@@ -35,7 +35,7 @@ export function NewsTicker() {
   return (
     <div
       style={{
-        background: MKT.ink,
+        background: MKT.surface,
         color: "#fff",
         overflow: "hidden",
         whiteSpace: "nowrap",

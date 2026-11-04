@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 function OptionCard({ icon: Icon, title, description, href, linkLabel }: { icon: typeof BookOpen; title: string; description: string; href: string; linkLabel: string }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${MKT.border}`, borderRadius: 12, padding: "1.5rem" }}>
+    <div style={{ background: MKT.surface, border: `1px solid ${MKT.border}`, borderRadius: 12, padding: "1.5rem" }}>
       <Icon size={26} style={{ color: MKT.primary, marginBottom: "0.75rem" }} />
       <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: MKT.ink, marginBottom: "0.4rem" }}>{title}</h3>
       <p style={{ fontSize: "0.88rem", color: MKT.inkMuted, marginBottom: "0.9rem", lineHeight: 1.55 }}>{description}</p>

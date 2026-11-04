@@ -22,7 +22,7 @@ export async function PublicFooter() {
   const tf = await getTranslations("footer");
 
   return (
-    <footer style={{ background: MKT.ink, color: "#CBD5E1", marginTop: "auto" }}>
+    <footer style={{ background: MKT.surface, color: MKT.inkMuted, marginTop: "auto" }}>
       <div
         className="grid gap-8"
         style={{
@@ -36,14 +36,14 @@ export async function PublicFooter() {
           <div style={{ marginBottom: "0.9rem" }}>
             <TulipsLogo height={26} padded />
           </div>
-          <p style={{ fontSize: "0.85rem", lineHeight: 1.6, color: "#94A3B8" }}>{tf("tagline")}</p>
+          <p style={{ fontSize: "0.85rem", lineHeight: 1.6, color: MKT.inkMuted }}>{tf("tagline")}</p>
         </div>
 
         <div>
-          <h3 style={{ color: "#fff", fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("quickLinksTitle")}</h3>
+          <h3 style={{ color: MKT.ink, fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("quickLinksTitle")}</h3>
           <div className="flex flex-col gap-2" style={{ fontSize: "0.85rem" }}>
             {FOOTER_LINKS.quickLinks.map((l) => (
-              <Link key={l.href} href={l.href} style={{ color: "#94A3B8", textDecoration: "none" }}>
+              <Link key={l.href} href={l.href} style={{ color: MKT.inkMuted, textDecoration: "none" }}>
                 {t(l.key)}
               </Link>
             ))}
@@ -51,10 +51,10 @@ export async function PublicFooter() {
         </div>
 
         <div>
-          <h3 style={{ color: "#fff", fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("legalTitle")}</h3>
+          <h3 style={{ color: MKT.ink, fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("legalTitle")}</h3>
           <div className="flex flex-col gap-2" style={{ fontSize: "0.85rem" }}>
             {FOOTER_LINKS.legal.map((l) => (
-              <Link key={l.href} href={l.href} style={{ color: "#94A3B8", textDecoration: "none" }}>
+              <Link key={l.href} href={l.href} style={{ color: MKT.inkMuted, textDecoration: "none" }}>
                 {t(l.key)}
               </Link>
             ))}
@@ -62,8 +62,8 @@ export async function PublicFooter() {
         </div>
 
         <div>
-          <h3 style={{ color: "#fff", fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("contactTitle")}</h3>
-          <div className="flex flex-col gap-2" style={{ fontSize: "0.85rem", color: "#94A3B8" }}>
+          <h3 style={{ color: MKT.ink, fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("contactTitle")}</h3>
+          <div className="flex flex-col gap-2" style={{ fontSize: "0.85rem", color: MKT.inkMuted }}>
             <span>{CONTACT_INFO.address}</span>
             <span>{CONTACT_INFO.phone}</span>
             <span>{CONTACT_INFO.email}</span>
@@ -73,15 +73,15 @@ export async function PublicFooter() {
 
       <div
         style={{
-          borderTop: "1px solid rgba(255,255,255,0.1)",
+          borderTop: `1px solid ${MKT.border}`,
           padding: "1rem 1.25rem",
           textAlign: "center",
           fontSize: "0.78rem",
-          color: "#64748B",
+          color: MKT.inkMuted,
         }}
       >
         &copy; {year} {tf("copyright")}
-        {footerText && <div style={{ marginTop: "0.4rem", color: "#94A3B8" }}>{footerText}</div>}
+        {footerText && <div style={{ marginTop: "0.4rem", color: MKT.inkMuted }}>{footerText}</div>}
       </div>
     </footer>
   );

@@ -440,17 +440,46 @@ export function WelcomeCard({ username }: { username: string | null }) {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
-    <Card className="h-full flex flex-col justify-center" hoverLift tilt3d>
-      <div className="flex items-center gap-2" style={{ marginBottom: "0.4rem" }}>
-        <Sunrise size={18} style={{ color: "var(--primary)" }} />
-        <h2 style={{ fontSize: "1.125rem", margin: 0, color: "var(--ink)" }}>
-          {greeting}
-          {username ? `, ${username}` : ""}
-        </h2>
+    <Card className="h-full flex items-center justify-between gap-4 flex-wrap" hoverLift tilt3d>
+      <div className="flex items-center gap-3">
+        <div
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            background: "color-mix(in srgb, var(--primary) 16%, transparent)",
+            color: "var(--primary)",
+          }}
+        >
+          <Sunrise size={22} />
+        </div>
+        <div>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0, color: "var(--ink)" }}>
+            {greeting}
+            {username ? `, ${username}` : ""} <span aria-hidden>👋</span>
+          </h2>
+          <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: "0.2rem 0 0" }}>
+            Here&apos;s what&apos;s happening across your organization today.
+          </p>
+        </div>
       </div>
-      <p style={{ fontSize: "0.8125rem", color: "var(--ink-muted)", margin: 0 }}>
+      <div
+        style={{
+          fontSize: "0.82rem",
+          color: "var(--ink-secondary)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          padding: "0.5rem 0.85rem",
+          whiteSpace: "nowrap",
+        }}
+      >
         {now.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-      </p>
+      </div>
     </Card>
   );
 }

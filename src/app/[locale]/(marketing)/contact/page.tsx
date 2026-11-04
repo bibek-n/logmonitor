@@ -82,7 +82,7 @@ export default async function ContactPage() {
           )}
         </div>
 
-        <div style={{ background: "#fff", border: `1px solid ${MKT.border}`, borderRadius: 12, padding: "1.5rem" }}>
+        <div style={{ background: MKT.surface, border: `1px solid ${MKT.border}`, borderRadius: 12, padding: "1.5rem" }}>
           <ContactForm />
         </div>
       </div>

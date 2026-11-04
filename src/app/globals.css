@@ -27,29 +27,31 @@
 
 :root,
 :root[data-theme="midnight"] {
-  /* Deep navy + electric blue-violet - refreshed 2026-10-27 for a more premium, less
-     generic-cyan "SaaS dashboard" look. Semantic colors (success/warning/danger) kept
-     unchanged on purpose - those carry meaning across the whole app and shouldn't shift
-     with a cosmetic palette pass. */
-  --bg: #090d1a;
-  --surface: #10152b;
-  --surface-2: #1a2142;
-  --border: rgba(148, 130, 255, 0.14);
+  /* Deep green + purple/yellow - refreshed 2026-11-04 to match the login page's brand look
+     (blue-to-teal-to-green backdrop, vivid purple card, yellow call-to-action) as the default
+     admin palette. Semantic colors (success/warning/danger) kept in their recognizable
+     red/amber/green families on purpose - this is a live IT monitoring tool and those colors
+     carry real meaning (critical alert vs. healthy) that must stay unambiguous regardless of
+     the cosmetic brand palette layered on top. */
+  --bg: #0a1f16;
+  --surface: #1a1130;
+  --surface-2: #251a42;
+  --border: rgba(168, 85, 247, 0.18);
   --ink: #ffffff;
-  --ink-secondary: #cbd5e1;
-  --ink-muted: #94a3b8;
+  --ink-secondary: #ddd6e8;
+  --ink-muted: #a99cc2;
 
-  --primary: #7c5cff;
-  --secondary: #22d3ee;
-  --success: #10b981;
+  --primary: #8b5cf6;
+  --secondary: #facc15;
+  --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --info: #38bdf8;
+  --info: #14b8a6;
   --serious: #f0975a;
 
   /* legacy aliases */
   --plane: var(--bg);
-  --grid: #232c52;
+  --grid: #2c1f4a;
   --good: var(--success);
   --critical: var(--danger);
   --series-1: var(--primary);
@@ -884,6 +886,48 @@ button.submit:disabled {
 .status-dot.status-serious { background: var(--serious); }
 .status-dot.status-critical { background: var(--critical); }
 .status-dot.status-unknown { background: var(--ink-muted); }
+
+/* Overview-dashboard widget layout helpers (src/components/dashboard/NewWidgetCards.tsx and
+   RightRail.tsx/AlertsTable.tsx) - these classNames were referenced throughout those widgets
+   but never actually defined anywhere, so the KPI mini-grids rendered as a plain stacked
+   column instead of a grid, two-stat rows didn't sit side by side, and long lists (activity
+   feed, recent sessions, incidents) had no scroll clamp and could push a card's height out
+   past its neighbors in the same grid row. Layout-only (display/grid-template/overflow) so
+   they compose with the Tailwind flex/items/justify utility classes already applied alongside
+   them on the same elements, rather than fight those for the `display` property. */
+.ov-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 0.9rem;
+}
+
+.ov-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.ov-scroll {
+  max-height: 270px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+.ov-scroll::-webkit-scrollbar { width: 6px; }
+.ov-scroll::-webkit-scrollbar-track { background: transparent; }
+.ov-scroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 999px; }
+
+.ov-row-link,
+.stat-tile-link {
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 0.35rem 0.4rem;
+  margin: -0.35rem -0.4rem;
+  transition: background 0.15s ease;
+}
+.ov-row-link:hover,
+.stat-tile-link:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
 
 /* Opt-in strobe effect for the "Live" environment Badge on the Websites list - steps(1)
    (rather than a smooth easing) gives a hard on/off flash per color like a real disco light,

@@ -4,13 +4,17 @@ import { useState, FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { MKT } from "@/lib/marketingTheme";
 
+// White background + dark text, matching the login page's own form fields (white fields read
+// on a purple card) - MKT.ink is white now (for text sitting directly on the page/card
+// background), which would be invisible against a plain white input left unset.
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.65rem 0.8rem",
   borderRadius: 8,
   border: `1px solid ${MKT.border}`,
+  background: "#fff",
   fontSize: "0.9rem",
-  color: MKT.ink,
+  color: "#1E1B2E",
 };
 
 export function ContactForm() {
@@ -45,7 +49,7 @@ export function ContactForm() {
 
   if (status === "sent") {
     return (
-      <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 10, padding: "1.25rem", color: "#065F46" }}>
+      <div style={{ background: "rgba(34, 197, 94, 0.14)", border: "1px solid rgba(34, 197, 94, 0.4)", borderRadius: 10, padding: "1.25rem", color: "#4ADE80" }}>
         {t("success")}
       </div>
     );
@@ -64,7 +68,7 @@ export function ContactForm() {
         onChange={(e) => setMessage(e.target.value)}
         required
       />
-      {status === "error" && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>{t("error")}</div>}
+      {status === "error" && <div style={{ color: "#F87171", fontSize: "0.85rem" }}>{t("error")}</div>}
       <button
         type="submit"
         disabled={status === "submitting"}

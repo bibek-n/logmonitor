@@ -19,7 +19,7 @@ export function PublicNav() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        background: "rgba(255,255,255,0.92)",
+        background: "rgba(10, 31, 22, 0.92)",
         backdropFilter: "blur(8px)",
         borderBottom: `1px solid ${MKT.border}`,
       }}
@@ -29,7 +29,7 @@ export function PublicNav() {
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0.85rem 1.25rem" }}
       >
         <Link href="/" className="flex items-center" style={{ textDecoration: "none" }}>
-          <TulipsLogo height={34} />
+          <TulipsLogo height={34} padded />
         </Link>
 
         <nav className="hidden md:flex items-center gap-6" style={{ fontSize: "0.9rem" }}>

@@ -22,7 +22,7 @@ export interface WidgetCatalogEntry {
 
 export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   // --- Dashboard ---
-  { id: "welcome", module: "dashboard", label: "Welcome", description: "Personal greeting with today's date.", defaultSize: "medium" },
+  { id: "welcome", module: "dashboard", label: "Welcome", description: "Personal greeting with today's date.", defaultSize: "full" },
   { id: "notes", module: "dashboard", label: "Notes", description: "A private scratchpad only you can see, auto-saved as you type.", defaultSize: "medium" },
   { id: "quickStats", module: "dashboard", label: "Quick Stats", description: "Users, devices, servers, websites, automations, and open alerts at a glance.", defaultSize: "full" },
   { id: "systemHealth", module: "dashboard", label: "System Health (KPIs)", description: "CPU, memory, disk, WAN, LAN, and active users.", defaultSize: "full" },

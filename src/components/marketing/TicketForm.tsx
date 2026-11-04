@@ -5,13 +5,16 @@ import { useTranslations } from "next-intl";
 import { MKT } from "@/lib/marketingTheme";
 import { TICKET_CATEGORY_KEYS, TICKET_PRIORITY_KEYS } from "@/lib/websiteContent";
 
+// White background + dark text, matching the login page's own form fields - MKT.ink is white
+// now (for text sitting directly on the page/card background), which would be invisible
+// against this input's explicit white background if left unset.
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.65rem 0.8rem",
   borderRadius: 8,
   border: `1px solid ${MKT.border}`,
   fontSize: "0.9rem",
-  color: MKT.ink,
+  color: "#1E1B2E",
   background: "#fff",
 };
 
@@ -91,7 +94,7 @@ export function TicketForm() {
 
   if (ticketNumber) {
     return (
-      <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 10, padding: "1.5rem", color: "#065F46" }}>
+      <div style={{ background: "rgba(34, 197, 94, 0.14)", border: "1px solid rgba(34, 197, 94, 0.4)", borderRadius: 10, padding: "1.5rem", color: "#4ADE80" }}>
         <p style={{ fontWeight: 700, marginBottom: "0.5rem" }}>{t("successTitle")}</p>
         <p style={{ margin: 0 }}>{t("successBody", { ticketNumber })}</p>
       </div>
@@ -132,7 +135,7 @@ export function TicketForm() {
         <label style={{ fontSize: "0.82rem", color: MKT.inkMuted }}>{t("attachmentLabel")}</label>
         <input type="file" onChange={handleFileChange} style={{ fontSize: "0.85rem" }} />
       </div>
-      {error && <div style={{ color: "#DC2626", fontSize: "0.85rem" }}>{error}</div>}
+      {error && <div style={{ color: "#F87171", fontSize: "0.85rem" }}>{error}</div>}
       <button
         type="submit"
         disabled={status === "submitting"}

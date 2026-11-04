@@ -34,37 +34,47 @@ export function KpiCard({ icon: Icon, title, value, sub, status, trendPct, spark
       hoverLift
       tilt3d
       className="flex flex-col gap-3"
-      style={{
-        borderTop: `2px solid ${color}`,
-        cursor: href ? "pointer" : undefined,
-        backgroundImage: `linear-gradient(165deg, color-mix(in srgb, ${color} 7%, transparent), transparent 55%)`,
-      }}
+      style={{ cursor: href ? "pointer" : undefined }}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2" style={{ color: "var(--ink-muted)", fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-          <Icon size={15} style={{ color }} />
-          {title}
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 11,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `color-mix(in srgb, ${color} 16%, transparent)`,
+            color,
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={18} />
         </div>
         {trendPct != null && (
-          <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: "0.75rem", color: trendColor }}>
-            <TrendIcon size={12} />
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              color: trendColor,
+              background: `color-mix(in srgb, ${trendColor} 14%, transparent)`,
+              borderRadius: 999,
+              padding: "0.15rem 0.5rem",
+            }}
+          >
+            <TrendIcon size={11} />
             {Math.abs(trendPct).toFixed(1)}%
           </span>
         )}
       </div>
 
-      <div
-        style={{
-          fontSize: "1.9rem",
-          fontWeight: 700,
-          lineHeight: 1.1,
-          backgroundImage: `linear-gradient(135deg, var(--ink), color-mix(in srgb, ${color} 55%, var(--ink)))`,
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          color: "transparent",
-        }}
-      >
-        {value}
+      <div>
+        <div style={{ fontSize: "1.9rem", fontWeight: 800, lineHeight: 1.1, color: "var(--ink)" }}>{value}</div>
+        <div style={{ color: "var(--ink-muted)", fontSize: "0.8rem", marginTop: "0.2rem" }}>{title}</div>
       </div>
       {sub && <div style={{ fontSize: "0.78rem", color: "var(--ink-secondary)" }}>{sub}</div>}
 
