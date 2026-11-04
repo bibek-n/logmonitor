@@ -1,0 +1,13 @@
+{
+  "name": "LogMonitor",
+  "short_name": "LogMonitor",
+  "description": "Tulips Technologies IT & Security Monitoring Dashboard",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#090d1a",
+  "theme_color": "#7c5cff",
+  "icons": [
+    { "src": "/branding/tulips-favicon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/branding/tulips-favicon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

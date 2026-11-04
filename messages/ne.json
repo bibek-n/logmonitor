@@ -323,6 +323,9 @@
     "defaultMessage": "हामी हाल तालिकाबद्ध मर्मत गरिरहेका छौं। कृपया केही समयपछि फेरि जाँच गर्नुहोस्।"
   },
   "sidebar": {
+    "top": {
+      "companySettings": "कम्पनी सेटिङहरू"
+    },
     "arrangeMenu": "मेनु मिलाउनुहोस्",
     "doneArranging": "सम्पन्न",
     "collapseSidebar": "साइडबार खुम्च्याउनुहोस्",
@@ -357,7 +360,9 @@
         "entries": {
           "staff": "कर्मचारी",
           "employeeChat": "कर्मचारी च्याट",
-          "sendNotification": "सूचना पठाउनुहोस्"
+          "sendNotification": "सूचना पठाउनुहोस्",
+          "alertHistory": "अलर्ट इतिहास",
+          "adLog": "AD लग"
         },
         "groups": {}
       },
@@ -367,6 +372,7 @@
           "securityCenterDashboard": "ड्यासबोर्ड",
           "vulnerabilityScanner": "जोखिम स्क्यानर",
           "waf": "वेब एप्लिकेसन फायरवाल",
+          "anomalyDetection": "विसंगति पहिचान",
           "cameras": "क्यामेराहरू",
           "intrusionDetection": "घुसपैठ पत्ता लगाउने",
           "ddosDetection": "DDos पत्ता लगाउने",
@@ -380,7 +386,8 @@
               "agentDashboard": "एजेन्ट ड्यासबोर्ड",
               "downloadAgent": "एजेन्ट डाउनलोड गर्नुहोस्",
               "enrollDevice": "उपकरण दर्ता गर्नुहोस्",
-              "screenshotAuditLog": "स्क्रिनसट अडिट लग"
+              "screenshotAuditLog": "स्क्रिनसट अडिट लग",
+              "agentRollout": "एजेन्ट रोलआउट"
             }
           },
           "fileIntegrityMonitoring": {
@@ -444,7 +451,8 @@
               "routerClients": "राउटर क्लाइन्टहरू",
               "routerHealth": "राउटर स्वास्थ्य",
               "routerWeb": "राउटर वेब जडानहरू",
-              "employeeWebActivity": "कर्मचारी वेब गतिविधि"
+              "employeeWebActivity": "कर्मचारी वेब गतिविधि",
+              "mobileDevices": "मोबाइल डिवाइसहरू"
             }
           },
           "sophosFirewall": {
@@ -454,7 +462,8 @@
               "webFilter": "सोफोस वेब फिल्टर",
               "systemHealth": "सोफोस प्रणाली स्वास्थ्य",
               "sophosEvents": "सोफोस घटनाहरू",
-              "topConsumers": "शीर्ष उपभोक्ताहरू"
+              "topConsumers": "शीर्ष उपभोक्ताहरू",
+              "bandwidthQuotas": "ब्यान्डविथ कोटा"
             }
           },
           "servers": {
@@ -477,7 +486,8 @@
               "reverseDns": "रिभर्स DNS उपकरण",
               "dnsPropagation": "DNS प्रसार जाँचकर्ता",
               "mtr": "MTR उपकरण",
-              "portScanner": "पोर्ट स्क्यानर"
+              "portScanner": "पोर्ट स्क्यानर",
+              "redirectChecker": "रिडाइरेक्ट जाँचकर्ता"
             }
           },
           "networkDiagram": {
@@ -508,6 +518,12 @@
               "schedules": "à¤¸à¤®à¤¯à¤¤à¤¾à¤²à¤¿à¤•à¤¾à¤¹à¤°à¥‚",
               "auditLog": "à¤²à¥‡à¤–à¤¾ à¤ªà¤°à¥€à¤•à¥à¤·à¤£ à¤²à¤—"
             }
+          },
+          "wifiAccessControl": {
+            "label": "Wi-Fi पहुँच नियन्त्रण",
+            "items": {
+              "dashboard": "ड्यासबोर्ड"
+            }
           }
         }
       },
@@ -527,7 +543,8 @@
           "portForwarding": "पोर्ट फर्वार्डिंग",
           "scriptsAndCommands": "स्क्रिप्ट र कमाण्डहरू",
           "connectionLogs": "जडान लगहरू",
-          "settings": "सेटिङहरू"
+          "settings": "सेटिङहरू",
+          "tulipsHrmRemote": "TulipsHrm-Remote"
         },
         "groups": {}
       },
@@ -577,6 +594,12 @@
               "headerViewer": "HTTP / HTTPS प्रतिक्रिया हेडर भ्युअर",
               "securityHeaders": "सुरक्षा हेडरहरू",
               "gaTagFinder": "GA ट्याग फेला पार्ने",
+              "emailSecurity": "इमेल सुरक्षा (SPF/DKIM/DMARC)"
+            }
+          },
+          "securityAudits": {
+            "label": "सुरक्षा अडिटहरू",
+            "items": {
               "websiteSecurityAudit": "वेबसाइट सुरक्षा अडिट",
               "wordpressScan": "वर्डप्रेस डीप स्क्यान"
             }
@@ -664,7 +687,9 @@
           "maintenanceWindows": "मर्मत विन्डोहरू",
           "reports": "प्रतिवेदनहरू",
           "notificationLogs": "सूचना लगहरू",
-          "settings": "सेटिङहरू"
+          "settings": "सेटिङहरू",
+          "websiteIncidentReports": "वेबसाइट घटना रिपोर्ट",
+          "alertPolicies": "अलर्ट नीतिहरू"
         },
         "groups": {}
       },
@@ -681,7 +706,11 @@
         "label": "प्रशासन",
         "entries": {
           "gitConnections": "इन्टिग्रेसन",
-          "companySettings": "कम्पनी सेटिङहरू"
+          "companySettings": "कम्पनी सेटिङहरू",
+          "dataRetention": "डेटा रिटेन्सन",
+          "systemStatus": "प्रणाली स्थिति",
+          "reportBuilder": "रिपोर्ट बिल्डर",
+          "incidentReports": "घटना रिपोर्टहरू"
         },
         "groups": {
           "website": {
@@ -712,6 +741,78 @@
               "timezoneConverter": "समय क्षेत्र परिवर्तक"
             }
           }
+        }
+      },
+      "knowledgeBase": {
+        "label": "नलेज बेस",
+        "entries": {
+          "documents": "कागजातहरू"
+        }
+      },
+      "wazuhOffice": {
+        "label": "Wazuh Office",
+        "entries": {
+          "dashboard": "ड्यासबोर्ड",
+          "agents": "एजेन्टहरू",
+          "securityEvents": "सुरक्षा घटनाहरू",
+          "alerts": "अलर्टहरू",
+          "vulnerabilities": "जोखिमहरू",
+          "fileIntegrity": "फाइल अखण्डता",
+          "inventory": "इन्भेन्टरी",
+          "processes": "प्रक्रियाहरू",
+          "services": "सेवाहरू",
+          "network": "नेटवर्क",
+          "rules": "नियमहरू",
+          "mitre": "MITRE ATT&CK",
+          "reports": "रिपोर्टहरू",
+          "settings": "सेटिङहरू"
+        }
+      },
+      "waf": {
+        "label": "WAF गेटवे",
+        "entries": {
+          "dashboard": "ड्यासबोर्ड",
+          "protectedApplications": "सुरक्षित एप्लिकेसनहरू",
+          "rules": "नियमहरू",
+          "ipManagement": "IP व्यवस्थापन",
+          "rateLimiting": "रेट लिमिटिङ",
+          "attackLogs": "आक्रमण लगहरू",
+          "blockedRequests": "रोकिएका अनुरोधहरू",
+          "reports": "रिपोर्टहरू",
+          "certificates": "प्रमाणपत्रहरू",
+          "reverseProxy": "रिभर्स प्रोक्सी",
+          "settings": "सेटिङहरू"
+        }
+      },
+      "appActivityMonitoring": {
+        "label": "कर्मचारी गतिविधि अनुगमन",
+        "entries": {
+          "dashboard": "ड्यासबोर्ड",
+          "staffReport": "स्टाफ अनुसार रिपोर्ट",
+          "applicationReport": "एप्लिकेसन अनुसार रिपोर्ट",
+          "employeeReport": "कर्मचारी अनुसार रिपोर्ट",
+          "appCategories": "एप्लिकेसन कोटीहरू",
+          "agentStatus": "एजेन्ट स्थिति",
+          "settings": "सेटिङहरू"
+        }
+      },
+      "databaseAnalyzer": {
+        "label": "डाटाबेस एनालाइजर",
+        "entries": {
+          "connections": "कनेक्शन र स्क्यान"
+        }
+      },
+      "helpCenter": {
+        "label": "सहायता केन्द्र",
+        "entries": {
+          "dashboard": "सहायता केन्द्र"
+        }
+      },
+      "offboarding": {
+        "label": "कर्मचारी अफबोर्डिङ",
+        "entries": {
+          "dashboard": "ड्यासबोर्ड",
+          "settings": "GitLab र Glesys सेटिङहरू"
         }
       }
     }
@@ -785,7 +886,8 @@
       "clearFilterLink": "फिल्टर हटाउनुहोस्",
       "errors": {
         "nameRequired": "नाम आवश्यक छ।",
-        "duplicateMac": "त्यो MAC ठेगाना पहिले नै अर्को कर्मचारीलाई तोकिएको छ।"
+        "duplicateMac": "त्यो MAC ठेगाना पहिले नै अर्को कर्मचारीलाई तोकिएको छ।",
+        "removeFailed": "यो कर्मचारी हटाउन सकिएन: केही लिंक गरिएका रेकर्डहरू (सम्पत्ति, उपकरण, वा पहुँच नियमहरू) अझै पनि यसलाई सन्दर्भ गरिरहेका छन्।"
       }
     },
     "detail": {
@@ -803,6 +905,8 @@
       "noDeviceAssigned": "कुनै उपकरण तोकिएको छैन",
       "onlineLabel": "अनलाइन",
       "offlineLabel": "अफलाइन",
+      "offlineRemoteLabel": "अफलाइन (रिमोट/VPN)",
+      "offlineRemoteHint": "अन्तिम ज्ञात जडान VPN टनेल मार्फत थियो — एजेन्ट अहिले जोडिएको छैन, यसको अर्थ अनिवार्य रूपमा समस्या होइन।",
       "macAddressLabel": "MAC ठेगाना:",
       "notAssignedFallback": "तोकिएको छैन",
       "currentIpLabel": "हालको IP:",
@@ -865,6 +969,8 @@
       "noDeviceStatus": "कुनै उपकरण छैन",
       "onlineStatus": "अनलाइन",
       "offlineStatus": "अफलाइन",
+      "offlineRemoteStatus": "अफलाइन (रिमोट/VPN)",
+      "offlineRemoteTitle": "अन्तिम ज्ञात जडान VPN मार्फत थियो — अहिले केवल डिस्कनेक्ट भएको हुन सक्छ, अनिवार्य रूपमा समस्या होइन।",
       "notCurrentlyOnlineFallback": "हाल अनलाइन छैन",
       "editTitle": "सम्पादन गर्नुहोस्",
       "removeButton": "हटाउनुहोस्"
@@ -1174,7 +1280,17 @@
       "moduleAdded": "मोड्युल थपियो।",
       "moduleDeleted": "मोड्युल हटाइयो।",
       "moduleNameRequired": "मोड्युल नाम आवश्यक छ।",
-      "removeModuleConfirm": "यो मोड्युल र यसको प्राप्तकर्ता सूची हटाउने हो?"
+      "removeModuleConfirm": "यो मोड्युल र यसको प्राप्तकर्ता सूची हटाउने हो?",
+      "webhookTitle": "वेबहुक अलर्ट (Slack / Teams)",
+      "webhookDescription": "इमेलबाट पठाइने कुनै पनि अलर्ट Slack वा Microsoft Teams च्यानलमा पनि पठाउन सकिन्छ। तलको च्यानलको इनकमिङ वेबहुक URL पेस्ट गर्नुहोस्।",
+      "webhookEnableLabel": "वेबहुक अलर्ट सक्षम गर्नुहोस्",
+      "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
+      "webhookPlatformGeneric": "सामान्य (JSON)",
+      "webhookTestButton": "परीक्षण सन्देश पठाउनुहोस्",
+      "webhookTesting": "पठाइँदैछ...",
+      "webhookSaved": "वेबहुक सेटिङहरू सेभ गरियो।",
+      "webhookTestSent": "परीक्षण सन्देश पठाइयो।",
+      "webhookTestFailed": "परीक्षण सन्देश असफल भयो।"
     },
     "rolesPermissions": {
       "title": "भूमिका र अनुमतिहरू",
@@ -1321,7 +1437,7 @@
       "frequencyWeekly": "साप्ताहिक",
       "frequencyMonthly": "मासिक",
       "keepLastNBackupsPlaceholder": "पछिल्लो N ब्याकअप राख्नुहोस्",
-      "scheduleNotWiredUpNotice": "तालिका सन्दर्भका लागि सेभ गरिन्छ — स्वचालित कार्यान्वयन अझै जडान गरिएको छैन। हाललाई माथिको \"अहिले डाटाबेस ब्याकअप चलाउनुहोस्\" प्रयोग गर्नुहोस्।",
+      "scheduleNotWiredUpNotice": "यो सेटिङले जे भनेता पनि स्वचालित ब्याकअप दिनमा कम्तीमा एक पटक चल्छ — माथि कस्टम तालिका सक्षम गर्दा यसको समय/फ्रिक्वेन्सी/रिटेन्सन संख्या ओभरराइड हुन्छ।",
       "dataRetentionPolicyLabel": "डाटा धारण नीति (दिन)",
       "retentionNotesPlaceholder": "यो धारण नीति केमा लागू हुन्छ भन्ने बारे टिप्पणी",
       "savingButton": "सेभ हुँदै...",
@@ -1373,7 +1489,14 @@
       "detailsColumn": "विवरण",
       "ipColumn": "IP",
       "whenColumn": "कहिले",
-      "noEntriesFound": "हालसम्म कुनै अडिट प्रविष्टि छैन।"
+      "noEntriesFound": "हालसम्म कुनै अडिट प्रविष्टि छैन।",
+      "verifyButton": "चेन अखण्डता प्रमाणित गर्नुहोस्",
+      "verifying": "प्रमाणित गरिँदै...",
+      "chainValid": "चेन प्रमाणित भयो: {total} मध्ये {checked} पङ्क्तिहरू सही छन्।",
+      "chainBroken": "पङ्क्ति {id} मा चेन टुटेको: {reason}",
+      "verifyFailedError": "प्रमाणीकरण असफल भयो। कृपया फेरि प्रयास गर्नुहोस्।",
+      "exportButton": "CSV निर्यात गर्नुहोस्",
+      "exporting": "निर्यात गरिँदै..."
     }
   }
 }

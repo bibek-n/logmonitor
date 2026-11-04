@@ -1,4 +1,5 @@
 import type { Finding } from "./types";
+import { safeFetch as sharedSafeFetch } from "./safeNetwork";
 
 const FETCH_TIMEOUT_MS = 15000;
 const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
@@ -27,7 +28,7 @@ const SENSITIVE_PATHS = [
 const ADMIN_API_PATHS = ["/wp-admin/", "/admin/", "/api/", "/graphql", "/swagger.json", "/swagger-ui.html", "/.well-known/security.txt"];
 
 async function safeFetch(url: string, init?: RequestInit) {
-  return fetch(url, { redirect: "manual", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": UA }, ...init });
+  return sharedSafeFetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), ...init });
 }
 
 function pushMissingHeader(findings: Finding[], headers: Headers, header: string, title: string, severity: Finding["severity"], recommendation: string) {
@@ -44,6 +45,163 @@ function checkSecurityHeaders(headers: Headers): Finding[] {
   pushMissingHeader(findings, headers, "referrer-policy", "Missing Referrer-Policy", "low", "Add a Referrer-Policy header to control how much referrer data leaks to other sites.");
   pushMissingHeader(findings, headers, "permissions-policy", "Missing Permissions-Policy", "low", "Add a Permissions-Policy header to restrict access to browser features (camera, geolocation, etc).");
   pushMissingHeader(findings, headers, "strict-transport-security", "Missing HSTS (Strict-Transport-Security)", "medium", "Add Strict-Transport-Security with a long max-age so browsers always use HTTPS for this site.");
+  return findings;
+}
+
+// CSP presence alone (checkSecurityHeaders above) says nothing about whether the policy is
+// actually effective - a default-src * or script-src with unsafe-inline/unsafe-eval provides
+// little real XSS mitigation despite the header being present. Parses the directive values
+// directly rather than just checking for the header's existence.
+function checkCspQuality(headers: Headers): Finding[] {
+  const findings: Finding[] = [];
+  const csp = headers.get("content-security-policy");
+  if (!csp) return findings;
+
+  const directives = new Map<string, string>();
+  for (const part of csp.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const spaceIdx = trimmed.indexOf(" ");
+    const name = (spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx)).toLowerCase();
+    directives.set(name, spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1));
+  }
+
+  const scriptSrc = directives.get("script-src") ?? directives.get("default-src") ?? "";
+  if (/unsafe-inline/.test(scriptSrc)) {
+    findings.push({
+      category: "weak_csp",
+      severity: "medium",
+      title: "CSP allows 'unsafe-inline' for scripts",
+      evidence: csp.length > 300 ? csp.slice(0, 300) + "..." : csp,
+      recommendation: "Remove 'unsafe-inline' from script-src and use nonces/hashes for any inline scripts that are genuinely needed.",
+    });
+  }
+  if (/unsafe-eval/.test(scriptSrc)) {
+    findings.push({
+      category: "weak_csp",
+      severity: "medium",
+      title: "CSP allows 'unsafe-eval' for scripts",
+      evidence: csp.length > 300 ? csp.slice(0, 300) + "..." : csp,
+      recommendation: "Remove 'unsafe-eval' from script-src - it allows eval()/Function()-style dynamic code execution, a common XSS escalation path.",
+    });
+  }
+  if (/(^|\s)\*(\s|$)/.test(scriptSrc) || (directives.has("default-src") && /(^|\s)\*(\s|$)/.test(directives.get("default-src")!) && !directives.has("script-src"))) {
+    findings.push({
+      category: "weak_csp",
+      severity: "medium",
+      title: "CSP allows scripts from any origin (wildcard *)",
+      evidence: csp.length > 300 ? csp.slice(0, 300) + "..." : csp,
+      recommendation: "Replace the wildcard with an explicit allow-list of script sources actually used by the site.",
+    });
+  }
+  if (!directives.has("default-src") && !directives.has("script-src")) {
+    findings.push({
+      category: "weak_csp",
+      severity: "low",
+      title: "CSP has no default-src or script-src directive",
+      evidence: csp.length > 300 ? csp.slice(0, 300) + "..." : csp,
+      recommendation: "Add a default-src (or at least script-src) directive - without one, script-source restriction isn't actually being enforced.",
+    });
+  }
+  return findings;
+}
+
+// HSTS presence alone (checkSecurityHeaders above) doesn't catch a token max-age (e.g. a few
+// seconds/minutes, which offers negligible real protection) or a policy that forgot
+// includeSubDomains, leaving subdomains free to be attacked to pivot back to the main domain.
+const HSTS_MIN_RECOMMENDED_MAX_AGE = 15552000; // 180 days - a commonly-cited practical minimum (HSTS preload lists require 1 year, but 180 days is a reasonable floor before flagging)
+
+function checkHstsQuality(headers: Headers, isHttps: boolean): Finding[] {
+  const findings: Finding[] = [];
+  if (!isHttps) return findings;
+  const hsts = headers.get("strict-transport-security");
+  if (!hsts) return findings; // already flagged as fully missing by checkSecurityHeaders
+
+  const maxAgeMatch = /max-age=(\d+)/i.exec(hsts);
+  const maxAge = maxAgeMatch ? Number(maxAgeMatch[1]) : 0;
+  if (maxAge < HSTS_MIN_RECOMMENDED_MAX_AGE) {
+    findings.push({
+      category: "weak_hsts",
+      severity: "low",
+      title: `HSTS max-age is too short (${maxAge}s)`,
+      evidence: hsts,
+      recommendation: `Set max-age to at least ${HSTS_MIN_RECOMMENDED_MAX_AGE} seconds (180 days); 31536000 (1 year) is required for HSTS preload list submission.`,
+    });
+  }
+  if (!/includesubdomains/i.test(hsts)) {
+    findings.push({
+      category: "weak_hsts",
+      severity: "low",
+      title: "HSTS does not include includeSubDomains",
+      evidence: hsts,
+      recommendation: "Add includeSubDomains so an attacker can't bypass HSTS protection via an unprotected subdomain.",
+    });
+  }
+  return findings;
+}
+
+// Cross-origin <script> tags with no `integrity` attribute can't be verified by the browser -
+// if the third-party host serving the script is ever compromised, the attacker's code runs on
+// this site with no detection. Same-origin scripts are excluded (SRI protects against a
+// compromised THIRD PARTY, not your own server, and self-hosted scripts can't practically use
+// SRI anyway since they change on every deploy).
+function checkSubresourceIntegrity(html: string, pageUrl: string): Finding[] {
+  const findings: Finding[] = [];
+  let pageOrigin: string;
+  try {
+    pageOrigin = new URL(pageUrl).origin;
+  } catch {
+    return findings;
+  }
+  const scriptTags = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)];
+  const missingIntegrity: string[] = [];
+  for (const [fullTag, src] of scriptTags) {
+    if (!/^https?:\/\//i.test(src)) continue; // relative/same-origin by construction
+    try {
+      if (new URL(src).origin === pageOrigin) continue; // same-origin, SRI not the relevant control here
+    } catch {
+      continue;
+    }
+    if (!/\bintegrity=/i.test(fullTag)) missingIntegrity.push(src);
+  }
+  if (missingIntegrity.length > 0) {
+    findings.push({
+      category: "missing_sri",
+      severity: "low",
+      title: `${missingIntegrity.length} cross-origin script(s) loaded without Subresource Integrity`,
+      evidence: missingIntegrity.slice(0, 5).join("\n"),
+      recommendation: "Add an integrity attribute (and crossorigin=\"anonymous\") to every cross-origin <script> tag so the browser refuses to run the script if it's ever tampered with at the source.",
+    });
+  }
+  return findings;
+}
+
+// Cheap, passive, same existence-check-only pattern as checkExposedPaths - these are common
+// upload/asset directories that web servers sometimes leave autoindex-enabled on by default.
+const DIRECTORY_LISTING_CANDIDATES = ["/uploads/", "/images/", "/assets/", "/files/", "/backup/", "/backups/", "/static/", "/media/"];
+const DIRECTORY_LISTING_SIGNATURE = /<title>\s*index of \/|<h1>\s*index of \//i;
+
+async function checkDirectoryListing(baseUrl: string): Promise<Finding[]> {
+  const findings: Finding[] = [];
+  const u = new URL(baseUrl);
+  const results = await Promise.allSettled(
+    DIRECTORY_LISTING_CANDIDATES.map(async (path) => {
+      const res = await safeFetch(`${u.origin}${path}`, { method: "GET" });
+      if (res.status !== 200) return null;
+      const body = await res.text().catch(() => "");
+      return DIRECTORY_LISTING_SIGNATURE.test(body) ? path : null;
+    })
+  );
+  const exposed = results.filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled" && r.value !== null).map((r) => r.value);
+  if (exposed.length > 0) {
+    findings.push({
+      category: "directory_listing_enabled",
+      severity: "medium",
+      title: `Directory listing enabled: ${exposed.join(", ")}`,
+      description: "These paths return an autoindex-style file listing instead of a normal page or a 403/404, exposing every file in the directory to anyone.",
+      recommendation: "Disable directory autoindexing at the web server level (e.g. Options -Indexes in Apache, autoindex off; in nginx) for directories that don't need it.",
+    });
+  }
   return findings;
 }
 
@@ -216,26 +374,75 @@ function checkMixedContent(html: string, pageUrl: string): Finding[] {
   return findings;
 }
 
+// Sites with client-side routing (Next.js/SPA) or a custom catch-all page often return
+// HTTP 200 for literally any unknown path instead of a real 404 - which previously made
+// every single path in SENSITIVE_PATHS "found" at once (confirmed live: one Next.js site
+// flagged all 14 as publicly reachable simultaneously, each actually the site's own
+// fallback page, zeroing its score). This probes one definitely-nonexistent path first and
+// only trusts a candidate 200 when its response looks genuinely different from that
+// baseline - only the byte length is ever compared, the body's content is never read.
+async function getSoft404Baseline(origin: string): Promise<{ status: number; length: number | null }> {
+  const probePath = `/__lm-scan-baseline-${Math.random().toString(36).slice(2)}__`;
+  try {
+    const res = await safeFetch(`${origin}${probePath}`, { method: "GET" });
+    const body = await res.text().catch(() => "");
+    return { status: res.status, length: body.length };
+  } catch {
+    return { status: 0, length: null };
+  }
+}
+
 async function checkExposedPaths(baseUrl: string, paths: string[], category: string, severity: Finding["severity"], label: string): Promise<Finding[]> {
   const findings: Finding[] = [];
   const u = new URL(baseUrl);
+  const baseline = await getSoft404Baseline(u.origin);
   const results = await Promise.allSettled(
     paths.map(async (p) => {
       const res = await safeFetch(`${u.origin}${p}`, { method: "GET" });
-      return { path: p, status: res.status };
+      const body = await res.text().catch(() => "");
+      return { path: p, status: res.status, length: body.length };
     })
   );
   for (const r of results) {
-    if (r.status === "fulfilled" && r.value.status === 200) {
-      findings.push({
-        category,
-        severity,
-        title: `${label}: ${r.value.path}`,
-        description: `A request to ${r.value.path} returned HTTP 200.`,
-        recommendation: "Remove or restrict access to this path; it should not be publicly reachable.",
-      });
+    if (r.status !== "fulfilled" || r.value.status !== 200) continue;
+    const { path, length } = r.value;
+    // A catch-all shell page isn't byte-for-byte identical on every path (confirmed live on
+    // websearchpro.net: 11995-12072 bytes across different paths, same page, ~12KB total) -
+    // an exact/near-exact length match was too strict and let every false positive through.
+    // Real distinct content (an actual exposed .env/.git/backup file) differs far more than
+    // a few dozen bytes of templated head-tag variation, so a generous tolerance here still
+    // comfortably separates "same fallback page" from "something genuinely different."
+    if (baseline.status === 200 && baseline.length !== null) {
+      const diff = Math.abs(length - baseline.length);
+      const relativeDiff = diff / Math.max(baseline.length, 1);
+      if (diff <= 300 || relativeDiff <= 0.05) continue;
+    }
+    findings.push({
+      category,
+      severity,
+      title: `${label}: ${path}`,
+      description: `A request to ${path} returned HTTP 200 (${length} bytes), distinct from this site's default response for unknown paths.`,
+      recommendation: "Remove or restrict access to this path; it should not be publicly reachable.",
+    });
+  }
+
+  // Caps how many of these actually count toward the score - without this, a single
+  // systematic false-positive cause (e.g. the soft-404 baseline heuristic above glitching on
+  // one site's unusual fallback-page behavior) could swing the whole score by 60-100+ points
+  // through this one category alone, since every path in SENSITIVE_PATHS/ADMIN_API_PATHS is
+  // "critical"/"info" severity independently. Every exposed path is still reported
+  // individually for remediation visibility - only the scoring impact is bounded.
+  const MAX_SCORED_PER_CATEGORY = 2;
+  if (findings.length > MAX_SCORED_PER_CATEGORY) {
+    for (let i = MAX_SCORED_PER_CATEGORY; i < findings.length; i++) {
+      findings[i] = {
+        ...findings[i],
+        severity: "info",
+        description: `${findings[i].description} (Not counted toward the score — capped at ${MAX_SCORED_PER_CATEGORY} scored findings per category so one systematic detection issue can't dominate the overall score; still reported here for visibility.)`,
+      };
     }
   }
+
   return findings;
 }
 
@@ -336,31 +543,37 @@ async function checkAuthSignals(baseUrl: string, homepageHtml: string, cookieHea
     });
   }
 
-  for (const path of LOGIN_PATHS) {
-    try {
+  // Probed in parallel, not one-at-a-time - sequentially, 5 candidate paths at up to 15s
+  // timeout each is a 75s worst case on this single check alone. Semantics are unchanged
+  // (first LOGIN_PATHS entry with a password field wins); only the timing changed.
+  const loginProbeResults = await Promise.allSettled(
+    LOGIN_PATHS.map(async (path) => {
       const res = await safeFetch(`${u.origin}${path}`);
-      if (res.status !== 200) continue;
+      if (res.status !== 200) return null;
       const html = await res.text();
-      if (!/<input[^>]+type=["']password["']/i.test(html)) continue;
+      if (!/<input[^>]+type=["']password["']/i.test(html)) return null;
+      return { path, html };
+    })
+  );
+  const firstMatch = LOGIN_PATHS.map((_, i) => loginProbeResults[i])
+    .map((r) => (r.status === "fulfilled" ? r.value : null))
+    .find((v): v is { path: string; html: string } => v !== null);
+  if (firstMatch) {
+    findings.push({
+      category: "auth_login_page_detected",
+      severity: "info",
+      title: `Login page found at ${firstMatch.path}`,
+      affectedUrl: `${u.origin}${firstMatch.path}`,
+    });
+    if (!MFA_HINT.test(firstMatch.html)) {
       findings.push({
-        category: "auth_login_page_detected",
-        severity: "info",
-        title: `Login page found at ${path}`,
-        affectedUrl: `${u.origin}${path}`,
+        category: "auth_no_mfa_indicator",
+        severity: "low",
+        title: "No MFA/2FA indicator found on login page",
+        confidence: "Tentative",
+        affectedUrl: `${u.origin}${firstMatch.path}`,
+        description: "Heuristic keyword check only — does not confirm MFA is truly unavailable.",
       });
-      if (!MFA_HINT.test(html)) {
-        findings.push({
-          category: "auth_no_mfa_indicator",
-          severity: "low",
-          title: "No MFA/2FA indicator found on login page",
-          confidence: "Tentative",
-          affectedUrl: `${u.origin}${path}`,
-          description: "Heuristic keyword check only — does not confirm MFA is truly unavailable.",
-        });
-      }
-      break;
-    } catch {
-      // path unreachable — try the next candidate
     }
   }
 
@@ -375,11 +588,11 @@ export interface HttpCheckContext {
 }
 
 export async function runHttpChecks(url: string): Promise<{ findings: Finding[]; context: HttpCheckContext }> {
-  const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": UA } });
+  const res = await sharedSafeFetch(url, { redirect: "follow", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   const html = await res.text();
   const context: HttpCheckContext = { html, headers: res.headers, status: res.status, extendedHeaders: readExtendedHeaders(res.headers) };
 
-  const [cors, methods, writeMethods, httpsRedirect, sensitivePaths, adminPaths, authSignals] = await Promise.all([
+  const [cors, methods, writeMethods, httpsRedirect, sensitivePaths, adminPaths, authSignals, directoryListing] = await Promise.all([
     checkCors(url),
     checkHttpMethods(url),
     checkWriteMethodsEnabled(url),
@@ -387,21 +600,26 @@ export async function runHttpChecks(url: string): Promise<{ findings: Finding[];
     checkExposedPaths(url, SENSITIVE_PATHS, "exposed_sensitive_files", "critical", "Sensitive file publicly reachable"),
     checkExposedPaths(url, ADMIN_API_PATHS, "exposed_admin_api", "info", "Common admin/API path reachable (may be expected)"),
     checkAuthSignals(url, html, res.headers.get("set-cookie")),
+    checkDirectoryListing(url),
   ]);
 
   const findings: Finding[] = [
     ...checkSecurityHeaders(res.headers),
+    ...checkCspQuality(res.headers),
+    ...checkHstsQuality(res.headers, url.startsWith("https://")),
     ...checkCookies(res.headers),
     ...cors,
     ...methods,
     ...writeMethods,
     ...httpsRedirect,
     ...checkMixedContent(html, res.url),
+    ...checkSubresourceIntegrity(html, res.url),
     ...checkDebugAndErrors(html, res.status),
     ...checkOpenRedirectIndicators(html),
     ...sensitivePaths,
     ...adminPaths,
     ...authSignals,
+    ...directoryListing,
   ];
 
   return { findings, context };

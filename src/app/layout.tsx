@@ -13,6 +13,7 @@ const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700
 export const metadata: Metadata = {
   title: "Tulips Unified Admin Center",
   description: "Monitor, secure, manage, and automate your IT infrastructure from one command center.",
+  manifest: "/manifest.json",
 };
 
 export default async function RootLayout({

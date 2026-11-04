@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,6 +6,21 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
+import { DeviceDetailExtras } from "@/components/endpointAgents/DeviceDetailExtras";
+import type {
+  HardwareInfo,
+  DiskRow,
+  DiskSpace,
+  VolumeRow,
+  SecurityStatus,
+  NetworkInfo,
+  ProcessRow,
+  ServiceRow,
+  SoftwareRow,
+  LocalUserRow,
+  DeviceAlertRow,
+  UsbEventRow,
+} from "@/components/endpointAgents/DeviceDetail";
 import {
   ASSET_STATUS_TONE,
   CRITICALITY_TONE,
@@ -17,11 +32,12 @@ import {
   humanize,
 } from "./statusTones";
 
-type TabKey = "overview" | "hardware" | "passwords" | "patches" | "software" | "maintenance" | "attachments" | "audit";
+type TabKey = "overview" | "hardware" | "inventory" | "passwords" | "patches" | "software" | "maintenance" | "attachments" | "audit";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "hardware", label: "Hardware & System" },
+  { key: "inventory", label: "Inventory & Posture" },
   { key: "passwords", label: "Password History" },
   { key: "patches", label: "Patch History" },
   { key: "software", label: "Software Inventory" },
@@ -38,6 +54,28 @@ interface AssetDetail {
   maintenance: Record<string, unknown>[];
 }
 
+// Mirrors DeviceReportData from src/lib/endpointAgents/deviceReport.ts (the API route just
+// spreads that shape onto the JSON response, plus a few identifying fields on top).
+interface AssetInventory {
+  deviceId: string;
+  hostname: string;
+  os: string;
+  lastHeartbeat: string | null;
+  latestMetrics: { cpuPct: number | null; memPct: number | null; diskPct: number | null } | null;
+  hardware: HardwareInfo | null;
+  disks: DiskRow[];
+  diskSpace: DiskSpace | null;
+  volumes: VolumeRow[];
+  security: SecurityStatus | null;
+  network: NetworkInfo | null;
+  processes: ProcessRow[];
+  services: ServiceRow[];
+  software: SoftwareRow[];
+  localUsers: LocalUserRow[];
+  alerts: DeviceAlertRow[];
+  usbEvents: UsbEventRow[];
+}
+
 function row(label: string, value: unknown) {
   return (
     <tr style={{ borderBottom: "1px solid var(--grid)" }}>
@@ -51,6 +89,20 @@ function AssetDetailInner({ assetId }: { assetId: number }) {
   const toast = useToast();
   const [detail, setDetail] = useState<AssetDetail | null>(null);
   const [tab, setTab] = useState<TabKey>("overview");
+  // undefined = not fetched yet, null = fetched but no LogMonitor agent linked to this asset.
+  const [inventory, setInventory] = useState<AssetInventory | null | undefined>(undefined);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [showAddSoftware, setShowAddSoftware] = useState(false);
+  const [savingSoftware, setSavingSoftware] = useState(false);
+  const [softwareForm, setSoftwareForm] = useState({
+    softwareName: "",
+    publisher: "",
+    installedVersion: "",
+    licenceType: "",
+    licenceKeyRef: "",
+    numberOfLicences: "",
+    licenceExpiryDate: "",
+  });
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/it-asset-logsheet/assets/${assetId}`);
@@ -63,8 +115,57 @@ function AssetDetailInner({ assetId }: { assetId: number }) {
     load();
   }, [load]);
 
+  // Fetched on demand, the first time the Inventory & Posture tab is opened - this pulls a lot
+  // of agent-reported detail (processes, software, alerts, etc.) that most asset-page visits
+  // never need, same reasoning as the Staff page's own collapsed-by-default device report.
+  useEffect(() => {
+    if (tab !== "inventory" || inventory !== undefined) return;
+    setInventoryLoading(true);
+    fetch(`/api/admin/it-asset-logsheet/assets/${assetId}/inventory`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setInventory(data.data);
+        else toast.show({ type: "error", message: data.error ?? "Failed to load inventory." });
+      })
+      .finally(() => setInventoryLoading(false));
+  }, [tab, inventory, assetId, toast]);
+
+  async function handleAddSoftware() {
+    if (!softwareForm.softwareName.trim()) {
+      toast.show({ type: "error", message: "Software name is required." });
+      return;
+    }
+    setSavingSoftware(true);
+    try {
+      const res = await fetch(`/api/admin/it-asset-logsheet/assets/${assetId}/software`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          softwareName: softwareForm.softwareName.trim(),
+          publisher: softwareForm.publisher.trim() || null,
+          installedVersion: softwareForm.installedVersion.trim() || null,
+          licenceType: softwareForm.licenceType.trim() || null,
+          licenceKeyRef: softwareForm.licenceKeyRef.trim() || null,
+          numberOfLicences: softwareForm.numberOfLicences.trim() ? Number(softwareForm.numberOfLicences) : null,
+          licenceExpiryDate: softwareForm.licenceExpiryDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to add software.");
+      toast.show({ type: "success", message: "Software record added." });
+      setSoftwareForm({ softwareName: "", publisher: "", installedVersion: "", licenceType: "", licenceKeyRef: "", numberOfLicences: "", licenceExpiryDate: "" });
+      setShowAddSoftware(false);
+      load();
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : "Failed to add software." });
+    } finally {
+      setSavingSoftware(false);
+    }
+  }
+
   if (!detail) return <p style={{ color: "var(--ink-muted)" }}>Loading...</p>;
   const a = detail.asset;
+  const softwareInputStyle = { padding: "0.45rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "0.85rem", width: "100%" };
 
   return (
     <div>
@@ -145,6 +246,34 @@ function AssetDetailInner({ assetId }: { assetId: number }) {
           </table>
         )}
 
+        {tab === "inventory" && (
+          <>
+            {inventoryLoading && <p style={{ color: "var(--ink-muted)" }}>Loading live inventory...</p>}
+            {!inventoryLoading && inventory === null && (
+              <p style={{ color: "var(--ink-muted)" }}>
+                No LogMonitor agent is linked to this asset yet. This appears automatically once a LogMonitor agent enrolled on this
+                asset&apos;s hostname (or the staff/server it&apos;s linked to) reports in.
+              </p>
+            )}
+            {!inventoryLoading && inventory && (
+              <DeviceDetailExtras
+                hardware={inventory.hardware}
+                disks={inventory.disks}
+                diskSpace={inventory.diskSpace}
+                volumes={inventory.volumes}
+                security={inventory.security}
+                network={inventory.network}
+                processes={inventory.processes}
+                services={inventory.services}
+                software={inventory.software}
+                localUsers={inventory.localUsers}
+                alerts={inventory.alerts}
+                usbEvents={inventory.usbEvents}
+              />
+            )}
+          </>
+        )}
+
         {tab === "passwords" && (
           <SimpleTable
             columns={["Account/Service", "Type", "Last Changed", "Next Change", "Status"]}
@@ -174,17 +303,65 @@ function AssetDetailInner({ assetId }: { assetId: number }) {
         )}
 
         {tab === "software" && (
-          <SimpleTable
-            columns={["Software", "Publisher", "Version", "Status", "Licence Expiry"]}
-            rows={detail.software.map((s) => [
-              s.softwareName as string,
-              (s.publisher as string) ?? "—",
-              (s.installedVersion as string) ?? "—",
-              <Badge key="st" tone={SOFTWARE_STATUS_TONE[s.softwareStatus as string] ?? "neutral"}>{humanize(s.softwareStatus as string)}</Badge>,
-              (s.licenceExpiryDate as string) ?? "—",
-            ])}
-            empty="No software inventory recorded yet."
-          />
+          <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.75rem" }}>
+              <Button size="sm" variant="secondary" onClick={() => setShowAddSoftware((v) => !v)}>
+                {showAddSoftware ? "Cancel" : "Add Software"}
+              </Button>
+            </div>
+            {showAddSoftware && (
+              <Card style={{ marginBottom: "1rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.6rem" }}>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Software Name *</label>
+                    <input style={softwareInputStyle} value={softwareForm.softwareName} onChange={(e) => setSoftwareForm({ ...softwareForm, softwareName: e.target.value })} placeholder="e.g. Microsoft Office" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Publisher</label>
+                    <input style={softwareInputStyle} value={softwareForm.publisher} onChange={(e) => setSoftwareForm({ ...softwareForm, publisher: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Version</label>
+                    <input style={softwareInputStyle} value={softwareForm.installedVersion} onChange={(e) => setSoftwareForm({ ...softwareForm, installedVersion: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Licence Type</label>
+                    <input style={softwareInputStyle} value={softwareForm.licenceType} onChange={(e) => setSoftwareForm({ ...softwareForm, licenceType: e.target.value })} placeholder="e.g. Volume, Subscription" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Licence Key / Vault Ref</label>
+                    <input style={softwareInputStyle} value={softwareForm.licenceKeyRef} onChange={(e) => setSoftwareForm({ ...softwareForm, licenceKeyRef: e.target.value })} placeholder="Reference only, not the real key" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Seats / Number of Licences</label>
+                    <input style={softwareInputStyle} type="number" min={0} value={softwareForm.numberOfLicences} onChange={(e) => setSoftwareForm({ ...softwareForm, numberOfLicences: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Licence Expiry</label>
+                    <input style={softwareInputStyle} type="date" value={softwareForm.licenceExpiryDate} onChange={(e) => setSoftwareForm({ ...softwareForm, licenceExpiryDate: e.target.value })} />
+                  </div>
+                </div>
+                <div style={{ marginTop: "0.75rem" }}>
+                  <Button size="sm" onClick={handleAddSoftware} disabled={savingSoftware}>
+                    {savingSoftware ? "Saving..." : "Save Software Record"}
+                  </Button>
+                </div>
+              </Card>
+            )}
+            <SimpleTable
+              columns={["Software", "Publisher", "Version", "Status", "Seats", "Licence Key", "Licence Expiry"]}
+              rows={detail.software.map((s) => [
+                s.softwareName as string,
+                (s.publisher as string) ?? "—",
+                (s.installedVersion as string) ?? "—",
+                <Badge key="st" tone={SOFTWARE_STATUS_TONE[s.softwareStatus as string] ?? "neutral"}>{humanize(s.softwareStatus as string)}</Badge>,
+                (s.numberOfLicences as number | null) ?? "—",
+                (s.licenceKeyRef as string) ?? "—",
+                (s.licenceExpiryDate as string) ?? "—",
+              ])}
+              empty="No software inventory recorded yet."
+            />
+          </div>
         )}
 
         {tab === "maintenance" && (

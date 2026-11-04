@@ -27,29 +27,33 @@
 
 :root,
 :root[data-theme="midnight"] {
-  --bg: #0b1220;
-  --surface: #111827;
-  --surface-2: #1f2937;
-  --border: rgba(255, 255, 255, 0.08);
+  /* Deep navy + electric blue-violet - refreshed 2026-10-27 for a more premium, less
+     generic-cyan "SaaS dashboard" look. Semantic colors (success/warning/danger) kept
+     unchanged on purpose - those carry meaning across the whole app and shouldn't shift
+     with a cosmetic palette pass. */
+  --bg: #090d1a;
+  --surface: #10152b;
+  --surface-2: #1a2142;
+  --border: rgba(148, 130, 255, 0.14);
   --ink: #ffffff;
   --ink-secondary: #cbd5e1;
   --ink-muted: #94a3b8;
 
-  --primary: #00c2ff;
-  --secondary: #00b8a9;
+  --primary: #7c5cff;
+  --secondary: #22d3ee;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --info: #06b6d4;
+  --info: #38bdf8;
   --serious: #f0975a;
 
   /* legacy aliases */
   --plane: var(--bg);
-  --grid: #263042;
+  --grid: #232c52;
   --good: var(--success);
   --critical: var(--danger);
   --series-1: var(--primary);
-  --series-2: var(--success);
+  --series-2: var(--secondary);
 }
 
 :root[data-theme="light"] {
@@ -542,6 +546,18 @@ button.submit:disabled {
   padding: 1.25rem 0.75rem;
 }
 
+/* Desktop only (the mobile off-canvas rule above already owns `position` under 768px and
+   must win there) - without a height cap here, .dash-nav's own overflow-y:auto below had
+   nothing to constrain against, so a long nav tree or a tall page just scrolled the whole
+   .dash-shell away, taking the sidebar with it instead of leaving it in view. */
+@media (min-width: 769px) {
+  .dash-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+}
+
 .dash-sidebar .brand {
   font-size: 1.05rem;
   font-weight: 700;
@@ -791,6 +807,12 @@ button.submit:disabled {
   width: 100%;
   padding: 1.5rem 2rem;
   max-width: none;
+  /* Static (not animated, by design) ambient glow using the theme's own accent colors so it
+     automatically matches whichever of the 15 themes is active, rather than hardcoding one. */
+  background-image:
+    radial-gradient(900px circle at 85% -10%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%),
+    radial-gradient(700px circle at -5% 40%, color-mix(in srgb, var(--secondary) 7%, transparent), transparent 60%);
+  background-attachment: fixed;
 }
 
 .dash-content h1 {
@@ -801,7 +823,7 @@ button.submit:disabled {
 .dash-panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
 }
@@ -862,6 +884,58 @@ button.submit:disabled {
 .status-dot.status-serious { background: var(--serious); }
 .status-dot.status-critical { background: var(--critical); }
 .status-dot.status-unknown { background: var(--ink-muted); }
+
+/* Opt-in strobe effect for the "Live" environment Badge on the Websites list - steps(1)
+   (rather than a smooth easing) gives a hard on/off flash per color like a real disco light,
+   instead of a gradient fade. CSS animations win over an element's own inline style for the
+   specific properties being animated, so this overrides Badge's inline background/border/color
+   without needing to touch that shared component. */
+@keyframes disco-blink {
+  0% { background-color: #ff0054; border-color: #ff0054; color: #fff; }
+  16% { background-color: #ff8a00; border-color: #ff8a00; color: #fff; }
+  33% { background-color: #ffe600; border-color: #ffe600; color: #1a1a1a; }
+  50% { background-color: #00e676; border-color: #00e676; color: #fff; }
+  66% { background-color: #00c2ff; border-color: #00c2ff; color: #fff; }
+  83% { background-color: #b14bff; border-color: #b14bff; color: #fff; }
+  100% { background-color: #ff0054; border-color: #ff0054; color: #fff; }
+}
+
+.disco-badge {
+  animation: disco-blink 1.4s steps(1) infinite;
+}
+
+.disco-badge span:first-child {
+  animation: disco-blink 1.4s steps(1) infinite;
+}
+
+/* Plain on/off red blink (not a color cycle like .disco-badge) for the PHP Version badge when
+   the detected version is end-of-life/vulnerable - a flashing warning light, not a party. */
+@keyframes vuln-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.3; }
+}
+
+.vuln-badge {
+  animation: vuln-blink 0.8s steps(1) infinite;
+}
+
+/* Small spinner shown inside a row-action button (Scan/Save/Disable/Remove/etc) while its
+   server action form is submitting, so the click reads as "working" instead of frozen. */
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.35rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+  vertical-align: middle;
+}
 
 @keyframes settings-skeleton-shimmer {
   0% { background-position: 100% 0; }

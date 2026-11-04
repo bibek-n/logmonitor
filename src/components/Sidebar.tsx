@@ -21,9 +21,22 @@ interface SidebarProps {
   remoteAccessAccess?: boolean;
   itAssetLogsheetAccess?: boolean;
   browserActivityAccess?: boolean;
+  webAccessControlAccess?: boolean;
+  wifiAccessControlAccess?: boolean;
+  appActivityAccess?: boolean;
+  wazuhOfficeAccess?: boolean;
+  wafAccess?: boolean;
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
-  webAccessControlAccess?: boolean;
+  knowledgeBaseAccess?: boolean;
+  securityAuditsAccess?: boolean;
+  databaseAnalyzerAccess?: boolean;
+  offboardingAccess?: boolean;
+  // Per-role sidebar customization (RoleMenuAccess) — a separate axis from the permission
+  // flags above, which gate actual functionality. null = no restriction (Admin, or this
+  // role's menu was never customized). Applied on top of every other gate below: a category/
+  // entry/item must pass both its functional access check (if any) AND this map.
+  menuAccess?: Record<string, boolean> | null;
 }
 
 const ACCESS_BY_GROUP_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" | "onExpandRail">> = {
@@ -32,6 +45,8 @@ const ACCESS_BY_GROUP_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" |
   [GATED_GROUP_KEYS.laravelSecurity]: "laravelSecurityAccess",
   [GATED_GROUP_KEYS.mailProtection]: "mailSecurityAccess",
   [GATED_GROUP_KEYS.webAccessControl]: "webAccessControlAccess",
+  [GATED_GROUP_KEYS.wifiAccessControl]: "wifiAccessControlAccess",
+  [GATED_GROUP_KEYS.securityAudits]: "securityAuditsAccess",
 };
 
 const ACCESS_BY_CATEGORY_KEY: Record<string, keyof Omit<SidebarProps, "collapsed" | "onExpandRail">> = {
@@ -40,8 +55,14 @@ const ACCESS_BY_CATEGORY_KEY: Record<string, keyof Omit<SidebarProps, "collapsed
   [GATED_CATEGORY_KEYS.remoteAccess]: "remoteAccessAccess",
   [GATED_CATEGORY_KEYS.itAssetLogsheet]: "itAssetLogsheetAccess",
   [GATED_CATEGORY_KEYS.browserActivity]: "browserActivityAccess",
+  [GATED_CATEGORY_KEYS.appActivityMonitoring]: "appActivityAccess",
+  [GATED_CATEGORY_KEYS.wazuhOffice]: "wazuhOfficeAccess",
+  [GATED_CATEGORY_KEYS.waf]: "wafAccess",
   [GATED_CATEGORY_KEYS.securityUpdates]: "securityUpdatesAccess",
   [GATED_CATEGORY_KEYS.serverRoom]: "serverRoomAccess",
+  [GATED_CATEGORY_KEYS.knowledgeBase]: "knowledgeBaseAccess",
+  [GATED_CATEGORY_KEYS.databaseAnalyzer]: "databaseAnalyzerAccess",
+  [GATED_CATEGORY_KEYS.offboarding]: "offboardingAccess",
 };
 
 function matches(text: string, query: string): boolean {
@@ -60,35 +81,63 @@ export default function Sidebar({
   remoteAccessAccess = false,
   itAssetLogsheetAccess = false,
   browserActivityAccess = false,
+  webAccessControlAccess = false,
+  wifiAccessControlAccess = false,
+  appActivityAccess = false,
+  wazuhOfficeAccess = false,
+  wafAccess = false,
   securityUpdatesAccess = false,
   serverRoomAccess = false,
-  webAccessControlAccess = false,
+  knowledgeBaseAccess = false,
+  securityAuditsAccess = false,
+  databaseAnalyzerAccess = false,
+  offboardingAccess = false,
+  menuAccess = null,
 }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess, webAccessControlAccess };
+  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, securityAuditsAccess, databaseAnalyzerAccess, offboardingAccess };
 
   // Every subgroup is visible to every authenticated user except the ones gated by a
   // permission key (GATED_GROUP_KEYS) - resolved server-side in DashboardLayout and threaded
   // down through SidebarShell. Categories themselves are normally never gated - each one
   // usually has plenty of ungated entries even when a gated subgroup inside it is hidden -
   // except the categories listed in GATED_CATEGORY_KEYS, which have no such fallback.
+  // Admin-configurable per-role sidebar visibility (RoleMenuAccess) — menuAccess is null for
+  // Admin and for any role whose menu was never customized, so this is a no-op until an admin
+  // actually sets something up in Settings > Roles > Menu Access.
+  function menuAllowed(key: string): boolean {
+    if (!menuAccess) return true;
+    return menuAccess[key] !== false;
+  }
+
   const visibleCategories = useMemo(
     () =>
       NAV_CATEGORIES.filter((category) => {
+        if (!menuAllowed(category.key)) return false;
         const categoryGate = GATED_CATEGORY_KEYS[category.key as keyof typeof GATED_CATEGORY_KEYS];
         if (!categoryGate) return true;
         return access[ACCESS_BY_CATEGORY_KEY[categoryGate]];
-      }).map((category) => ({
-        ...category,
-        items: category.items.filter((entry) => {
-          const gatedFlag = GATED_GROUP_KEYS[entry.key as keyof typeof GATED_GROUP_KEYS];
-          if (!gatedFlag) return true;
-          return access[ACCESS_BY_GROUP_KEY[gatedFlag]];
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-        }),
-      })),
-    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, securityUpdatesAccess, serverRoomAccess, webAccessControlAccess]
+      })
+        .map((category) => ({
+          ...category,
+          items: category.items
+            .filter((entry) => {
+              if (!menuAllowed(`${category.key}:${entry.key}`)) return false;
+              const gatedFlag = GATED_GROUP_KEYS[entry.key as keyof typeof GATED_GROUP_KEYS];
+              if (!gatedFlag) return true;
+              return access[ACCESS_BY_GROUP_KEY[gatedFlag]];
+            })
+            .map((entry) =>
+              entry.type === "group"
+                ? { ...entry, items: entry.items.filter((item) => menuAllowed(`${category.key}:${entry.key}:${item.key}`)) }
+                : entry
+            )
+            .filter((entry) => entry.type === "link" || entry.items.length > 0),
+        }))
+        .filter((category) => category.items.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, databaseAnalyzerAccess, offboardingAccess, menuAccess]
   );
 
   function isActive(href: string) {

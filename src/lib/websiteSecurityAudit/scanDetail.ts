@@ -36,6 +36,18 @@ export interface ScanDetail {
 
 const ENTERPRISE_FINDING_COLUMNS = `Cvss as cvss, Cwe as cwe, OwaspCategory as owaspCategory, Confidence as confidence, AffectedUrl as affectedUrl, Parameter as parameter, HttpMethod as httpMethod, Module as module, HttpRequestSnippet as httpRequestSnippet, HttpResponseSnippet as httpResponseSnippet`;
 
+// Free-text note an auditor can set on a specific scan's finding row — independent of any
+// status/triage field (this module has none; findings are a per-scan snapshot, not tracked
+// across scans like WordPressFindings.AuditorNote). Lets a view+scan-only Security Auditor
+// record why a finding can't be fixed, without needing any admin-only right.
+export async function updateWebsiteAuditFindingNote(id: number, note: string | null): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.request().input("id", sql.Int, id).input("note", sql.NVarChar, note).query(
+    "UPDATE WebsiteAuditFindings SET AuditorNote = @note WHERE Id = @id"
+  );
+  return (result.rowsAffected[0] ?? 0) > 0;
+}
+
 // Reads back everything a completed scan produced — shared by the Website Security Audit
 // page (scan history detail), the authenticated PDF-report route, and the daily-scan script
 // (report generation + email), so all three render from the exact same data.
@@ -74,12 +86,18 @@ export async function loadScanDetail(scanId: number): Promise<ScanDetail | null>
       .request()
       .input("scanId", sql.Int, scanId)
       .query<
-        { category: string; severity: string; title: string; description: string | null; evidence: string | null; recommendation: string | null } & Record<
-          string,
-          unknown
-        >
+        {
+          id: number;
+          category: string;
+          severity: string;
+          title: string;
+          description: string | null;
+          evidence: string | null;
+          recommendation: string | null;
+          auditorNote: string | null;
+        } & Record<string, unknown>
       >(
-        `SELECT Category as category, Severity as severity, Title as title, Description as description, Evidence as evidence, Recommendation as recommendation, ${ENTERPRISE_FINDING_COLUMNS} FROM WebsiteAuditFindings WHERE ScanId = @scanId`
+        `SELECT Id as id, Category as category, Severity as severity, Title as title, Description as description, Evidence as evidence, Recommendation as recommendation, AuditorNote as auditorNote, ${ENTERPRISE_FINDING_COLUMNS} FROM WebsiteAuditFindings WHERE ScanId = @scanId`
       ),
     db
       .request()

@@ -84,7 +84,13 @@ export class SsrfBlockedError extends Error {}
 // truthy, so Node connects directly and never calls the `lookup` option below at all -
 // verified in Website Performance's own module that this is a real, exploitable gap for
 // literal-IP URLs otherwise).
-export function checkLiteralIpNotRestricted(hostname: string): void {
+//
+// allowPrivateIp lets a caller that already trusts the target (e.g. the Vulnerability
+// Scanner scanning an admin-registered Dev/Staging Website, not an arbitrary ad-hoc URL)
+// opt out of the private-IP block entirely - defaults to false so every existing caller
+// (Website & API Monitoring's websiteChecker/apiChecker) keeps today's behavior unchanged.
+export function checkLiteralIpNotRestricted(hostname: string, allowPrivateIp = false): void {
+  if (allowPrivateIp) return;
   if (net.isIP(hostname) && isRestrictedIp(hostname)) {
     throw new SsrfBlockedError(`Target resolves to a restricted/private IP address (${hostname}) - blocked.`);
   }
@@ -122,7 +128,7 @@ async function resolveHostname(hostname: string): Promise<{ address: string; fam
 // by the caller on every redirect hop (a fresh request = a fresh lookup call), so a same-check
 // DNS-rebinding attempt (public IP when the monitor was created, private IP by the time this
 // particular check runs) is still caught at connection time, not just at creation time.
-export function createSafeLookup(): (
+export function createSafeLookup(allowPrivateIp = false): (
   hostname: string,
   options: LookupOptions,
   callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
@@ -130,7 +136,7 @@ export function createSafeLookup(): (
   return (hostname, _options, callback) => {
     resolveHostname(hostname)
       .then(({ address, family }) => {
-        if (isRestrictedIp(address)) {
+        if (!allowPrivateIp && isRestrictedIp(address)) {
           callback(new SsrfBlockedError("Resolved to a restricted/private IP address - blocked."), "", 0);
           return;
         }

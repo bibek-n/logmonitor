@@ -323,6 +323,9 @@
     "defaultMessage": "Actualmente estamos realizando un mantenimiento programado. Por favor, vuelva a consultar en breve."
   },
   "sidebar": {
+    "top": {
+      "companySettings": "Configuración de la Empresa"
+    },
     "arrangeMenu": "Organizar menú",
     "doneArranging": "Listo",
     "collapseSidebar": "Contraer barra lateral",
@@ -357,7 +360,9 @@
         "entries": {
           "staff": "Empleados",
           "employeeChat": "Chat de Empleados",
-          "sendNotification": "Enviar Notificación"
+          "sendNotification": "Enviar Notificación",
+          "alertHistory": "Historial de Alertas",
+          "adLog": "Registro AD"
         },
         "groups": {}
       },
@@ -367,6 +372,7 @@
           "securityCenterDashboard": "Panel",
           "vulnerabilityScanner": "Escáner de Vulnerabilidades",
           "waf": "Firewall de Aplicaciones Web",
+          "anomalyDetection": "Detección de Anomalías",
           "cameras": "Cámaras",
           "intrusionDetection": "Detección de Intrusiones",
           "ddosDetection": "Detección de DDos",
@@ -380,7 +386,8 @@
               "agentDashboard": "Panel de Agentes",
               "downloadAgent": "Descargar Agente",
               "enrollDevice": "Registrar Dispositivo",
-              "screenshotAuditLog": "Registro de Auditoría de Capturas"
+              "screenshotAuditLog": "Registro de Auditoría de Capturas",
+              "agentRollout": "Implementación de Agentes"
             }
           },
           "fileIntegrityMonitoring": {
@@ -444,7 +451,8 @@
               "routerClients": "Clientes del Router",
               "routerHealth": "Estado del Router",
               "routerWeb": "Conexiones Web del Router",
-              "employeeWebActivity": "Actividad Web de Empleados"
+              "employeeWebActivity": "Actividad Web de Empleados",
+              "mobileDevices": "Dispositivos Móviles"
             }
           },
           "sophosFirewall": {
@@ -454,7 +462,8 @@
               "webFilter": "Filtro Web Sophos",
               "systemHealth": "Estado del Sistema Sophos",
               "sophosEvents": "Eventos Sophos",
-              "topConsumers": "Principales Consumidores"
+              "topConsumers": "Principales Consumidores",
+              "bandwidthQuotas": "Cuotas de Ancho de Banda"
             }
           },
           "servers": {
@@ -477,7 +486,8 @@
               "reverseDns": "Herramienta DNS Inversa",
               "dnsPropagation": "Verificador de Propagación DNS",
               "mtr": "Herramienta MTR",
-              "portScanner": "Escáner de Puertos"
+              "portScanner": "Escáner de Puertos",
+              "redirectChecker": "Verificador de Redirecciones"
             }
           },
           "networkDiagram": {
@@ -508,6 +518,12 @@
               "schedules": "Horarios",
               "auditLog": "Registro de AuditorÃ­a"
             }
+          },
+          "wifiAccessControl": {
+            "label": "Control de Acceso Wi-Fi",
+            "items": {
+              "dashboard": "Panel"
+            }
           }
         }
       },
@@ -527,7 +543,8 @@
           "portForwarding": "Reenvío de Puertos",
           "scriptsAndCommands": "Scripts y Comandos",
           "connectionLogs": "Registro de Conexiones",
-          "settings": "Configuración"
+          "settings": "Configuración",
+          "tulipsHrmRemote": "TulipsHrm-Remote"
         },
         "groups": {}
       },
@@ -577,6 +594,12 @@
               "headerViewer": "Visor de Encabezados HTTP / HTTPS",
               "securityHeaders": "Cabeceras de Seguridad",
               "gaTagFinder": "Buscador de Etiquetas GA",
+              "emailSecurity": "Seguridad de Correo (SPF/DKIM/DMARC)"
+            }
+          },
+          "securityAudits": {
+            "label": "Auditorías de Seguridad",
+            "items": {
               "websiteSecurityAudit": "Auditoría de Seguridad del Sitio Web",
               "wordpressScan": "Escaneo Profundo de WordPress"
             }
@@ -664,7 +687,9 @@
           "maintenanceWindows": "Ventanas de Mantenimiento",
           "reports": "Informes",
           "notificationLogs": "Registro de Notificaciones",
-          "settings": "Configuración"
+          "settings": "Configuración",
+          "websiteIncidentReports": "Informe de Incidentes del Sitio Web",
+          "alertPolicies": "Políticas de Alertas"
         },
         "groups": {}
       },
@@ -681,7 +706,11 @@
         "label": "Administración",
         "entries": {
           "gitConnections": "Integración",
-          "companySettings": "Configuración de la Empresa"
+          "companySettings": "Configuración de la Empresa",
+          "dataRetention": "Retención de Datos",
+          "systemStatus": "Estado del Sistema",
+          "reportBuilder": "Generador de Informes",
+          "incidentReports": "Informes de Incidentes"
         },
         "groups": {
           "website": {
@@ -712,6 +741,78 @@
               "timezoneConverter": "Convertidor de Zona Horaria"
             }
           }
+        }
+      },
+      "knowledgeBase": {
+        "label": "Base de Conocimientos",
+        "entries": {
+          "documents": "Documentos"
+        }
+      },
+      "wazuhOffice": {
+        "label": "Wazuh Office",
+        "entries": {
+          "dashboard": "Panel",
+          "agents": "Agentes",
+          "securityEvents": "Eventos de Seguridad",
+          "alerts": "Alertas",
+          "vulnerabilities": "Vulnerabilidades",
+          "fileIntegrity": "Integridad de Archivos",
+          "inventory": "Inventario",
+          "processes": "Procesos",
+          "services": "Servicios",
+          "network": "Red",
+          "rules": "Reglas",
+          "mitre": "MITRE ATT&CK",
+          "reports": "Informes",
+          "settings": "Configuración"
+        }
+      },
+      "waf": {
+        "label": "Puerta de Enlace WAF",
+        "entries": {
+          "dashboard": "Panel",
+          "protectedApplications": "Aplicaciones Protegidas",
+          "rules": "Reglas",
+          "ipManagement": "Gestión de IP",
+          "rateLimiting": "Limitación de Velocidad",
+          "attackLogs": "Registros de Ataques",
+          "blockedRequests": "Solicitudes Bloqueadas",
+          "reports": "Informes",
+          "certificates": "Certificados",
+          "reverseProxy": "Proxy Inverso",
+          "settings": "Configuración"
+        }
+      },
+      "appActivityMonitoring": {
+        "label": "Monitoreo de Actividad de Empleados",
+        "entries": {
+          "dashboard": "Panel",
+          "staffReport": "Informe por Personal",
+          "applicationReport": "Informe por Aplicación",
+          "employeeReport": "Informe por Empleado",
+          "appCategories": "Categorías de Aplicaciones",
+          "agentStatus": "Estado del Agente",
+          "settings": "Configuración"
+        }
+      },
+      "databaseAnalyzer": {
+        "label": "Analizador de Base de Datos",
+        "entries": {
+          "connections": "Conexiones y Escaneos"
+        }
+      },
+      "helpCenter": {
+        "label": "Centro de Ayuda",
+        "entries": {
+          "dashboard": "Centro de Ayuda"
+        }
+      },
+      "offboarding": {
+        "label": "Baja de Empleados",
+        "entries": {
+          "dashboard": "Panel",
+          "settings": "Configuración de GitLab y Glesys"
         }
       }
     }
@@ -785,7 +886,8 @@
       "clearFilterLink": "Borrar filtro",
       "errors": {
         "nameRequired": "El nombre es obligatorio.",
-        "duplicateMac": "Esa dirección MAC ya está asignada a otro empleado."
+        "duplicateMac": "Esa dirección MAC ya está asignada a otro empleado.",
+        "removeFailed": "No se pudo eliminar a este empleado: todavía hay registros vinculados (activos, dispositivos o reglas de acceso) que hacen referencia a él."
       }
     },
     "detail": {
@@ -803,6 +905,8 @@
       "noDeviceAssigned": "Sin dispositivo asignado",
       "onlineLabel": "En línea",
       "offlineLabel": "Fuera de línea",
+      "offlineRemoteLabel": "Sin conexión (remoto/VPN)",
+      "offlineRemoteHint": "La última conexión conocida fue a través de un túnel VPN: el agente simplemente no está conectado en este momento, lo que no significa necesariamente un problema.",
       "macAddressLabel": "Dirección MAC:",
       "notAssignedFallback": "no asignada",
       "currentIpLabel": "IP Actual:",
@@ -865,6 +969,8 @@
       "noDeviceStatus": "Sin dispositivo",
       "onlineStatus": "En línea",
       "offlineStatus": "Fuera de línea",
+      "offlineRemoteStatus": "Sin conexión (remoto/VPN)",
+      "offlineRemoteTitle": "La última conexión conocida fue por VPN: puede estar simplemente desconectado ahora mismo, no necesariamente un problema.",
       "notCurrentlyOnlineFallback": "actualmente sin conexión",
       "editTitle": "Editar",
       "removeButton": "Eliminar"
@@ -1174,7 +1280,17 @@
       "moduleAdded": "Módulo agregado.",
       "moduleDeleted": "Módulo eliminado.",
       "moduleNameRequired": "El nombre del módulo es obligatorio.",
-      "removeModuleConfirm": "¿Eliminar este módulo y su lista de destinatarios?"
+      "removeModuleConfirm": "¿Eliminar este módulo y su lista de destinatarios?",
+      "webhookTitle": "Alertas por Webhook (Slack / Teams)",
+      "webhookDescription": "Cualquier alerta que ya se envía por correo también puede repetirse en un canal de Slack o Microsoft Teams. Pegue abajo la URL del webhook entrante del canal.",
+      "webhookEnableLabel": "Activar alertas por webhook",
+      "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
+      "webhookPlatformGeneric": "Genérico (JSON)",
+      "webhookTestButton": "Enviar Mensaje de Prueba",
+      "webhookTesting": "Enviando...",
+      "webhookSaved": "Configuración de webhook guardada.",
+      "webhookTestSent": "Mensaje de prueba enviado.",
+      "webhookTestFailed": "Error al enviar el mensaje de prueba."
     },
     "rolesPermissions": {
       "title": "Roles y Permisos",
@@ -1321,7 +1437,7 @@
       "frequencyWeekly": "Semanal",
       "frequencyMonthly": "Mensual",
       "keepLastNBackupsPlaceholder": "Conservar las últimas N copias de seguridad",
-      "scheduleNotWiredUpNotice": "La programación se guarda como referencia — la ejecución automática aún no está implementada. Mientras tanto, use \"Ejecutar Copia de Seguridad de la Base de Datos Ahora\" arriba.",
+      "scheduleNotWiredUpNotice": "Las copias de seguridad automáticas siempre se ejecutan al menos una vez al día sin importar esta opción — habilitar una programación personalizada arriba anula la hora/frecuencia/cantidad de retención que usa.",
       "dataRetentionPolicyLabel": "Política de Retención de Datos (días)",
       "retentionNotesPlaceholder": "Notas sobre a qué aplica esta política de retención",
       "savingButton": "Guardando...",
@@ -1373,7 +1489,14 @@
       "detailsColumn": "Detalles",
       "ipColumn": "IP",
       "whenColumn": "Cuándo",
-      "noEntriesFound": "Aún no hay entradas de auditoría."
+      "noEntriesFound": "Aún no hay entradas de auditoría.",
+      "verifyButton": "Verificar Integridad de la Cadena",
+      "verifying": "Verificando...",
+      "chainValid": "Cadena verificada: {checked} de {total} filas intactas.",
+      "chainBroken": "Cadena rota en la fila {id}: {reason}",
+      "verifyFailedError": "La verificación falló. Inténtalo de nuevo.",
+      "exportButton": "Exportar CSV",
+      "exporting": "Exportando..."
     }
   }
 }

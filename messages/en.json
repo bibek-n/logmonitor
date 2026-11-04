@@ -323,6 +323,9 @@
     "defaultMessage": "We're currently performing scheduled maintenance. Please check back shortly."
   },
   "sidebar": {
+    "top": {
+      "companySettings": "Company Settings"
+    },
     "arrangeMenu": "Arrange menu",
     "doneArranging": "Done arranging",
     "collapseSidebar": "Collapse sidebar",
@@ -357,7 +360,9 @@
         "entries": {
           "staff": "Employees",
           "employeeChat": "Employee Chat",
-          "sendNotification": "Send Notification"
+          "sendNotification": "Send Notification",
+          "alertHistory": "Alert History",
+          "adLog": "AD LOG"
         },
         "groups": {}
       },
@@ -367,6 +372,7 @@
           "securityCenterDashboard": "Dashboard",
           "vulnerabilityScanner": "Vulnerability Scanner",
           "waf": "Web Application Firewall",
+          "anomalyDetection": "Anomaly Detection",
           "cameras": "Cameras",
           "intrusionDetection": "Intrusion Detection",
           "ddosDetection": "DDos Detection",
@@ -380,7 +386,8 @@
               "agentDashboard": "Agent Dashboard",
               "downloadAgent": "Download Agent",
               "enrollDevice": "Enroll Device",
-              "screenshotAuditLog": "Screenshot Audit Log"
+              "screenshotAuditLog": "Screenshot Audit Log",
+              "agentRollout": "Agent Rollout"
             }
           },
           "fileIntegrityMonitoring": {
@@ -444,7 +451,8 @@
               "routerClients": "Router Clients",
               "routerHealth": "Router Health",
               "routerWeb": "Router Web Connections",
-              "employeeWebActivity": "Employee Web Activity"
+              "employeeWebActivity": "Employee Web Activity",
+              "mobileDevices": "Mobile Devices"
             }
           },
           "sophosFirewall": {
@@ -454,7 +462,8 @@
               "webFilter": "Sophos Web Filter",
               "systemHealth": "Sophos System Health",
               "sophosEvents": "Sophos Events",
-              "topConsumers": "Top Consumers"
+              "topConsumers": "Top Consumers",
+              "bandwidthQuotas": "Bandwidth Quotas"
             }
           },
           "servers": {
@@ -477,7 +486,8 @@
               "reverseDns": "Reverse DNS Tool",
               "dnsPropagation": "DNS Propagation Checker",
               "mtr": "MTR Tool",
-              "portScanner": "Port Scanner"
+              "portScanner": "Port Scanner",
+              "redirectChecker": "Redirect Checker"
             }
           },
           "networkDiagram": {
@@ -508,6 +518,12 @@
               "schedules": "Schedules",
               "auditLog": "Audit Log"
             }
+          },
+          "wifiAccessControl": {
+            "label": "Wi-Fi Access Control",
+            "items": {
+              "dashboard": "Dashboard"
+            }
           }
         }
       },
@@ -527,7 +543,8 @@
           "portForwarding": "Port Forwarding",
           "scriptsAndCommands": "Scripts & Commands",
           "connectionLogs": "Connection Logs",
-          "settings": "Settings"
+          "settings": "Settings",
+          "tulipsHrmRemote": "TulipsHrm-Remote"
         },
         "groups": {}
       },
@@ -577,6 +594,12 @@
               "headerViewer": "HTTP / HTTPS Response Header Viewer",
               "securityHeaders": "Security Headers",
               "gaTagFinder": "GA Tag Finder",
+              "emailSecurity": "Email Security (SPF/DKIM/DMARC)"
+            }
+          },
+          "securityAudits": {
+            "label": "Security Audits",
+            "items": {
               "websiteSecurityAudit": "Website Security Audit",
               "wordpressScan": "WordPress Deep Scan"
             }
@@ -664,7 +687,9 @@
           "maintenanceWindows": "Maintenance Windows",
           "reports": "Reports",
           "notificationLogs": "Notification Logs",
-          "settings": "Settings"
+          "settings": "Settings",
+          "websiteIncidentReports": "Website Incident Report",
+          "alertPolicies": "Alert Policies"
         },
         "groups": {}
       },
@@ -681,7 +706,11 @@
         "label": "Administration",
         "entries": {
           "gitConnections": "Integrations",
-          "companySettings": "Company Settings"
+          "companySettings": "Company Settings",
+          "dataRetention": "Data Retention",
+          "systemStatus": "System Status",
+          "reportBuilder": "Report Builder",
+          "incidentReports": "Incident Reports"
         },
         "groups": {
           "website": {
@@ -712,6 +741,78 @@
               "timezoneConverter": "Time Zone Converter"
             }
           }
+        }
+      },
+      "knowledgeBase": {
+        "label": "Knowledge Base",
+        "entries": {
+          "documents": "Documents"
+        }
+      },
+      "wazuhOffice": {
+        "label": "Wazuh Office",
+        "entries": {
+          "dashboard": "Dashboard",
+          "agents": "Agents",
+          "securityEvents": "Security Events",
+          "alerts": "Alerts",
+          "vulnerabilities": "Vulnerabilities",
+          "fileIntegrity": "File Integrity",
+          "inventory": "Inventory",
+          "processes": "Processes",
+          "services": "Services",
+          "network": "Network",
+          "rules": "Rules",
+          "mitre": "MITRE ATT&CK",
+          "reports": "Reports",
+          "settings": "Settings"
+        }
+      },
+      "waf": {
+        "label": "WAF Gateway",
+        "entries": {
+          "dashboard": "Dashboard",
+          "protectedApplications": "Protected Applications",
+          "rules": "Rules",
+          "ipManagement": "IP Management",
+          "rateLimiting": "Rate Limiting",
+          "attackLogs": "Attack Logs",
+          "blockedRequests": "Blocked Requests",
+          "reports": "Reports",
+          "certificates": "Certificates",
+          "reverseProxy": "Reverse Proxy",
+          "settings": "Settings"
+        }
+      },
+      "appActivityMonitoring": {
+        "label": "Employee Activity Monitoring",
+        "entries": {
+          "dashboard": "Dashboard",
+          "staffReport": "Staff-wise Report",
+          "applicationReport": "Application-wise Report",
+          "employeeReport": "Employee-wise Report",
+          "appCategories": "Application Categories",
+          "agentStatus": "Agent Status",
+          "settings": "Settings"
+        }
+      },
+      "databaseAnalyzer": {
+        "label": "Database Analyzer",
+        "entries": {
+          "connections": "Connections & Scans"
+        }
+      },
+      "helpCenter": {
+        "label": "Help Center",
+        "entries": {
+          "dashboard": "Help Center"
+        }
+      },
+      "offboarding": {
+        "label": "Employee Offboarding",
+        "entries": {
+          "dashboard": "Dashboard",
+          "settings": "GitLab & Glesys Settings"
         }
       }
     }
@@ -785,7 +886,8 @@
       "clearFilterLink": "Clear filter",
       "errors": {
         "nameRequired": "Name is required.",
-        "duplicateMac": "That MAC address is already assigned to another employee."
+        "duplicateMac": "That MAC address is already assigned to another employee.",
+        "removeFailed": "Could not remove this employee: some linked records (assets, devices, or access rules) are still referencing them."
       }
     },
     "detail": {
@@ -803,6 +905,8 @@
       "noDeviceAssigned": "No device assigned",
       "onlineLabel": "Online",
       "offlineLabel": "Offline",
+      "offlineRemoteLabel": "Offline (Remote/VPN)",
+      "offlineRemoteHint": "Last known connection was over a VPN tunnel — the agent simply isn't connected right now, which doesn't necessarily mean a problem.",
       "macAddressLabel": "MAC Address:",
       "notAssignedFallback": "not assigned",
       "currentIpLabel": "Current IP:",
@@ -865,6 +969,8 @@
       "noDeviceStatus": "No device",
       "onlineStatus": "Online",
       "offlineStatus": "Offline",
+      "offlineRemoteStatus": "Offline (Remote/VPN)",
+      "offlineRemoteTitle": "Last known connection was over VPN — may simply be disconnected right now, not necessarily a problem.",
       "notCurrentlyOnlineFallback": "not currently online",
       "editTitle": "Edit",
       "removeButton": "Remove"
@@ -1174,7 +1280,17 @@
       "moduleAdded": "Module added.",
       "moduleDeleted": "Module removed.",
       "moduleNameRequired": "Module name is required.",
-      "removeModuleConfirm": "Remove this module and its recipient list?"
+      "removeModuleConfirm": "Remove this module and its recipient list?",
+      "webhookTitle": "Webhook Alerts (Slack / Teams)",
+      "webhookDescription": "Any alert that already goes out by email can also be echoed to a Slack or Microsoft Teams channel. Paste the channel's incoming webhook URL below.",
+      "webhookEnableLabel": "Enable webhook alerts",
+      "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
+      "webhookPlatformGeneric": "Generic (JSON)",
+      "webhookTestButton": "Send Test Message",
+      "webhookTesting": "Sending...",
+      "webhookSaved": "Webhook settings saved.",
+      "webhookTestSent": "Test message sent.",
+      "webhookTestFailed": "Test message failed."
     },
     "rolesPermissions": {
       "title": "Roles and Permissions",
@@ -1321,7 +1437,7 @@
       "frequencyWeekly": "Weekly",
       "frequencyMonthly": "Monthly",
       "keepLastNBackupsPlaceholder": "Keep last N backups",
-      "scheduleNotWiredUpNotice": "Schedule is saved for reference — automatic execution isn't wired up yet. Use \"Run Database Backup Now\" above in the meantime.",
+      "scheduleNotWiredUpNotice": "Automatic backups always run at least once daily regardless of this setting — enabling a custom schedule above overrides the time/frequency/retention count it uses.",
       "dataRetentionPolicyLabel": "Data Retention Policy (days)",
       "retentionNotesPlaceholder": "Notes about what this retention policy applies to",
       "savingButton": "Saving...",
@@ -1373,7 +1489,14 @@
       "detailsColumn": "Details",
       "ipColumn": "IP",
       "whenColumn": "When",
-      "noEntriesFound": "No audit entries yet."
+      "noEntriesFound": "No audit entries yet.",
+      "verifyButton": "Verify Chain Integrity",
+      "verifying": "Verifying...",
+      "chainValid": "Chain verified: {checked} of {total} rows intact.",
+      "chainBroken": "Chain broken at row {id}: {reason}",
+      "verifyFailedError": "Verification failed. Please try again.",
+      "exportButton": "Export CSV",
+      "exporting": "Exporting..."
     }
   }
 }

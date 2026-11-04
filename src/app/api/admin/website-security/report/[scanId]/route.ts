@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWebsiteSecurityPermission, isWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
 import { loadScanDetail } from "@/lib/websiteSecurityAudit/scanDetail";
 import { getOrGenerateAuditPdf } from "@/lib/websiteSecurityAudit/generatePdf";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ scanId: string }> }) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWebsiteSecurityPermission("wsa_view");
+  if (!isWebsiteSecuritySession(admin)) return admin;
 
   const inline = req.nextUrl.searchParams.get("view") === "1";
 

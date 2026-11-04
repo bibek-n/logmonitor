@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -7,8 +7,8 @@ import { useTranslations } from "next-intl";
 import { Search, Bell, RefreshCw, X, Menu } from "lucide-react";
 import { NAV_CATEGORIES } from "@/lib/navRoutes";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { HeaderClock } from "./HeaderClock";
 import { useMobileSidebar } from "./MobileSidebarContext";
-import { useToast } from "./ui/Toast";
 import { MonitoringNotificationBell } from "./websiteApiMonitoring/MonitoringNotificationBell";
 import type { AlertRow } from "@/lib/alerts";
 
@@ -48,13 +48,13 @@ export default function HeaderClient({
   const tSidebar = useTranslations("sidebar");
   const breadcrumb = useBreadcrumb(pathname, t("overviewFallback"));
   const mobileSidebar = useMobileSidebar();
-  const toast = useToast();
 
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [alerts, setAlerts] = useState(initialAlerts);
+  const [pushState, setPushState] = useState<"checking" | "unsupported" | "default" | "subscribed" | "denied" | "busy">("checking");
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   // Deliberately NOT seeded from the max EventTime already in initialAlerts - a USB event
@@ -80,11 +80,21 @@ export default function HeaderClient({
           .sort((a, b) => new Date(a.EventTime).getTime() - new Date(b.EventTime).getTime());
 
         for (const a of fresh) {
-          toast.show({
-            type: a.Severity === "critical" || a.Severity === "warning" ? "error" : "info",
-            message: a.Detail,
-            duration: 6000,
-          });
+          // Deliberately no in-app toast popup here anymore - alerts are visible via the
+          // notification bell (badge + dropdown, updated below via setAlerts) and via the
+          // real OS notification, but a toast auto-popping in the corner for every single
+          // alert (e.g. routine USB-insert events) was unwanted noise.
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            const n = new Notification(a.Severity === "critical" || a.Severity === "warning" ? "LogMonitor alert" : "LogMonitor notice", {
+              body: a.Detail,
+              icon: "/branding/tulips-favicon.png",
+              tag: `logmonitor-alert-${a.EventTime}`,
+            });
+            n.onclick = () => {
+              window.focus();
+              n.close();
+            };
+          }
         }
         if (fresh.length > 0) {
           lastSeenRef.current = Math.max(...fresh.map((a) => new Date(a.EventTime).getTime()));
@@ -101,7 +111,96 @@ export default function HeaderClient({
       cancelled = true;
       clearInterval(id);
     };
-  }, [toast]);
+  }, []);
+
+  // Registers the push service worker on every dashboard page load - registration alone (no
+  // permission prompt, no subscription) is inert, so this is safe to do unconditionally. The
+  // actual opt-in (permission + pushManager.subscribe) happens from the Notifications settings
+  // toggle, not here.
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        // Not fatal - push notifications just won't be available until this succeeds.
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    async function checkPushState() {
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushState("unsupported");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        setPushState("denied");
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setPushState(sub ? "subscribed" : "default");
+      } catch {
+        setPushState("unsupported");
+      }
+    }
+    checkPushState();
+  }, []);
+
+  function urlBase64ToUint8Array(base64: string): Uint8Array {
+    const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+    const base64Safe = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64Safe);
+    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+  }
+
+  async function enablePush() {
+    setPushState("busy");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushState(permission === "denied" ? "denied" : "default");
+        return;
+      }
+      const keyRes = await fetch("/api/push/vapid-public-key");
+      const keyData: { ok: boolean; publicKey: string | null } = await keyRes.json();
+      if (!keyData.ok || !keyData.publicKey) {
+        setPushState("default");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey) as unknown as BufferSource,
+      });
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sub.toJSON()),
+      });
+      setPushState("subscribed");
+    } catch {
+      setPushState("default");
+    }
+  }
+
+  async function disablePush() {
+    setPushState("busy");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch("/api/push/unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      setPushState("default");
+    } catch {
+      setPushState("subscribed");
+    }
+  }
 
   const searchIndex = useMemo(
     () =>
@@ -286,7 +385,18 @@ export default function HeaderClient({
       <div ref={notifRef} style={{ position: "relative" }}>
         <button
           type="button"
-          onClick={() => setNotifOpen((o) => !o)}
+          onClick={() => {
+            setNotifOpen((o) => !o);
+            // Real OS-level notification permission (Windows Action Center popups even when
+            // this tab isn't focused) - must be requested from inside an actual click, not on
+            // mount: Firefox hard-rejects requestPermission() called outside a short-lived
+            // user gesture ("The Notification permission may only be requested from inside a
+            // short running user-generated event handler"), which broke page hydration
+            // entirely when this used to fire from a useEffect on mount.
+            if (typeof Notification !== "undefined" && Notification.permission === "default") {
+              Notification.requestPermission();
+            }
+          }}
           title={t("notificationsTitle")}
           style={{
             position: "relative",
@@ -335,8 +445,22 @@ export default function HeaderClient({
               zIndex: 50,
             }}
           >
-            <div style={{ padding: "0.3rem 0.5rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--ink)" }}>
-              {t("recentAlerts")}
+            <div className="flex items-center justify-between" style={{ padding: "0.3rem 0.5rem" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--ink)" }}>{t("recentAlerts")}</span>
+              {pushState === "default" && (
+                <button type="button" onClick={enablePush} style={{ fontSize: "0.7rem", color: "var(--series-1)", background: "none", border: "none", cursor: "pointer" }}>
+                  Enable push
+                </button>
+              )}
+              {pushState === "subscribed" && (
+                <button type="button" onClick={disablePush} style={{ fontSize: "0.7rem", color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer" }}>
+                  Push on - disable
+                </button>
+              )}
+              {pushState === "denied" && (
+                <span style={{ fontSize: "0.68rem", color: "var(--ink-muted)" }}>Push blocked in browser</span>
+              )}
+              {pushState === "busy" && <span style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>...</span>}
             </div>
             {alerts.length === 0 ? (
               <div style={{ padding: "0.5rem", fontSize: "0.82rem", color: "var(--ink-muted)" }}>{t("noAlerts")}</div>
@@ -356,6 +480,8 @@ export default function HeaderClient({
       </div>
 
       <MonitoringNotificationBell />
+
+      <HeaderClock />
 
       <ThemeSwitcher />
 
@@ -382,3 +508,6 @@ export default function HeaderClient({
     </header>
   );
 }
+
+
+

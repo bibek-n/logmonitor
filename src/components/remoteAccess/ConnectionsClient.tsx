@@ -76,6 +76,26 @@ function ConnectionsInner() {
     router.push(`/dashboard/remote-access/terminal/${data.data.sessionId}`);
   }
 
+  async function openVnc(id: number) {
+    const res = await fetch("/api/admin/remote-access/sessions/vnc", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ connectionId: id }) });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      toast.show({ type: "error", message: data.error ?? "Failed to connect." });
+      return;
+    }
+    router.push(`/dashboard/remote-access/remote-desktop/${data.data.sessionId}?w=${data.data.width}&h=${data.data.height}`);
+  }
+
+  async function openRdp(id: number) {
+    const res = await fetch("/api/admin/remote-access/sessions/rdp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ connectionId: id }) });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      toast.show({ type: "error", message: data.error ?? "Failed to connect." });
+      return;
+    }
+    router.push(`/dashboard/remote-access/remote-desktop/${data.data.sessionId}?w=${data.data.width}&h=${data.data.height}`);
+  }
+
   async function cloneConnection(id: number) {
     const res = await fetch(`/api/admin/remote-access/connections/${id}/clone`, { method: "POST" });
     const data = await res.json();
@@ -159,17 +179,27 @@ function ConnectionsInner() {
                     </td>
                     <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
                       <div style={{ display: "flex", gap: "0.3rem" }}>
+                        {(c.protocol === "SSH" || c.protocol === "WinRM") && (
+                          <Button size="sm" onClick={() => openTerminal(c.id)}>
+                            Connect
+                          </Button>
+                        )}
                         {c.protocol === "SSH" && (
-                          <>
-                            <Button size="sm" onClick={() => openTerminal(c.id)}>
-                              Connect
+                          <Link href={`/dashboard/remote-access/connections/${c.id}/containers`}>
+                            <Button size="sm" variant="secondary">
+                              Containers
                             </Button>
-                            <Link href={`/dashboard/remote-access/connections/${c.id}/containers`}>
-                              <Button size="sm" variant="secondary">
-                                Containers
-                              </Button>
-                            </Link>
-                          </>
+                          </Link>
+                        )}
+                        {c.protocol === "VNC" && (
+                          <Button size="sm" onClick={() => openVnc(c.id)}>
+                            Connect
+                          </Button>
+                        )}
+                        {c.protocol === "RDP" && (
+                          <Button size="sm" onClick={() => openRdp(c.id)}>
+                            Connect
+                          </Button>
                         )}
                         <Button size="sm" variant="secondary" onClick={() => testConnection(c.id)}>
                           Test

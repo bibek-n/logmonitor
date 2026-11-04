@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWebsiteSecurityPermission, isWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
 import { logAdminAction } from "@/lib/adminAudit";
 import { ecosystemForFilename } from "@/lib/websiteSecurityAudit/dependencyChecks";
 
@@ -11,8 +11,8 @@ import { ecosystemForFilename } from "@/lib/websiteSecurityAudit/dependencyCheck
 const MAX_CONTENT_LENGTH = 2_000_000;
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWebsiteSecurityPermission("wsa_scan");
+  if (!isWebsiteSecuritySession(admin)) return admin;
 
   const body = await req.json().catch(() => null);
   const websiteId = Number(body?.websiteId);

@@ -21,7 +21,13 @@ export function DeviceStatusRow({ total, online, offline, attention }: DeviceSta
   return (
     <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
       {cards.map((c) => (
-        <Card key={c.label} hoverLift className="flex items-center gap-4">
+        <Card
+          key={c.label}
+          hoverLift
+          tilt3d
+          className="flex items-center gap-4"
+          style={{ backgroundImage: `linear-gradient(165deg, color-mix(in srgb, ${c.color} 7%, transparent), transparent 55%)` }}
+        >
           <RadialProgress percent={c.pct} color={c.color} size={68} />
           <div>
             <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--ink)" }}>{c.value}</div>

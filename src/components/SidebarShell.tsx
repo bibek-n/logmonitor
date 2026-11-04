@@ -37,9 +37,18 @@ export default function SidebarShell({
   remoteAccessAccess = false,
   itAssetLogsheetAccess = false,
   browserActivityAccess = false,
+  webAccessControlAccess = false,
+  wifiAccessControlAccess = false,
+  appActivityAccess = false,
+  wazuhOfficeAccess = false,
+  wafAccess = false,
   securityUpdatesAccess = false,
   serverRoomAccess = false,
-  webAccessControlAccess = false,
+  knowledgeBaseAccess = false,
+  securityAuditsAccess = false,
+  databaseAnalyzerAccess = false,
+  offboardingAccess = false,
+  menuAccess = null,
 }: {
   children: ReactNode;
   qaAccess?: boolean;
@@ -51,9 +60,18 @@ export default function SidebarShell({
   remoteAccessAccess?: boolean;
   itAssetLogsheetAccess?: boolean;
   browserActivityAccess?: boolean;
+  webAccessControlAccess?: boolean;
+  wifiAccessControlAccess?: boolean;
+  appActivityAccess?: boolean;
+  wazuhOfficeAccess?: boolean;
+  wafAccess?: boolean;
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
-  webAccessControlAccess?: boolean;
+  knowledgeBaseAccess?: boolean;
+  securityAuditsAccess?: boolean;
+  databaseAnalyzerAccess?: boolean;
+  offboardingAccess?: boolean;
+  menuAccess?: Record<string, boolean> | null;
 }) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
@@ -161,9 +179,18 @@ export default function SidebarShell({
         remoteAccessAccess={remoteAccessAccess}
         itAssetLogsheetAccess={itAssetLogsheetAccess}
         browserActivityAccess={browserActivityAccess}
+        webAccessControlAccess={webAccessControlAccess}
+        wifiAccessControlAccess={wifiAccessControlAccess}
+        appActivityAccess={appActivityAccess}
+        wazuhOfficeAccess={wazuhOfficeAccess}
+        wafAccess={wafAccess}
         securityUpdatesAccess={securityUpdatesAccess}
         serverRoomAccess={serverRoomAccess}
-        webAccessControlAccess={webAccessControlAccess}
+        knowledgeBaseAccess={knowledgeBaseAccess}
+        securityAuditsAccess={securityAuditsAccess}
+        databaseAnalyzerAccess={databaseAnalyzerAccess}
+        offboardingAccess={offboardingAccess}
+        menuAccess={menuAccess}
       />
 
       <div style={{ display: collapsed ? "none" : "block" }}>{children}</div>

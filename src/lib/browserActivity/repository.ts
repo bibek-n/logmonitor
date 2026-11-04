@@ -1,4 +1,4 @@
-import { getDb, sql } from "../db";
+﻿import { getDb, sql } from "../db";
 import { matchCategoryRule } from "./classifyDomain";
 import { isDomainExcluded } from "./excludedDomainsFilter";
 import type {
@@ -17,6 +17,8 @@ function mapEvent(r: Record<string, unknown>): BrowserActivityEvent {
     id: r.Id as number,
     deviceId: r.DeviceId as string,
     staffId: (r.StaffId as number | null) ?? null,
+    staffName: (r.StaffName as string | null) ?? null,
+    staffDepartment: (r.StaffDepartment as string | null) ?? null,
     browser: r.Browser as BrowserActivityEvent["browser"],
     domain: r.Domain as string,
     pageTitle: (r.PageTitle as string | null) ?? null,
@@ -140,7 +142,7 @@ export async function listCategoryRules(): Promise<(DomainCategoryRule & { categ
 export async function createCategoryRule(data: {
   domain: string;
   categoryId: number;
-  matchType: "exact" | "suffix";
+  matchType: "exact" | "suffix" | "contains";
   createdByUserId: number;
 }): Promise<number> {
   const db = await getDb();
@@ -283,6 +285,32 @@ export interface EventFilter {
 
 const EVENT_SORT_COLUMN = "e.VisitedAt";
 
+export const EXPORT_MAX_RANGE_DAYS = 7;
+
+export class ExportRangeError extends Error {}
+
+// Every export route (CSV/PDF/Excel) needs the same "up to one week" window rule, so it lives
+// here once rather than being re-implemented per format. When the caller hasn't picked a range
+// at all, this defaults to the trailing 7 days rather than exporting the entire, unbounded
+// history - the whole point of the cap is to keep a single report file a predictable size.
+export function resolveExportDateRange(dateFrom?: string, dateTo?: string): { dateFrom: string; dateTo: string } {
+  const to = dateTo ? new Date(dateTo) : new Date();
+  const from = dateFrom ? new Date(dateFrom) : new Date(to.getTime() - EXPORT_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000);
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    throw new ExportRangeError("Invalid date range.");
+  }
+  if (from > to) {
+    throw new ExportRangeError("The start date must be before the end date.");
+  }
+  const spanDays = (to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000);
+  if (spanDays > EXPORT_MAX_RANGE_DAYS) {
+    throw new ExportRangeError(`Reports are limited to a ${EXPORT_MAX_RANGE_DAYS}-day range - narrow the date range and try again.`);
+  }
+
+  return { dateFrom: from.toISOString(), dateTo: to.toISOString() };
+}
+
 export async function listEvents(filter: EventFilter): Promise<{ events: BrowserActivityEvent[]; total: number }> {
   const db = await getDb();
   const page = Math.max(1, filter.page ?? 1);
@@ -317,7 +345,10 @@ export async function listEvents(filter: EventFilter): Promise<{ events: Browser
 
   const [rows, count] = await Promise.all([
     req.query(`
-      SELECT e.*, c.Name AS CategoryName FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
+      SELECT e.*, c.Name AS CategoryName, s.Name AS StaffName, s.Department AS StaffDepartment
+      FROM BrowserActivityEvents e
+      LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
+      LEFT JOIN Staff s ON s.Id = e.StaffId
       ${where} ORDER BY ${EVENT_SORT_COLUMN} DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
     `),
     req.query(`SELECT COUNT(*) AS Total FROM BrowserActivityEvents e ${where}`),
@@ -330,33 +361,36 @@ export async function listEvents(filter: EventFilter): Promise<{ events: Browser
 
 export async function getDashboardStats(dateFrom: Date, dateTo: Date) {
   const db = await getDb();
-  const req = db.request().input("dateFrom", sql.DateTime2, dateFrom).input("dateTo", sql.DateTime2, dateTo);
+  // A separate db.request() per concurrent query - node-mssql's Request objects aren't safe
+  // to reuse across concurrent .query() calls (only safe for sequential reuse), which the
+  // previous single-shared-`req` version here did across all 5 of these Promise.all branches.
+  const newRequest = () => db.request().input("dateFrom", sql.DateTime2, dateFrom).input("dateTo", sql.DateTime2, dateTo);
 
   const [topDomains, byCategory, byDevice, dailyTrend, securityAlerts] = await Promise.all([
-    req.query(`
+    newRequest().query(`
       SELECT TOP 15 e.Domain, c.Name AS CategoryName, c.RiskLevel, COUNT(*) AS VisitCount, SUM(ISNULL(e.DwellSeconds, 0)) AS TotalDwellSeconds
       FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
       WHERE e.VisitedAt BETWEEN @dateFrom AND @dateTo
       GROUP BY e.Domain, c.Name, c.RiskLevel ORDER BY VisitCount DESC
     `),
-    req.query(`
+    newRequest().query(`
       SELECT ISNULL(c.Name, 'Uncategorized') AS CategoryName, COUNT(*) AS VisitCount
       FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
       WHERE e.VisitedAt BETWEEN @dateFrom AND @dateTo
       GROUP BY c.Name ORDER BY VisitCount DESC
     `),
-    req.query(`
+    newRequest().query(`
       SELECT e.DeviceId, d.Hostname, COUNT(*) AS VisitCount
       FROM BrowserActivityEvents e JOIN Devices d ON d.DeviceId = e.DeviceId
       WHERE e.VisitedAt BETWEEN @dateFrom AND @dateTo
       GROUP BY e.DeviceId, d.Hostname ORDER BY VisitCount DESC
     `),
-    req.query(`
+    newRequest().query(`
       SELECT CAST(e.VisitedAt AS DATE) AS Day, COUNT(*) AS VisitCount
       FROM BrowserActivityEvents e WHERE e.VisitedAt BETWEEN @dateFrom AND @dateTo
       GROUP BY CAST(e.VisitedAt AS DATE) ORDER BY Day ASC
     `),
-    req.query(`
+    newRequest().query(`
       SELECT COUNT(*) AS SecurityEventCount FROM BrowserActivityEvents e
       WHERE e.VisitedAt BETWEEN @dateFrom AND @dateTo AND e.IsSecurityEvent = 1
     `),

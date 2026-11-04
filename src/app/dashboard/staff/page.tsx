@@ -3,8 +3,10 @@ import { getTranslations } from "next-intl/server";
 import { getDb } from "@/lib/db";
 import { addStaff } from "./actions";
 import { getStaffWithStatus } from "@/lib/staffStatus";
+import { agentSupportsUpdateScan } from "@/lib/securityUpdates/agentSupport";
 import DeviceSelect from "@/components/DeviceSelect";
-import { EmployeesTable, type EmployeeRow } from "@/components/staff/EmployeesTable";
+import { EmployeesTable, type EmployeeRow, type DeviceHealth } from "@/components/staff/EmployeesTable";
+import { SavedViews } from "@/components/ui/SavedViews";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,7 @@ export default async function StaffPage({
     const qs = params.toString();
     return qs ? `/dashboard/staff?${qs}` : "/dashboard/staff";
   }
-  const ERROR_CODES = new Set(["nameRequired", "duplicateMac"]);
+  const ERROR_CODES = new Set(["nameRequired", "duplicateMac", "removeFailed"]);
   const errorMessage = error && ERROR_CODES.has(error) ? t(`errors.${error}`) : null;
   const db = await getDb();
 
@@ -113,6 +115,31 @@ export default async function StaffPage({
   `);
   const webActivityByStaffId = new Map(webActivityResult.recordset.map((r) => [r.StaffId, { count: r.Cnt, lastSeen: new Date(r.LastSeen) }]));
 
+  // Surfaces agent/update problems (normally only visible in Security & Updates) right on
+  // the staff list - one row per device via Devices.StaffId (the real FK; MacAddress is only
+  // used above for network-presence/online status, a separate concern from the agent itself).
+  const healthResult = await db.query<{ StaffId: number; AgentVersion: string | null; RebootRequired: boolean | null; CriticalCount: number | null }>(`
+    WITH latest AS (
+      SELECT DeviceId, RebootRequired, CriticalCount,
+        ROW_NUMBER() OVER (PARTITION BY DeviceId ORDER BY ScannedAt DESC) AS rn
+      FROM DeviceUpdateScans
+    )
+    SELECT d.StaffId, d.AgentVersion, l.RebootRequired, l.CriticalCount
+    FROM Devices d
+    LEFT JOIN latest l ON l.DeviceId = d.DeviceId AND l.rn = 1
+    WHERE d.StaffId IS NOT NULL
+  `);
+  const healthByStaffId = new Map<number, DeviceHealth>(
+    healthResult.recordset.map((r) => [
+      r.StaffId,
+      {
+        outdatedAgent: !agentSupportsUpdateScan(r.AgentVersion),
+        rebootRequired: r.RebootRequired === true,
+        criticalUpdatesPending: (r.CriticalCount ?? 0) > 0,
+      },
+    ])
+  );
+
   const employees: EmployeeRow[] = staff.map((s) => {
     const profile = profileById.get(s.Id);
     const webActivity = webActivityByStaffId.get(s.Id) ?? null;
@@ -131,6 +158,7 @@ export default async function StaffPage({
       JobDesignationId: profile?.JobDesignationId ?? null,
       webActivityCount: webActivity?.count ?? 0,
       webActivityLastSeen: webActivity?.lastSeen ?? null,
+      health: healthByStaffId.get(s.Id) ?? null,
     };
   });
 
@@ -245,6 +273,10 @@ export default async function StaffPage({
           href={staffHref({ status: statusFilter === "unassigned" ? null : "unassigned" })}
           active={statusFilter === "unassigned"}
         />
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap" style={{ gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <SavedViews pageKey="staff-list" basePath="/dashboard/staff" />
       </div>
 
       <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginBottom: "0.4rem" }}>

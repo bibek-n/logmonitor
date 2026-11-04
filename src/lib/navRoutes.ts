@@ -1,6 +1,8 @@
 import {
   LayoutDashboard,
   Users,
+  UserX,
+  AppWindow,
   Router,
   Laptop2,
   ScrollText,
@@ -31,13 +33,14 @@ import {
   History,
   CalendarClock,
   Network,
-  Fingerprint,
   BookOpen,
+  HelpCircle,
   ShieldAlert,
   Binary,
   EyeOff,
   Monitor,
   KeyRound,
+  Smartphone,
   Download,
   Image as ImageIcon,
   Ticket,
@@ -76,7 +79,6 @@ import {
   AlertCircle,
   SlidersHorizontal,
   Database,
-  Sparkles,
   Cog,
   FileLock2,
   KeySquare,
@@ -90,13 +92,8 @@ import {
   Divide,
   Link2,
   Clock3,
-  Brain,
   Crosshair,
-  GitMerge,
-  FileSearch,
-  ListTree,
   ShieldQuestion,
-  Eye,
   Usb,
   Plug,
   ShieldOff,
@@ -156,15 +153,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Dashboard",
     items: [
       link("/dashboard", "overview", "Overview", LayoutDashboard),
-      link("/dashboard/ai-assistant", "aiAssistant", "AI Assistant", Sparkles),
-      group("aiModules", "AI Modules", Brain, [
-        link("/dashboard/root-cause-analysis", "rootCauseAnalysis", "Root Cause Analysis", Crosshair),
-        link("/dashboard/alert-correlation", "alertCorrelation", "Alert Correlation", GitMerge),
-        link("/dashboard/ai-incident-summary", "aiIncidentSummary", "AI Incident Summary", FileSearch),
-        link("/dashboard/ai-log-analyzer", "aiLogAnalyzer", "AI Log Analyzer", ListTree),
-        link("/dashboard/ai-configuration-review", "aiConfigurationReview", "AI Configuration Review", ShieldQuestion),
-        link("/dashboard/ai-threat-detection", "aiThreatDetection", "AI Threat Detection", Eye),
-      ]),
     ],
   },
   {
@@ -172,8 +160,10 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "User Management",
     items: [
       link("/dashboard/staff", "staff", "Employees", Users),
+      link("http://192.168.1.3/Account/Login?ReturnUrl=%2F", "adLog", "AD LOG", ScrollText),
       link("/dashboard/chat", "employeeChat", "Employee Chat", MessageCircle),
       link("/dashboard/notifications", "sendNotification", "Send Notification", Bell),
+      link("/dashboard/alerts-history", "alertHistory", "Alert History", FileClock),
     ],
   },
   {
@@ -183,11 +173,13 @@ export const NAV_CATEGORIES: NavCategory[] = [
       link("/dashboard/security-center", "securityCenterDashboard", "Dashboard", LayoutDashboard),
       link("/dashboard/security-center/vulnerability-scanner", "vulnerabilityScanner", "Vulnerability Scanner", Crosshair),
       link("/dashboard/security-center/waf", "waf", "Web Application Firewall", Shield),
+      link("/dashboard/security-center/anomalies", "anomalyDetection", "Anomaly Detection", AlertCircle),
       link("/dashboard/cameras", "cameras", "Cameras", Camera),
       group("endpointAgents", "Endpoint Agents", Monitor, [
         link("/dashboard/endpoint-agents", "agentDashboard", "Agent Dashboard", Monitor),
         link("/dashboard/endpoint-agents/download", "downloadAgent", "Download Agent", Download),
         link("/dashboard/endpoint-agents/enroll", "enrollDevice", "Enroll Device", KeyRound),
+        link("/dashboard/endpoint-agents/rollout", "agentRollout", "Agent Rollout", Rocket),
         link("/dashboard/endpoint-agents/audit-log", "screenshotAuditLog", "Screenshot Audit Log", History),
       ]),
       link("/dashboard/security", "intrusionDetection", "Intrusion Detection", Siren),
@@ -215,6 +207,69 @@ export const NAV_CATEGORIES: NavCategory[] = [
     ],
   },
   {
+    key: "securityUpdates",
+    label: "Security & Updates",
+    items: [
+      link("/dashboard/security-updates", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/security-updates/devices", "devices", "Devices & Scans", Monitor),
+      link("/dashboard/security-updates/schedules", "schedules", "Update Schedules", CalendarClock),
+      link("/dashboard/security-updates/history", "history", "Update History", History),
+    ],
+  },
+  {
+    key: "serverRoom",
+    label: "Server Room",
+    items: [
+      link("/dashboard/server-room", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/server-room/entries", "entries", "Server Room Entries", KeyRound),
+      link("/dashboard/server-room/tasks", "tasks", "Tasks", ListChecks),
+      link("/dashboard/server-room/incidents", "incidents", "Incidents", Siren),
+      link("/dashboard/server-room/audit", "audit", "Audit History", History),
+    ],
+  },
+  {
+    key: "knowledgeBase",
+    label: "Knowledge Base",
+    items: [link("/dashboard/knowledge-base", "documents", "Documents", FileText)],
+  },
+  {
+    key: "wazuhOffice",
+    label: "Wazuh Office",
+    items: [
+      link("/dashboard/wazuh-office", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/wazuh-office/agents", "agents", "Agents", Monitor),
+      link("/dashboard/wazuh-office/events", "securityEvents", "Security Events", ScrollText),
+      link("/dashboard/wazuh-office/alerts", "alerts", "Alerts", Siren),
+      link("/dashboard/wazuh-office/vulnerabilities", "vulnerabilities", "Vulnerabilities", Bug),
+      link("/dashboard/wazuh-office/file-integrity", "fileIntegrity", "File Integrity", Files),
+      link("/dashboard/wazuh-office/inventory", "inventory", "Inventory", Package),
+      link("/dashboard/wazuh-office/processes", "processes", "Processes", Activity),
+      link("/dashboard/wazuh-office/services", "services", "Services", Cog),
+      link("/dashboard/wazuh-office/network", "network", "Network", Network),
+      link("/dashboard/wazuh-office/rules", "rules", "Rules", ListChecks),
+      link("/dashboard/wazuh-office/mitre", "mitre", "MITRE ATT&CK", Crosshair),
+      link("/dashboard/wazuh-office/reports", "reports", "Reports", BarChart3),
+      link("/dashboard/wazuh-office/settings", "settings", "Settings", Settings),
+    ],
+  },
+  {
+    key: "waf",
+    label: "WAF Gateway",
+    items: [
+      link("/dashboard/waf", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/waf/applications", "protectedApplications", "Protected Applications", Globe2),
+      link("/dashboard/waf/rules", "rules", "Rules", ListChecks),
+      link("/dashboard/waf/ip-management", "ipManagement", "IP Management", Ban),
+      link("/dashboard/waf/rate-limiting", "rateLimiting", "Rate Limiting", Gauge),
+      link("/dashboard/waf/attack-logs", "attackLogs", "Attack Logs", ScrollText),
+      link("/dashboard/waf/blocked-requests", "blockedRequests", "Blocked Requests", ShieldOff),
+      link("/dashboard/waf/reports", "reports", "Reports", BarChart3),
+      link("/dashboard/waf/certificates", "certificates", "Certificates", FileLock2),
+      link("/dashboard/waf/reverse-proxy", "reverseProxy", "Reverse Proxy", Waypoints),
+      link("/dashboard/waf/settings", "settings", "Settings", Settings),
+    ],
+  },
+  {
     key: "networkManagement",
     label: "Network Management",
     items: [
@@ -223,6 +278,13 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/router-health", "routerHealth", "Router Health", HeartPulse),
         link("/dashboard/router-web", "routerWeb", "Router Web Connections", Globe),
         link("/dashboard/staff/web-activity", "employeeWebActivity", "Employee Web Activity", Activity),
+        link("/dashboard/mobile-devices", "mobileDevices", "Mobile Devices", Smartphone),
+      ]),
+      // A separate physical device from the Mikrotik router above (a Ruijie AP bridged into
+      // its LAN) - kept as its own group rather than nested under mikrotikRouter since it's a
+      // distinct device with its own module/permission (wifi_ac_view), not a router feature.
+      group("wifiAccessControl", "Wi-Fi Access Control", Wifi, [
+        link("/dashboard/wifi-access-control", "dashboard", "Dashboard", LayoutDashboard),
       ]),
       group("sophosFirewall", "Sophos Firewall", ShieldCheck, [
         link("/dashboard/sophos-clients", "sophosClients", "Sophos Clients", Wifi),
@@ -230,6 +292,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/system-health", "systemHealth", "Sophos System Health", Activity),
         link("/dashboard/sophos-events", "sophosEvents", "Sophos Events", ScrollText),
         link("/dashboard/top-consumers", "topConsumers", "Top Consumers", BarChart3),
+        link("/dashboard/network/bandwidth-quotas", "bandwidthQuotas", "Bandwidth Quotas", Gauge),
       ]),
       group("servers", "Servers", Server, [
         link("/dashboard/servers", "serverList", "Server List", Server),
@@ -247,6 +310,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/network-tools/dns-propagation", "dnsPropagation", "DNS Propagation Checker", Waypoints),
         link("/dashboard/network-tools/mtr", "mtr", "MTR Tool", Activity),
         link("/dashboard/network-tools/port-scanner", "portScanner", "Port Scanner", ScanLine),
+        link("/dashboard/network-tools/redirect-checker", "redirectChecker", "Redirect Checker", RouteIcon),
       ]),
       group("networkDiagram", "Network Diagram", Workflow, [
         link("/dashboard/network-diagram/designs", "existingDiagrams", "Existing Diagrams", Waypoints),
@@ -290,6 +354,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       link("/dashboard/remote-access/scripts", "scriptsAndCommands", "Scripts & Commands", Code2),
       link("/dashboard/remote-access/logs", "connectionLogs", "Connection Logs", ScrollText),
       link("/dashboard/remote-access/settings", "settings", "Settings", Settings),
+      link("https://remote.tulipshrm.com/", "tulipsHrmRemote", "TulipsHrm-Remote", Cloud),
     ],
   },
   {
@@ -323,24 +388,16 @@ export const NAV_CATEGORIES: NavCategory[] = [
     ],
   },
   {
-    key: "securityUpdates",
-    label: "Security & Updates",
+    key: "appActivityMonitoring",
+    label: "Employee Activity Monitoring",
     items: [
-      link("/dashboard/security-updates", "dashboard", "Dashboard", LayoutDashboard),
-      link("/dashboard/security-updates/devices", "devices", "Devices & Scans", Monitor),
-      link("/dashboard/security-updates/schedules", "schedules", "Update Schedules", CalendarClock),
-      link("/dashboard/security-updates/history", "history", "Update History", History),
-    ],
-  },
-  {
-    key: "serverRoom",
-    label: "Server Room",
-    items: [
-      link("/dashboard/server-room", "dashboard", "Dashboard", LayoutDashboard),
-      link("/dashboard/server-room/entries", "entries", "Server Room Entries", KeyRound),
-      link("/dashboard/server-room/tasks", "tasks", "Tasks", ListChecks),
-      link("/dashboard/server-room/incidents", "incidents", "Incidents", Siren),
-      link("/dashboard/server-room/audit", "audit", "Audit History", History),
+      link("/dashboard/app-activity", "dashboard", "Dashboard", LayoutDashboard),
+      link("/dashboard/app-activity/sessions", "staffReport", "Staff-wise Report", Activity),
+      link("/dashboard/app-activity/by-application", "applicationReport", "Application-wise Report", AppWindow),
+      link("/dashboard/app-activity/by-employee", "employeeReport", "Employee-wise Report", Users),
+      link("/dashboard/app-activity/categories", "appCategories", "Application Categories", Layers),
+      link("/dashboard/app-activity/agent-status", "agentStatus", "Agent Status", Monitor),
+      link("/dashboard/app-activity/settings", "settings", "Settings", Settings),
     ],
   },
   {
@@ -353,7 +410,13 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/audit/ssl-checker", "sslChecker", "SSL/TLS Certificate Checker", Lock),
         link("/dashboard/audit/header-viewer", "headerViewer", "HTTP / HTTPS Response Header Viewer", FileCode),
         link("/dashboard/audit/security-headers", "securityHeaders", "Security Headers", Shield),
+        link("/dashboard/audit/email-security", "emailSecurity", "Email Security (SPF/DKIM/DMARC)", MailCheck),
         link("/dashboard/audit/ga-tag-finder", "gaTagFinder", "GA Tag Finder", BarChart3),
+      ]),
+      // Split out from websiteSslAudit above (2026-10-30) so these two could be gated
+      // separately from the rest of Website Management for a scoped-access role (view +
+      // run-scan only, no website CRUD) - see GATED_GROUP_KEYS.securityAudits.
+      group("securityAudits", "Security Audits", ShieldAlert, [
         link("/dashboard/audit/website-security", "websiteSecurityAudit", "Website Security Audit", ShieldAlert),
         link("/dashboard/audit/wordpress-scan", "wordpressScan", "WordPress Deep Scan", Terminal),
       ]),
@@ -402,8 +465,8 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/email-test/dnsbl-lookup", "dnsblLookup", "DNSBL Spam Database Lookup", Ban),
         link("/dashboard/email-test/uribl-lookup", "uriblLookup", "URIBL Spam Database Lookup", Ban),
       ]),
-      group("whatIsMyIp", "What Is My IP", Fingerprint, [
-        link("/dashboard/whatismyip/my-ip", "myIp", "What Is My IP", Fingerprint),
+      group("whatIsMyIp", "What Is My IP", Radar, [
+        link("/dashboard/whatismyip/my-ip", "myIp", "What Is My IP", Radar),
         link("/dashboard/whatismyip/ip-lookup", "ipLookup", "IP Lookup", Search),
         link("/dashboard/whatismyip/whois-lookup", "whoisLookup", "WHOIS Lookup", BookOpen),
         link("/dashboard/whatismyip/blacklist-check", "blacklistCheck", "Blacklist Check", ShieldAlert),
@@ -420,6 +483,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       link("/dashboard/monitoring/websites", "websiteMonitors", "Website Monitors", Globe2),
       link("/dashboard/monitoring/api", "apiMonitors", "API Monitors", Workflow),
       link("/dashboard/monitoring/incidents", "incidents", "Incidents", Siren),
+      link("/dashboard/website-incident-reports", "websiteIncidentReports", "Website Incident Report", FileText),
       link("/dashboard/monitoring/ssl-certificates", "sslCertificates", "SSL Certificates", Lock),
       link("/dashboard/monitoring/alert-contacts", "alertContacts", "Alert Contacts", Bell),
       link("/dashboard/monitoring/alert-policies", "alertPolicies", "Alert Policies", Layers),
@@ -442,6 +506,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     key: "administration",
     label: "Administration",
     items: [
+      link("/dashboard/incident-reports", "incidentReports", "Incident Reports", Siren),
       group("website", "Website", Layers, [
         link("/dashboard/website/slider", "sliderManagement", "Slider Management", ImageIcon),
         link("/dashboard/website/tickets", "supportTickets", "Support Tickets", Ticket),
@@ -449,6 +514,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
       ]),
       link("/dashboard/settings/integrations/git", "gitConnections", "Integrations", GitBranch),
       link("/dashboard/settings", "companySettings", "Company Settings", Settings),
+      link("/dashboard/data-retention", "dataRetention", "Data Retention", Database),
+      link("/dashboard/status", "systemStatus", "System Status", Activity),
+      link("/dashboard/reports/builder", "reportBuilder", "Report Builder", FileText),
       group("utilities", "Utilities", Cog, [
         link("/dashboard/utilities/ssl-decoder", "sslDecoder", "SSL Decoder", FileLock2),
         link("/dashboard/utilities/jwt-decoder", "jwtDecoder", "JWT Decoder", KeySquare),
@@ -468,6 +536,24 @@ export const NAV_CATEGORIES: NavCategory[] = [
       ]),
     ],
   },
+  {
+    key: "databaseAnalyzer",
+    label: "Database Analyzer",
+    items: [link("/dashboard/database-analyzer", "connections", "Connections & Scans", Database)],
+  },
+  {
+    key: "helpCenter",
+    label: "Help Center",
+    items: [link("/dashboard/help-center", "dashboard", "Help Center", HelpCircle)],
+  },
+  {
+    key: "offboarding",
+    label: "Employee Offboarding",
+    items: [
+      link("/dashboard/offboarding", "dashboard", "Dashboard", UserX),
+      link("/dashboard/offboarding/settings", "settings", "GitLab & Glesys Settings", Settings),
+    ],
+  },
 ];
 
 // Permission-gated subgroup keys - resolved server-side in DashboardLayout and threaded
@@ -479,6 +565,12 @@ export const GATED_GROUP_KEYS = {
   laravelSecurity: "ls_view",
   mailProtection: "mail_view",
   webAccessControl: "wac_view",
+  wifiAccessControl: "wifi_ac_view",
+  // Not a real permission key on its own - just the lookup symbol routed to
+  // ACCESS_BY_GROUP_KEY.securityAuditsAccess in Sidebar.tsx, whose actual boolean is
+  // wsa_view OR wps_view (computed in dashboard/layout.tsx), since this one subgroup bundles
+  // two independently-permissioned modules (Website Security Audit + WordPress Deep Scan).
+  securityAudits: "wsa_view",
 } as const;
 
 // Unlike GATED_GROUP_KEYS (a subgroup nested inside an always-visible category), Website &
@@ -490,24 +582,37 @@ export const GATED_CATEGORY_KEYS = {
   remoteAccess: "ra_view",
   itAssetLogsheet: "ita_view",
   browserActivity: "ba_view",
+  appActivityMonitoring: "aa_view",
+  wazuhOffice: "wo_view",
+  waf: "waf_view",
   securityUpdates: "su_view",
   serverRoom: "sr_view",
+  knowledgeBase: "kb_view",
+  databaseAnalyzer: "dba_view",
+  offboarding: "off_view",
 } as const;
 
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutGrid,
   userManagement: Users,
   securityCenter: ShieldAlert,
+  wazuhOffice: Shield,
+  waf: ShieldCheck,
+  securityUpdates: Download,
+  serverRoom: Server,
+  knowledgeBase: BookOpen,
   networkManagement: Network,
   remoteAccess: Terminal,
   itAssetLogsheet: Boxes,
   browserActivity: History,
-  securityUpdates: Download,
-  serverRoom: Server,
+  appActivityMonitoring: AppWindow,
   websiteManagement: Globe2,
   websiteApiMonitoring: Activity,
   automation: Bot,
   administration: Cog,
+  helpCenter: HelpCircle,
+  databaseAnalyzer: Database,
+  offboarding: UserX,
 };
 
 // Flat list of every route + its immediate parent label, for the header's global search.
@@ -518,3 +623,31 @@ export const SEARCH_INDEX: { href: string; label: string; group: string }[] = NA
     entry.type === "link" ? [{ href: entry.href, label: entry.label, group: category.label }] : entry.items.map((item) => ({ href: item.href, label: item.label, group: entry.label }))
   )
 );
+
+export interface MenuKeyNode {
+  key: string;
+  label: string;
+  children?: MenuKeyNode[];
+}
+
+// Builds the addressable key for every category/entry/item in NAV_CATEGORIES, for the
+// per-role "Menu Access" feature (RoleMenuAccess table) — a separate axis from
+// RolePermissions/PERMISSION_KEYS, which gates *actions*, not sidebar visibility. English
+// labels only, same convention as SEARCH_INDEX above (admin-only settings UI, not localized).
+export function buildMenuKeyTree(): MenuKeyNode[] {
+  return NAV_CATEGORIES.map((category) => ({
+    key: category.key,
+    label: category.label,
+    children: category.items.map((entry) =>
+      entry.type === "link"
+        ? { key: `${category.key}:${entry.key}`, label: entry.label }
+        : {
+            key: `${category.key}:${entry.key}`,
+            label: entry.label,
+            children: entry.items.map((item) => ({ key: `${category.key}:${entry.key}:${item.key}`, label: item.label })),
+          }
+    ),
+  }));
+}
+
+

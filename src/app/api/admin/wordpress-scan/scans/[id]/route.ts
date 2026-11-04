@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWordpressScanPermission, isWordpressScanSession } from "@/lib/requireWordpressScanPermission";
 import type { CheckSummary, DetectedPlugin, RiskLevel, ScanFinding } from "@/lib/wordpressScan/shared";
 
 interface ScanDetailRow {
@@ -9,6 +9,8 @@ interface ScanDetailRow {
   TargetUrl: string;
   IsWordPress: boolean;
   CoreVersion: string | null;
+  PhpVersion: string | null;
+  LatestCoreVersion: string | null;
   ThemeSlug: string | null;
   ThemeVersion: string | null;
   RiskLevel: string;
@@ -20,8 +22,8 @@ interface ScanDetailRow {
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWordpressScanPermission("wps_view");
+  if (!isWordpressScanSession(admin)) return admin;
 
   const { id } = await params;
   const scanId = Number(id);
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const db = await getDb();
   const result = await db.request().input("id", sql.Int, scanId).query<ScanDetailRow>(`
-    SELECT Id, WebsiteId, TargetUrl, IsWordPress, CoreVersion, ThemeSlug, ThemeVersion, RiskLevel,
+    SELECT Id, WebsiteId, TargetUrl, IsWordPress, CoreVersion, PhpVersion, LatestCoreVersion, ThemeSlug, ThemeVersion, RiskLevel,
       FindingsJson, ChecksJson, PluginsJson, TriggeredByUsername,
       CONVERT(VARCHAR(19), ScannedAt, 126) AS ScannedAt
     FROM WordPressDeepScans
@@ -45,6 +47,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const checks: CheckSummary[] = JSON.parse(row.ChecksJson);
   const plugins: DetectedPlugin[] = JSON.parse(row.PluginsJson);
 
+  // This scan's findings are a per-scan JSON snapshot with no id of their own - the "Reason if
+  // unresolved" note lives on WordPressFindings (the persistent, deduped-by-key tracker that
+  // upsertFindingsForScan() updates every scan). Match each snapshot finding back to its
+  // tracker row by (CheckId, Title) - the same identity computeFindingKey() uses - so this
+  // report view can offer the same reason button the Findings tab does, for any finding tied
+  // to a saved website.
+  let findingsWithNotes: (ScanFinding & { findingId?: number; auditorNote?: string | null })[] = findings;
+  if (row.WebsiteId !== null) {
+    const trackerResult = await db
+      .request()
+      .input("websiteId", sql.Int, row.WebsiteId)
+      .query<{ Id: number; CheckId: string; Title: string; AuditorNote: string | null }>(
+        "SELECT Id, CheckId, Title, AuditorNote FROM WordPressFindings WHERE WebsiteId = @websiteId"
+      );
+    const byCheckAndTitle = new Map(trackerResult.recordset.map((t) => [`${t.CheckId}|${t.Title}`, t]));
+    findingsWithNotes = findings.map((f) => {
+      const tracked = byCheckAndTitle.get(`${f.check}|${f.title}`);
+      return tracked ? { ...f, findingId: tracked.Id, auditorNote: tracked.AuditorNote } : f;
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     report: {
@@ -53,10 +76,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       targetUrl: row.TargetUrl,
       isWordPress: row.IsWordPress,
       coreVersion: row.CoreVersion,
+      phpVersion: row.PhpVersion,
+      latestCoreVersion: row.LatestCoreVersion,
       themeSlug: row.ThemeSlug,
       themeVersion: row.ThemeVersion,
       riskLevel: row.RiskLevel as RiskLevel,
-      findings,
+      findings: findingsWithNotes,
       checks,
       plugins,
       triggeredByUsername: row.TriggeredByUsername,

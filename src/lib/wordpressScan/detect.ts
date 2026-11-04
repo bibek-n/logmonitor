@@ -61,10 +61,15 @@ async function detectCoreVersion(html: string, baseUrl: string): Promise<string 
   if (generatorMatch) return generatorMatch[1];
 
   // Fallback: many sites strip the generator meta tag, but readme.html is still served
-  // by default and carries the same version string WordPress core ships with.
+  // by default and carries the same version string WordPress core ships with. Requires a
+  // genuine dotted X.Y(.Z) version right after "Version" - readme.html's GPL license
+  // boilerplate contains the unrelated phrase "version 2 of the License", which a looser
+  // single-number-permitting regex matches by mistake (caught live via a real scan: a site
+  // briefly showed core version "2"). Same fix already applied to
+  // src/lib/websiteSecurityAudit/wordpressVersionFallbackDetect.ts for the same reason.
   try {
     const readme = await fetchPage(new URL("/readme.html", baseUrl).toString());
-    const versionMatch = /version\s+([\d.]+)/i.exec(readme.html);
+    const versionMatch = /version\s+(\d+\.\d+(?:\.\d+)?)/i.exec(readme.html);
     if (readme.status === 200 && versionMatch) return versionMatch[1];
   } catch {
     // readme.html not reachable — leave core version unknown rather than guessing.

@@ -1,13 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState, FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type CSSProperties } from "react";
+import Link from "next/link";
 import ScanTerminal from "./ScanTerminal";
-import { CHECK_ORDER, CHECK_LABELS, type WordPressScanReport } from "@/lib/wordpressScan/shared";
+import WordPressScanDashboard from "./WordPressScanDashboard";
+import WordPressFindingsPanel from "./WordPressFindingsPanel";
+import WordPressSchedulesPanel from "./WordPressSchedulesPanel";
+import { CHECK_ORDER, CHECK_LABELS, PROFILE_CHECKS, SCAN_PROFILE_LABELS, type ScanProfile, type WordPressScanReport } from "@/lib/wordpressScan/shared";
+
+const PROFILE_OPTIONS: ScanProfile[] = ["quick", "standard", "comprehensive"];
 
 interface SavedWebsite {
   Id: number;
   Name: string;
   Url: string;
+  PhpVersion: string | null;
   isWordPress: boolean;
 }
 
@@ -16,9 +23,64 @@ interface HistoryRow {
   TargetUrl: string;
   IsWordPress: boolean;
   CoreVersion: string | null;
+  PhpVersion: string | null;
+  LatestCoreVersion: string | null;
   RiskLevel: string;
   TriggeredByUsername: string | null;
   ScannedAt: string;
+}
+
+interface AllSitesScanResultEntry {
+  websiteId: number;
+  name: string;
+  url: string;
+  scanId: number;
+  isWordPress: boolean;
+  coreVersion: string | null;
+  latestCoreVersion: string | null;
+  phpVersion: string | null;
+  corePhpRequirement: string | null;
+  pluginCount: number;
+  findingCount: number;
+  riskLevel: string;
+  error: string | null;
+}
+
+// Loose dotted-version "is a behind b" check - same shape as the server-side compareVersions
+// in checks.ts, duplicated client-side since this is purely a display decision (which badge
+// to show), not a network call.
+function isBehind(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff < 0;
+  }
+  return false;
+}
+
+const upgradeBadgeStyle: CSSProperties = {
+  marginLeft: "0.4rem",
+  display: "inline-block",
+  padding: "0.1rem 0.5rem",
+  borderRadius: 999,
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  background: "var(--danger)",
+  color: "#fff",
+};
+
+function paginationButtonStyle(disabled: boolean): CSSProperties {
+  return {
+    padding: "0.35rem 0.9rem",
+    borderRadius: 8,
+    border: disabled ? "1px solid var(--border)" : "1px solid var(--primary)",
+    background: disabled ? "var(--surface-2)" : "var(--primary)",
+    color: disabled ? "var(--ink-muted)" : "#fff",
+    fontSize: "0.82rem",
+    cursor: disabled ? "default" : "pointer",
+  };
 }
 
 function riskColor(risk: string): string {
@@ -85,18 +147,37 @@ function RiskBadge({ risk }: { risk: string }) {
   );
 }
 
-function ReportView({ report }: { report: WordPressScanReport }) {
+function PdfLinks({ scanId }: { scanId: number | null }) {
+  if (!scanId) return null;
+  return (
+    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.8rem" }}>
+      <a href={`/api/admin/wordpress-scan/scans/${scanId}/pdf?view=1`} target="_blank" rel="noreferrer" style={{ color: "var(--series-1)" }}>
+        View PDF
+      </a>
+      <a href={`/api/admin/wordpress-scan/scans/${scanId}/pdf`} style={{ color: "var(--series-1)" }}>
+        Download PDF
+      </a>
+    </div>
+  );
+}
+
+function ReportView({ report, scanId }: { report: WordPressScanReport; scanId: number | null }) {
   if (!report.isWordPress) {
     return (
       <div className="dash-panel" style={{ marginTop: "1rem" }}>
-        <p style={{ color: "var(--ink-muted)" }}>
-          WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
+          <p style={{ color: "var(--ink-muted)", margin: 0 }}>
+            WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
+          </p>
+          <PdfLinks scanId={scanId} />
+        </div>
       </div>
     );
   }
 
   const checksByCheck = new Map(report.checks.map((c) => [c.check, c]));
+  const coreOutdated = isBehind(report.coreVersion, report.latestCoreVersion);
+  const phpTooOld = isBehind(report.phpVersion, report.corePhpRequirement);
 
   return (
     <div className="dash-panel" style={{ marginTop: "1rem" }}>
@@ -110,20 +191,62 @@ function ReportView({ report }: { report: WordPressScanReport }) {
           </div>
           <div>
             <span style={{ color: "var(--ink-muted)" }}>Core version:</span> {report.coreVersion ?? "unknown"}
+            {coreOutdated ? (
+              <span className="vuln-badge" style={upgradeBadgeStyle}>
+                upgrade to {report.latestCoreVersion}
+              </span>
+            ) : (
+              report.latestCoreVersion && (
+                <span style={{ color: "var(--success)", fontSize: "0.78rem", marginLeft: "0.4rem" }}>up to date (latest {report.latestCoreVersion})</span>
+              )
+            )}
+          </div>
+          <div>
+            <span style={{ color: "var(--ink-muted)" }}>PHP version:</span> {report.phpVersion ?? "unknown (not linked to a saved website)"}
+            {phpTooOld && (
+              <span className="vuln-badge" style={upgradeBadgeStyle}>
+                upgrade to {report.corePhpRequirement}+
+              </span>
+            )}
           </div>
           <div>
             <span style={{ color: "var(--ink-muted)" }}>Active theme:</span>{" "}
             {report.themeSlug ? `${report.themeSlug}${report.themeVersion ? ` v${report.themeVersion}` : ""}` : "unknown"}
           </div>
           <div>
-            <span style={{ color: "var(--ink-muted)" }}>Plugins detected:</span>{" "}
-            {report.plugins.length ? report.plugins.map((p) => p.slug + (p.version ? ` v${p.version}` : "")).join(", ") : "none from page assets"}
-          </div>
-          <div>
             <span style={{ color: "var(--ink-muted)" }}>Scanned:</span> {new Date(report.scannedAt).toLocaleString()}
           </div>
         </div>
-        <RiskBadge risk={report.riskLevel} />
+        <div style={{ display: "grid", gap: "0.5rem", justifyItems: "end" }}>
+          <RiskBadge risk={report.riskLevel} />
+          <PdfLinks scanId={scanId} />
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>Plugins ({report.plugins.length})</h3>
+      <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+        {report.plugins.length === 0 ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>
+            None detected from page assets — plugins that only run server-side (caching, security, SEO) leave no trace here.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "0.4rem" }}>Plugin</th>
+                <th style={{ padding: "0.4rem" }}>Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.plugins.map((p) => (
+                <tr key={p.slug} style={{ borderBottom: "1px solid var(--grid)" }}>
+                  <td style={{ padding: "0.4rem" }}>{p.slug}</td>
+                  <td style={{ padding: "0.4rem" }}>{p.version ?? "unknown"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <h3 style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>Checks</h3>
@@ -182,6 +305,7 @@ function ReportView({ report }: { report: WordPressScanReport }) {
                     </a>
                   </div>
                 )}
+                {f.recommendation && <div style={{ color: "var(--ink-muted)", marginTop: "0.15rem" }}>Fix: {f.recommendation}</div>}
               </div>
             ))}
           </div>
@@ -191,17 +315,105 @@ function ReportView({ report }: { report: WordPressScanReport }) {
   );
 }
 
+function AllSitesTable({ results }: { results: AllSitesScanResultEntry[] }) {
+  return (
+    <div className="dash-panel" style={{ marginTop: "1rem" }}>
+      <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>
+        Scan All Results ({results.length} site{results.length === 1 ? "" : "s"})
+      </h2>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+              <th style={{ padding: "0.4rem" }}>Site</th>
+              <th style={{ padding: "0.4rem" }}>Core version</th>
+              <th style={{ padding: "0.4rem" }}>PHP version</th>
+              <th style={{ padding: "0.4rem" }}>Plugins</th>
+              <th style={{ padding: "0.4rem" }}>Risk</th>
+              <th style={{ padding: "0.4rem" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => {
+              const coreOutdated = isBehind(r.coreVersion, r.latestCoreVersion);
+              const phpTooOld = isBehind(r.phpVersion, r.corePhpRequirement);
+              return (
+                <tr key={r.websiteId} style={{ borderBottom: "1px solid var(--grid)" }}>
+                  <td style={{ padding: "0.4rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.url}>
+                    {r.name}
+                  </td>
+                  <td style={{ padding: "0.4rem" }}>
+                    {r.error ? (
+                      <span style={{ color: "var(--warning)" }}>{r.error}</span>
+                    ) : !r.isWordPress ? (
+                      <span style={{ color: "var(--ink-muted)" }}>not WordPress</span>
+                    ) : (
+                      <>
+                        {r.coreVersion ?? "unknown"}
+                        {coreOutdated && (
+                          <span className="vuln-badge" style={upgradeBadgeStyle}>
+                            upgrade to {r.latestCoreVersion}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </td>
+                  <td style={{ padding: "0.4rem" }}>
+                    {r.phpVersion ?? "-"}
+                    {phpTooOld && (
+                      <span className="vuln-badge" style={upgradeBadgeStyle}>
+                        upgrade to {r.corePhpRequirement}+
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "0.4rem" }}>{r.isWordPress ? r.pluginCount : "-"}</td>
+                  <td style={{ padding: "0.4rem" }}>{r.isWordPress && !r.error ? <RiskBadge risk={r.riskLevel} /> : "-"}</td>
+                  <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                    {r.scanId > 0 && (
+                      <>
+                        <Link
+                          href={`/dashboard/audit/wordpress-scan/report/${r.scanId}`}
+                          style={{ color: "var(--primary)", padding: 0, font: "inherit", textDecoration: "underline", marginRight: "0.6rem" }}
+                        >
+                          View
+                        </Link>
+                        <a href={`/api/admin/wordpress-scan/scans/${r.scanId}/pdf`} style={{ color: "var(--primary)", fontSize: "inherit" }}>
+                          PDF
+                        </a>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function WordPressScanClient() {
-  const [tab, setTab] = useState<"report" | "terminal">("report");
+  const [tab, setTab] = useState<"report" | "terminal" | "findings" | "schedules">("report");
   const [websites, setWebsites] = useState<SavedWebsite[]>([]);
   const [websitesLoading, setWebsitesLoading] = useState(true);
 
   const [url, setUrl] = useState("");
   const [websiteId, setWebsiteId] = useState("");
+  const [profile, setProfile] = useState<ScanProfile>("standard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<WordPressScanReport | null>(null);
+  // WordPressScanReport (shared.ts) is deliberately id-less - it's shared with client code and
+  // kept to pure display fields. The DB id is tracked separately here just to build the PDF
+  // download link, set from whichever path populated `report` (a fresh scan's __REPORT__
+  // sentinel, or /scans/[id] when viewing history).
+  const [scanId, setScanId] = useState<number | null>(null);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
+
+  const [scanningAll, setScanningAll] = useState(false);
+  const [allProgress, setAllProgress] = useState<ScanProgress | null>(null);
+  const [allResults, setAllResults] = useState<AllSitesScanResultEntry[] | null>(null);
 
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -245,7 +457,8 @@ export default function WordPressScanClient() {
     setLoading(true);
     setError(null);
     setReport(null);
-    setProgress({ completed: 0, total: CHECK_ORDER.length, statusText: "Starting scan..." });
+    setScanId(null);
+    setProgress({ completed: 0, total: PROFILE_CHECKS[profile].length, statusText: "Starting scan..." });
 
     function handleLine(line: string) {
       if (line.startsWith("__PROGRESS__")) {
@@ -267,7 +480,7 @@ export default function WordPressScanClient() {
       const res = await fetch("/api/admin/wordpress-scan/cli", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), websiteId: websiteId || null }),
+        body: JSON.stringify({ url: url.trim(), websiteId: websiteId || null, profile }),
       });
 
       let reportPayload: { scanId: number; report: WordPressScanReport } | null = null;
@@ -320,6 +533,7 @@ export default function WordPressScanClient() {
 
       if (reportPayload) {
         setReport(reportPayload.report);
+        setScanId(reportPayload.scanId);
         loadHistory(1);
       } else {
         setError("Scan finished but no report was returned — check the Terminal tab for details.");
@@ -329,6 +543,101 @@ export default function WordPressScanClient() {
     } finally {
       setLoading(false);
       setProgress(null);
+    }
+  }
+
+  // Bulk twin of runScan() above - same streaming-line protocol, but against
+  // /scan-all (every WordPress site from the Websites list, not just one), parsing
+  // __SITE_PROGRESS__/__ALLDONE__ sentinels instead of __PROGRESS__/__REPORT__.
+  async function runScanAll() {
+    setScanningAll(true);
+    setError(null);
+    setAllResults(null);
+    setReport(null);
+    setScanId(null);
+    setAllProgress({ completed: 0, total: 1, statusText: "Starting scan..." });
+
+    function handleLine(line: string) {
+      if (line.startsWith("__SITE_PROGRESS__")) {
+        const [completedStr, totalStr] = line.slice("__SITE_PROGRESS__".length).split("/");
+        setAllProgress((prev) => ({
+          completed: Number(completedStr),
+          total: Number(totalStr),
+          statusText: prev?.statusText ?? "Scanning...",
+        }));
+        return;
+      }
+      if (line.startsWith("__ALLDONE__")) return;
+      if (line.length > 0) {
+        setAllProgress((prev) => (prev ? { ...prev, statusText: line } : prev));
+      }
+    }
+
+    try {
+      const res = await fetch("/api/admin/wordpress-scan/scan-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile }),
+      });
+      let results: AllSitesScanResultEntry[] | null = null;
+
+      if (!res.body) {
+        const text = await res.text();
+        for (const line of text.split("\n")) {
+          if (line.startsWith("__ALLDONE__")) {
+            try {
+              results = JSON.parse(line.slice("__ALLDONE__".length));
+            } catch {
+              // Malformed sentinel — ignore.
+            }
+          } else {
+            handleLine(line);
+          }
+        }
+      } else {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            if (part.startsWith("__ALLDONE__")) {
+              try {
+                results = JSON.parse(part.slice("__ALLDONE__".length));
+              } catch {
+                // Malformed sentinel — ignore.
+              }
+            } else {
+              handleLine(part);
+            }
+          }
+        }
+        if (buffer.startsWith("__ALLDONE__")) {
+          try {
+            results = JSON.parse(buffer.slice("__ALLDONE__".length));
+          } catch {
+            // Malformed sentinel — ignore.
+          }
+        } else if (buffer.length > 0) {
+          handleLine(buffer);
+        }
+      }
+
+      if (results) {
+        setAllResults(results);
+        loadHistory(1);
+      } else {
+        setError("Scan-all finished but no results were returned.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Scan-all failed.");
+    } finally {
+      setScanningAll(false);
+      setAllProgress(null);
     }
   }
 
@@ -342,6 +651,7 @@ export default function WordPressScanClient() {
         setError(data.error ?? "Failed to load scan.");
       } else {
         setReport(data.report);
+        setScanId(id);
         setTab("report");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -350,10 +660,14 @@ export default function WordPressScanClient() {
     }
   }
 
+  const TAB_LABELS = { report: "Report", terminal: "Terminal (CLI)", findings: "Findings", schedules: "Schedules" } as const;
+
   return (
     <div>
+      <WordPressScanDashboard />
+
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        {(["report", "terminal"] as const).map((t) => (
+        {(["report", "terminal", "findings", "schedules"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -366,10 +680,9 @@ export default function WordPressScanClient() {
               color: tab === t ? "#fff" : "var(--ink)",
               cursor: "pointer",
               fontSize: "0.85rem",
-              textTransform: "capitalize",
             }}
           >
-            {t === "report" ? "Report" : "Terminal (CLI)"}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -423,8 +736,51 @@ export default function WordPressScanClient() {
                   placeholder="https://example.com"
                 />
               </div>
-              <button className="submit" type="submit" disabled={loading} style={{ width: "auto", marginTop: 0, padding: "0.6rem 1.25rem" }}>
+              <div className="field" style={{ marginBottom: 0, flex: "0 1 180px" }}>
+                <label htmlFor="wp-profile">Scan Profile</label>
+                <select
+                  id="wp-profile"
+                  value={profile}
+                  onChange={(e) => setProfile(e.target.value as ScanProfile)}
+                  title="Quick: 4 fast checks. Standard: +4 moderate checks. Comprehensive: all 10, including path-probing checks."
+                  style={{
+                    width: "100%",
+                    padding: "0.6rem 0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "var(--plane)",
+                    color: "var(--ink)",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  {PROFILE_OPTIONS.map((p) => (
+                    <option key={p} value={p}>
+                      {SCAN_PROFILE_LABELS[p]} ({PROFILE_CHECKS[p].length} checks)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button className="submit" type="submit" disabled={loading || scanningAll} style={{ width: "auto", marginTop: 0, padding: "0.6rem 1.25rem" }}>
                 {loading ? "Scanning..." : "Run Deep Scan"}
+              </button>
+              <button
+                type="button"
+                onClick={runScanAll}
+                disabled={loading || scanningAll}
+                title="Runs this same deep scan against every WordPress site in the Websites list"
+                style={{
+                  width: "auto",
+                  marginTop: 0,
+                  padding: "0.6rem 1.25rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--plane)",
+                  color: "var(--ink)",
+                  fontSize: "0.9rem",
+                  cursor: loading || scanningAll ? "default" : "pointer",
+                }}
+              >
+                {scanningAll ? "Scanning all..." : "Scan All WordPress Sites"}
               </button>
             </form>
             {error && (
@@ -435,8 +791,11 @@ export default function WordPressScanClient() {
           </div>
 
           {progress && <ProgressBar progress={progress} />}
+          {allProgress && <ProgressBar progress={allProgress} />}
 
-          {report && <ReportView report={report} />}
+          {allResults && <AllSitesTable results={allResults} />}
+
+          {report && <ReportView report={report} scanId={scanId} />}
 
           <div className="dash-panel" style={{ marginTop: "1rem" }}>
             <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.75rem" }}>Scan History</h2>
@@ -453,13 +812,16 @@ export default function WordPressScanClient() {
                         <th style={{ padding: "0.4rem" }}>Risk</th>
                         <th style={{ padding: "0.4rem" }}>URL</th>
                         <th style={{ padding: "0.4rem" }}>Core Version</th>
+                        <th style={{ padding: "0.4rem" }}>PHP Version</th>
                         <th style={{ padding: "0.4rem" }}>Scanned By</th>
                         <th style={{ padding: "0.4rem" }}>Time</th>
                         <th style={{ padding: "0.4rem" }} />
                       </tr>
                     </thead>
                     <tbody>
-                      {history.map((row) => (
+                      {history.map((row) => {
+                        const coreOutdated = isBehind(row.CoreVersion, row.LatestCoreVersion);
+                        return (
                         <tr key={row.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
                           <td style={{ padding: "0.4rem" }}>
                             <RiskBadge risk={row.RiskLevel} />
@@ -467,32 +829,53 @@ export default function WordPressScanClient() {
                           <td style={{ padding: "0.4rem", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {row.TargetUrl}
                           </td>
-                          <td style={{ padding: "0.4rem" }}>{row.CoreVersion ?? "-"}</td>
+                          <td style={{ padding: "0.4rem" }}>
+                            {row.CoreVersion ?? "-"}
+                            {coreOutdated && (
+                              <span className="vuln-badge" style={upgradeBadgeStyle}>
+                                upgrade to {row.LatestCoreVersion}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "0.4rem" }}>{row.PhpVersion ?? "-"}</td>
                           <td style={{ padding: "0.4rem" }}>{row.TriggeredByUsername ?? "-"}</td>
                           <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(row.ScannedAt).toLocaleString()}</td>
-                          <td style={{ padding: "0.4rem" }}>
-                            <button
-                              type="button"
-                              onClick={() => viewHistoryScan(row.Id)}
-                              style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", padding: 0, font: "inherit", textDecoration: "underline" }}
+                          <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
+                            <Link
+                              href={`/dashboard/audit/wordpress-scan/report/${row.Id}`}
+                              style={{ color: "var(--primary)", padding: 0, font: "inherit", textDecoration: "underline", marginRight: "0.6rem" }}
                             >
                               View
-                            </button>
+                            </Link>
+                            <a href={`/api/admin/wordpress-scan/scans/${row.Id}/pdf`} style={{ color: "var(--primary)", fontSize: "inherit" }}>
+                              PDF
+                            </a>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 {historyTotalPages > 1 && (
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", alignItems: "center", fontSize: "0.82rem" }}>
-                    <button type="button" disabled={historyPage <= 1} onClick={() => loadHistory(historyPage - 1)}>
+                    <button
+                      type="button"
+                      disabled={historyPage <= 1}
+                      onClick={() => loadHistory(historyPage - 1)}
+                      style={paginationButtonStyle(historyPage <= 1)}
+                    >
                       Previous
                     </button>
                     <span>
                       Page {historyPage} of {historyTotalPages}
                     </span>
-                    <button type="button" disabled={historyPage >= historyTotalPages} onClick={() => loadHistory(historyPage + 1)}>
+                    <button
+                      type="button"
+                      disabled={historyPage >= historyTotalPages}
+                      onClick={() => loadHistory(historyPage + 1)}
+                      style={paginationButtonStyle(historyPage >= historyTotalPages)}
+                    >
                       Next
                     </button>
                   </div>
@@ -501,8 +884,12 @@ export default function WordPressScanClient() {
             )}
           </div>
         </>
-      ) : (
+      ) : tab === "terminal" ? (
         <ScanTerminal savedWebsites={websites} onReportReady={(scanId) => viewHistoryScan(scanId)} />
+      ) : tab === "findings" ? (
+        <WordPressFindingsPanel websites={websites} />
+      ) : (
+        <WordPressSchedulesPanel />
       )}
     </div>
   );

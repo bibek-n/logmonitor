@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import mssql from "mssql";
 import { getDb, sql } from "@/lib/db";
 import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
 import { logAdminAction } from "@/lib/adminAudit";
 
-const BACKUP_DIR = path.join(process.cwd(), "backups");
+// SQL Server's own default backup directory on DB_SERVER - not this app server. Backing up
+// there (instead of a path under this app's own process.cwd()) is required now that
+// DB_SERVER points at a separate machine (192.168.1.3): BACKUP DATABASE writes on the
+// database server's own filesystem, so a path like "D:\WWWROOT\LogMonitor\backups" (valid
+// on this app server) doesn't exist there and the backup silently fails. It's also why
+// sizeBytes below comes from msdb's own backup history instead of fs.stat-ing a local path -
+// the .bak file was never on this machine to begin with.
+const DB_SERVER_BACKUP_DIR = "C:\\SQLData\\MSSQL17.SQLEXPRESS\\MSSQL\\Backup";
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
@@ -17,21 +22,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "DB_DATABASE is not configured." }, { status: 500 });
   }
 
-  await fs.mkdir(BACKUP_DIR, { recursive: true });
-
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `${dbName}_${stamp}.bak`;
-  const filePath = path.join(BACKUP_DIR, fileName);
+  const filePath = `${DB_SERVER_BACKUP_DIR}\\${fileName}`;
 
   const db = await getDb();
   let status: "success" | "failed" = "success";
   let errorMessage: string | null = null;
   let sizeBytes: number | null = null;
 
-  // SQL Server's BACKUP DATABASE writes on the database server's own filesystem — since
-  // this app's SQL Server instance runs locally (DB_SERVER=localhost), the same path is
-  // reachable from Node afterward to read the resulting file size.
-  //
   // mssql/tedious defaults every request to a 15s timeout, confirmed live as the actual
   // cause of every prior failed backup ("Timeout: Request failed to complete in 15000ms") -
   // not a permissions issue. BACKUP DATABASE on a real production database routinely runs
@@ -58,8 +57,20 @@ export async function POST(req: NextRequest) {
       .request()
       .input("filePath", sql.NVarChar, filePath)
       .query(`BACKUP DATABASE [${dbName.replace(/]/g, "]]")}] TO DISK = @filePath WITH INIT, COMPRESSION`);
-    const stat = await fs.stat(filePath);
-    sizeBytes = stat.size;
+
+    // compressed_backup_size, not backup_size (which is the uncompressed data size and
+    // wildly overstates how much disk the .bak file actually occupies with WITH COMPRESSION).
+    const sizeResult = await backupPool
+      .request()
+      .input("filePath", sql.NVarChar, filePath)
+      .query(`
+        SELECT TOP 1 bs.compressed_backup_size
+        FROM msdb.dbo.backupset bs
+        JOIN msdb.dbo.backupmediafamily bmf ON bmf.media_set_id = bs.media_set_id
+        WHERE bmf.physical_device_name = @filePath
+        ORDER BY bs.backup_finish_date DESC
+      `);
+    sizeBytes = sizeResult.recordset[0]?.compressed_backup_size ?? null;
   } catch (err) {
     status = "failed";
     errorMessage = err instanceof Error ? err.message : String(err);

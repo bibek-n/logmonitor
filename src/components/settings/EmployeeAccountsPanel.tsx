@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
+import { Plus, KeyRound, ShieldCheck, ShieldOff, FolderTree } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/Switch";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
+import { MenuAccessTreeView } from "./MenuAccessTreeView";
+import { type MenuNode, updateNodeAllowed, flattenMenuAccess } from "@/lib/menuAccessTree";
 
 interface UserRow {
   Id: number;
@@ -68,6 +70,7 @@ export function EmployeeAccountsPanel({
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [passwordUser, setPasswordUser] = useState<UserRow | null>(null);
+  const [menuUser, setMenuUser] = useState<UserRow | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: UserRow; nextRole: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -243,6 +246,9 @@ export function EmployeeAccountsPanel({
                   <button onClick={() => setPasswordUser(u)} title={t("resetPasswordTooltip")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", marginRight: 10 }}>
                     <KeyRound size={14} />
                   </button>
+                  <button onClick={() => setMenuUser(u)} title="Menu Access" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", marginRight: 10 }}>
+                    <FolderTree size={14} />
+                  </button>
                   {u.Id !== currentUserId && (
                     <button
                       onClick={() => setRoleTarget({ user: u, nextRole: u.Role === "Admin" ? "Employee" : "Admin" })}
@@ -323,6 +329,9 @@ export function EmployeeAccountsPanel({
         <PasswordResetModal user={passwordUser} saving={saving} onClose={() => setPasswordUser(null)} onSave={handlePasswordSave} />
       )}
 
+      {/* Per-user Menu Access modal */}
+      {menuUser && <UserMenuAccessModal user={menuUser} onClose={() => setMenuUser(null)} />}
+
       <ConfirmDialog
         open={roleTarget !== null}
         onClose={() => setRoleTarget(null)}
@@ -379,6 +388,79 @@ function PasswordResetModal({
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+    </Modal>
+  );
+}
+
+function UserMenuAccessModal({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const toast = useToast();
+  const t = useTranslations("settings.employeeAccounts");
+  const [tree, setTree] = useState<MenuNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/admin/settings/users/${user.Id}/menu-access`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) setTree(data.tree);
+      })
+      .finally(() => setLoading(false));
+  }, [user.Id]);
+
+  function toggle(key: string, allowed: boolean) {
+    setTree((prev) => updateNodeAllowed(prev, key, allowed));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/settings/users/${user.Id}/menu-access`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menuAccess: flattenMenuAccess(tree) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to save menu access.");
+      toast.show({ type: "success", message: "Menu access saved." });
+      onClose();
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Menu Access — ${user.Username}`}
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            {t("cancelButton")}
+          </Button>
+          <Button size="sm" onClick={save} disabled={saving || loading}>
+            {saving ? t("savingButton") : t("saveButton")}
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>{t("loadingText")}</p>
+      ) : user.Role === "Admin" ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>Admin accounts always see the full menu — this can&apos;t be restricted.</p>
+      ) : (
+        <div className="flex flex-col">
+          <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: "0 0 0.5rem" }}>
+            Starts from what {user.Username}&apos;s role ({user.Role}) currently allows. Changing anything here saves it specifically for{" "}
+            {user.Username} — from then on their menu is independent of their role, even if the role&apos;s own Menu Access changes later.
+          </p>
+          <MenuAccessTreeView tree={tree} onToggle={toggle} />
+        </div>
+      )}
     </Modal>
   );
 }

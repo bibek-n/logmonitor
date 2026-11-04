@@ -75,7 +75,7 @@ export function NepaliCalendarCard() {
   }
 
   return (
-    <Card>
+    <Card hoverLift tilt3d>
       <div className="flex items-center justify-between" style={{ marginBottom: "0.75rem" }}>
         <div>
           <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--ink)" }}>

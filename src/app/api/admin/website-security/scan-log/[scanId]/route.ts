@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWebsiteSecurityPermission, isWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
 
 // Always responds 200 — see other routes in this app for why (IIS replaces non-2xx bodies).
 // Polled by the dashboard's terminal-style progress panel while a manual scan runs.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ scanId: string }> }) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWebsiteSecurityPermission("wsa_view");
+  if (!isWebsiteSecuritySession(admin)) return admin;
 
   const { scanId: scanIdParam } = await params;
   const scanId = Number(scanIdParam);

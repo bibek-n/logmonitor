@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Webhook } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 
 interface Preferences {
@@ -40,6 +41,11 @@ interface RecipientRow {
   enabled: boolean;
   isSystem: boolean;
 }
+interface WebhookSettings {
+  Url: string | null;
+  Platform: string;
+  Enabled: boolean;
+}
 
 const fieldStyle: React.CSSProperties = {
   width: "100%",
@@ -56,11 +62,13 @@ export function NotificationsSection({
   initialTemplates,
   initialRules,
   initialRecipients,
+  initialWebhookSettings,
 }: {
   initialPreferences: Preferences | null;
   initialTemplates: TemplateRow[];
   initialRules: RuleRow[];
   initialRecipients: RecipientRow[];
+  initialWebhookSettings: WebhookSettings | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -78,6 +86,45 @@ export function NotificationsSection({
   const [addModuleOpen, setAddModuleOpen] = useState(false);
   const [addingModule, setAddingModule] = useState(false);
   const [newModule, setNewModule] = useState({ moduleLabel: "", subModuleLabel: "", recipients: "" });
+  const [webhook, setWebhook] = useState({
+    url: initialWebhookSettings?.Url ?? "",
+    platform: initialWebhookSettings?.Platform ?? "slack",
+    enabled: initialWebhookSettings?.Enabled ?? false,
+  });
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+
+  async function saveWebhook() {
+    setSavingWebhook(true);
+    try {
+      const res = await fetch("/api/admin/settings/notifications/webhook", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhook),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("saveFailed"));
+      toast.show({ type: "success", message: t("webhookSaved") });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
+    } finally {
+      setSavingWebhook(false);
+    }
+  }
+
+  async function testWebhook() {
+    setTestingWebhook(true);
+    try {
+      const res = await fetch("/api/admin/settings/notifications/webhook/test", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? data.message ?? t("webhookTestFailed"));
+      toast.show({ type: "success", message: data.message ?? t("webhookTestSent") });
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("somethingWentWrong") });
+    } finally {
+      setTestingWebhook(false);
+    }
+  }
 
   function recipientRowKey(row: Pick<RecipientRow, "moduleKey" | "subModuleKey">): string {
     return `${row.moduleKey}::${row.subModuleKey}`;
@@ -254,6 +301,40 @@ export function NotificationsSection({
         <Button onClick={savePreferences} disabled={savingPrefs} style={{ alignSelf: "flex-start" }}>
           {savingPrefs ? t("saving") : t("saveChangesButton")}
         </Button>
+      </Card>
+
+      <Card className="flex flex-col gap-3" id="field-webhook-alerts">
+        <div className="flex items-center gap-2">
+          <Webhook size={16} style={{ color: webhook.enabled ? "var(--primary)" : "var(--ink-muted)" }} />
+          <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>{t("webhookTitle")}</h2>
+        </div>
+        <p style={{ fontSize: "0.8rem", color: "var(--ink-muted)", margin: 0 }}>{t("webhookDescription")}</p>
+        <Switch checked={webhook.enabled} onChange={(v) => setWebhook((w) => ({ ...w, enabled: v }))} label={t("webhookEnableLabel")} />
+        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 160px" }}>
+          <input
+            style={fieldStyle}
+            placeholder={t("webhookUrlPlaceholder")}
+            value={webhook.url}
+            onChange={(e) => setWebhook((w) => ({ ...w, url: e.target.value }))}
+          />
+          <Select
+            value={webhook.platform}
+            onChange={(v) => setWebhook((w) => ({ ...w, platform: v }))}
+            options={[
+              { label: "Slack", value: "slack" },
+              { label: "Microsoft Teams", value: "teams" },
+              { label: t("webhookPlatformGeneric"), value: "generic" },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={saveWebhook} disabled={savingWebhook}>
+            {savingWebhook ? t("saving") : t("saveChangesButton")}
+          </Button>
+          <Button variant="secondary" onClick={testWebhook} disabled={testingWebhook || !webhook.url}>
+            {testingWebhook ? t("webhookTesting") : t("webhookTestButton")}
+          </Button>
+        </div>
       </Card>
 
       <Card className="flex flex-col gap-3" id="field-notification-templates">

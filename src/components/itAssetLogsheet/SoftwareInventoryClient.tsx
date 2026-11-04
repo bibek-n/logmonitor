@@ -17,6 +17,8 @@ interface Row {
   installedVersion: string | null;
   softwareStatus: string;
   licenceExpiryDate: string | null;
+  licenceKeyRef: string | null;
+  numberOfLicences: number | null;
 }
 
 const inputStyle = { padding: "0.45rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "0.85rem" };
@@ -70,6 +72,8 @@ export function SoftwareInventoryClient() {
                     <th style={{ padding: "0.4rem" }}>Publisher</th>
                     <th style={{ padding: "0.4rem" }}>Version</th>
                     <th style={{ padding: "0.4rem" }}>Status</th>
+                    <th style={{ padding: "0.4rem" }}>Seats</th>
+                    <th style={{ padding: "0.4rem" }}>Licence Key</th>
                     <th style={{ padding: "0.4rem" }}>Licence Expiry</th>
                   </tr>
                 </thead>
@@ -81,6 +85,8 @@ export function SoftwareInventoryClient() {
                       <td style={{ padding: "0.4rem", color: "var(--ink-muted)" }}>{r.publisher ?? "—"}</td>
                       <td style={{ padding: "0.4rem", color: "var(--ink-muted)" }}>{r.installedVersion ?? "—"}</td>
                       <td style={{ padding: "0.4rem" }}><Badge tone={SOFTWARE_STATUS_TONE[r.softwareStatus] ?? "neutral"}>{humanize(r.softwareStatus)}</Badge></td>
+                      <td style={{ padding: "0.4rem", color: "var(--ink-muted)" }}>{r.numberOfLicences ?? "—"}</td>
+                      <td style={{ padding: "0.4rem", color: "var(--ink-muted)", fontFamily: "monospace", fontSize: "0.78rem" }}>{r.licenceKeyRef ?? "—"}</td>
                       <td style={{ padding: "0.4rem", color: "var(--ink-muted)" }}>{r.licenceExpiryDate ?? "—"}</td>
                     </tr>
                   ))}

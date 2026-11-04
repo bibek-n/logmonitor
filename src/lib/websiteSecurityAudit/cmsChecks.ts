@@ -1,6 +1,6 @@
 import type { Finding } from "./types";
+import { safeFetch as sharedSafeFetch } from "./safeNetwork";
 
-const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
 const FETCH_TIMEOUT_MS = 15000;
 
 // Hardcoded "current supported line" cutoff — same best-effort pattern as
@@ -10,7 +10,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const WORDPRESS_MIN_SUPPORTED_MINOR = 6.4;
 
 async function safeFetch(url: string, init?: RequestInit) {
-  return fetch(url, { redirect: "manual", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": UA }, ...init });
+  return sharedSafeFetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), ...init });
 }
 
 function extractWpVersion(html: string): string | null {

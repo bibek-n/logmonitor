@@ -13,9 +13,19 @@ import { getAutomationSession } from "@/lib/requireAutomationPermission";
 import { getRemoteAccessSession } from "@/lib/requireRemoteAccessPermission";
 import { getItAssetSession } from "@/lib/requireItAssetPermission";
 import { getBrowserActivitySession } from "@/lib/requireBrowserActivityPermission";
+import { getAppActivitySession } from "@/lib/requireAppActivityPermission";
+import { getWebAccessControlSession } from "@/lib/requireWebAccessControlPermission";
+import { getWifiAccessControlSession } from "@/lib/requireWifiAccessControlPermission";
+import { getWazuhOfficeSession } from "@/lib/requireWazuhOfficePermission";
+import { getWafSession } from "@/lib/requireWafPermission";
 import { getSecurityUpdatesSession } from "@/lib/requireSecurityUpdatesPermission";
 import { getServerRoomSession } from "@/lib/requireServerRoomPermission";
-import { getWebAccessControlSession } from "@/lib/requireWebAccessControlPermission";
+import { getKnowledgeBaseSession } from "@/lib/requireKnowledgeBasePermission";
+import { getWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
+import { getWordpressScanSession } from "@/lib/requireWordpressScanPermission";
+import { getDbAnalyzerSession } from "@/lib/requireDbAnalyzerPermission";
+import { getOffboardingSession } from "@/lib/requireOffboardingPermission";
+import { getRoleMenuAccessMap, getUserMenuAccessMap, mergeMenuAccess } from "@/lib/roleMenuAccess";
 import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from "@/lib/dateFormat";
 import { resolveLocale } from "@/i18n/routing";
 import SidebarShell from "@/components/SidebarShell";
@@ -60,9 +70,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const remoteAccessAccess = await getRemoteAccessSession("ra_view");
   const itAssetLogsheetAccess = await getItAssetSession("ita_view");
   const browserActivityAccess = await getBrowserActivitySession("ba_view");
+  const appActivityAccess = await getAppActivitySession("aa_view");
+  const webAccessControlAccess = await getWebAccessControlSession("wac_view");
+  const wifiAccessControlAccess = await getWifiAccessControlSession("wifi_ac_view");
+  const wazuhOfficeAccess = await getWazuhOfficeSession("wo_view");
+  const wafAccess = await getWafSession("waf_view");
   const securityUpdatesAccess = await getSecurityUpdatesSession("su_view");
   const serverRoomAccess = await getServerRoomSession("sr_view");
-  const webAccessControlAccess = await getWebAccessControlSession("wac_view");
+  const knowledgeBaseAccess = await getKnowledgeBaseSession("kb_view");
+  const databaseAnalyzerAccess = await getDbAnalyzerSession("dba_view");
+  const offboardingAccess = await getOffboardingSession("off_view");
+  // Bundles two independently-permissioned modules under one sidebar subgroup - see
+  // GATED_GROUP_KEYS.securityAudits in navRoutes.ts.
+  const securityAuditsAccess =
+    (await getWebsiteSecuritySession("wsa_view")) !== null || (await getWordpressScanSession("wps_view")) !== null;
+  const role = (session.user as { role?: string } | undefined)?.role ?? "";
+  const sessionUserId = Number((session.user as { id?: string } | undefined)?.id);
+  const roleMenuAccess = role ? await getRoleMenuAccessMap(role) : null;
+  // Admin's menu is never restrictable, by itself or by a per-user override - same bypass
+  // convention as every other permission check in this codebase.
+  const userMenuAccess = role !== "Admin" && Number.isInteger(sessionUserId) ? await getUserMenuAccessMap(sessionUserId) : null;
+  const menuAccess = mergeMenuAccess(roleMenuAccess, userMenuAccess);
   // Populates the request-scoped locale so every Server Component under this layout can
   // call getTranslations()/getMessages() with no args and still resolve correctly — the
   // dashboard has no [locale] URL segment, so requestLocale would otherwise never be set.
@@ -83,9 +111,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
           remoteAccessAccess={remoteAccessAccess !== null}
           itAssetLogsheetAccess={itAssetLogsheetAccess !== null}
           browserActivityAccess={browserActivityAccess !== null}
+          appActivityAccess={appActivityAccess !== null}
+          webAccessControlAccess={webAccessControlAccess !== null}
+          wifiAccessControlAccess={wifiAccessControlAccess !== null}
+          wazuhOfficeAccess={wazuhOfficeAccess !== null}
+          wafAccess={wafAccess !== null}
           securityUpdatesAccess={securityUpdatesAccess !== null}
           serverRoomAccess={serverRoomAccess !== null}
-          webAccessControlAccess={webAccessControlAccess !== null}
+          knowledgeBaseAccess={knowledgeBaseAccess !== null}
+          securityAuditsAccess={securityAuditsAccess}
+          databaseAnalyzerAccess={databaseAnalyzerAccess !== null}
+          offboardingAccess={offboardingAccess !== null}
+          menuAccess={menuAccess}
         >
           <div className="dash-user">
             <div className="name">

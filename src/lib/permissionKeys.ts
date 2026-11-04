@@ -210,4 +210,45 @@ export const PERMISSION_KEYS = [
   "wac_settings_manage",
   "wac_sophos_sync_manage",
   "wac_audit_log_view",
+  // Website Security Audit module — enforced via requireWebsiteSecurityPermission(), scoped
+  // only to /api/admin/website-security/** routes. Same superuser convention: Admin bypasses
+  // these. Deliberately just two keys (view/scan) - schedule management under this module's
+  // routes is left requireAdmin()-only, not exposed as a grantable key, since no role has
+  // asked for it yet.
+  "wsa_view",
+  "wsa_scan",
+  // WordPress Deep Scan module — enforced via requireWordpressScanPermission(), scoped only to
+  // /api/admin/wordpress-scan/** routes. Same superuser convention: Admin bypasses these.
+  // wps_scan covers triggering a scan (single, scan-all, and the in-app CLI terminal, which is
+  // just the same scan engine with a streamed terminal UI) - it does not cover changing a
+  // finding's status (Fixed/Accepted Risk) or managing recurring-scan schedules, both left
+  // requireAdmin()-only like schedule management above.
+  "wps_view",
+  "wps_scan",
+  // Database Intelligence & Security Analyzer — enforced via requireDbAnalyzerPermission(),
+  // scoped only to /api/admin/database-analyzer/** routes. Same superuser convention: Admin
+  // bypasses these. dba_connections_manage covers add/edit/delete/test of a connection's
+  // stored (encrypted) credentials — deliberately separate from dba_scan, since someone
+  // could reasonably be trusted to run scans against a connection without being trusted to
+  // change which database it points at.
+  "dba_view",
+  "dba_connections_manage",
+  "dba_scan",
+  "dba_export",
+  // Separate from dba_connections_manage since someone could reasonably be trusted to add/
+  // manage database connections without being trusted to configure (and pay for) this
+  // module's AI integration, or vice versa.
+  "dba_ai_configure",
+  // Employee Offboarding module - enforced via requireOffboardingPermission(), scoped only to
+  // /api/admin/offboarding/** routes. Same superuser convention: Admin bypasses these. This
+  // revokes real access to real systems (GitLab, the company's email), so off_execute is
+  // deliberately separate from off_manage_mappings (someone could be trusted to maintain which
+  // GitLab/Glesys account belongs to which employee without being trusted to pull the trigger
+  // on revoking access) and from off_settings_manage (the GitLab admin token and Glesys API key
+  // themselves - configuring those is more sensitive than running an offboarding with them).
+  "off_view",
+  "off_manage_mappings",
+  "off_execute",
+  "off_settings_manage",
+  "off_audit_view",
 ];

@@ -13,6 +13,29 @@ const EXCLUDED_IPS = ["192.168.1.7"];
 // was on the other end.
 const ROUTER_MANAGEMENT_IPS = ["192.168.20.1", "10.20.20.2"];
 
+// 10.81.0.2 is a VPN concentrator address, not a single client - confirmed live via
+// WebFilterLogs.UserName carrying traffic from multiple distinct authenticated users ("sabin",
+// "tulipsvpn") behind this one SrcIp. Excluded from Top IPs specifically (not the shared
+// EXCLUDED_IPS list, since this traffic is real and should still count toward total bandwidth
+// figures) so a NAT'd multi-user gateway doesn't render as one deceptive "top consumer"
+// outranking every real staff IP; getTopUsers() already attributes this traffic correctly
+// per-authenticated-user via UserName.
+const VPN_GATEWAY_IPS = ["10.81.0.2"];
+
+// Ruijie network appliances (additional APs/switches), not staff devices - confirmed via their
+// near-exclusive traffic to macclog-as.rj.link (Ruijie's own cloud log-upload service), no
+// hostname, no RouterClients/Devices presence, and no authenticated WebFilterLogs.UserName ever
+// seen for either address. 192.168.20.85 is the Ruijie WiFi AP itself (see the reverse-engineered
+// AP admin API) - it shows up as a RouterClients "client" of its own management IP on the
+// MikroTik LAN segment, not a real connected device.
+const RUIJIE_APPLIANCE_IPS = ["192.168.1.60", "192.168.1.205", "192.168.20.85"];
+
+// Union of every known non-staff infrastructure/aggregation-point IP, for any ranking meant to
+// represent staff/client activity (Top IPs, Top Active Devices, etc.) - NOT used by the
+// total-bandwidth aggregates (EXCLUDED_IPS alone covers those), since this traffic is real and
+// should still count toward a total even though it isn't attributable to one person/device.
+export const NON_STAFF_INFRASTRUCTURE_IPS = [...EXCLUDED_IPS, ...ROUTER_MANAGEMENT_IPS, ...VPN_GATEWAY_IPS, ...RUIJIE_APPLIANCE_IPS];
+
 export interface TopIpRow {
   ip: string;
   name: string | null;
@@ -53,16 +76,27 @@ function extractHostname(url: string | null): string | null {
   }
 }
 
-// Resolves a Sophos-side IP (192.168.1.x) to a staff name via SophosClients' MAC-address join -
-// same reasoning and same query shape as the Overview page's topDevices resolution: WebFilterLogs'
-// SrcIp values live in the Sophos address space, which the generic Staff.currentIp (populated by
-// whichever poller - MikroTik or Sophos - last saw that staff member) can't be trusted to match.
-async function getIpToStaffNameMap(): Promise<Map<string, string>> {
+// Resolves a Sophos-side IP (192.168.1.x) to a staff name, trying two paths since Staff itself
+// only carries a MacAddress (no IP column): (1) SophosClients' MAC directly against
+// Staff.MacAddress, for staff whose device MAC was entered manually; (2) SophosClients' MAC or
+// IP against Devices (the endpoint-agent inventory, which self-reports both LastIp/
+// StaticIpAddress and MacAddress) joined to its StaffId - covers agent-enrolled staff even when
+// nobody ever manually filled in Staff.MacAddress. UNION (not UNION ALL) since a device could
+// satisfy both paths with the same resolved name.
+export async function getIpToStaffNameMap(): Promise<Map<string, string>> {
   const db = await getDb();
   const result = await db.query<{ IpAddress: string; Name: string }>(`
     SELECT sc.IpAddress, s.Name FROM SophosClients sc
-    JOIN Staff s ON UPPER(s.MacAddress) = UPPER(sc.MacAddress)
+    JOIN Staff s ON s.MacAddress = sc.MacAddress
     WHERE sc.MacAddress IS NOT NULL
+
+    UNION
+
+    SELECT sc.IpAddress, s.Name
+    FROM SophosClients sc
+    JOIN Devices d ON d.MacAddress = sc.MacAddress OR d.LastIp = sc.IpAddress OR d.StaticIpAddress = sc.IpAddress
+    JOIN Staff s ON s.Id = d.StaffId
+    WHERE d.StaffId IS NOT NULL
   `);
   return new Map(result.recordset.map((r) => [r.IpAddress, r.Name]));
 }
@@ -79,7 +113,7 @@ export async function getTopIps(hours: number, limit: number): Promise<TopIpRow[
           COUNT(*) AS Requests
         FROM WebFilterLogs
         WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
-          AND SrcIp NOT IN (${EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+          AND SrcIp NOT IN (${NON_STAFF_INFRASTRUCTURE_IPS.map((ip) => `'${ip}'`).join(", ")})
         GROUP BY SrcIp
         ORDER BY TotalBytes DESC
       `),
@@ -90,6 +124,76 @@ export async function getTopIps(hours: number, limit: number): Promise<TopIpRow[
   // Number(...) here so callers get a real number rather than a string that happens to work by
   // luck in relational comparisons but breaks the moment anything does arithmetic on it.
   return result.recordset.map((r) => ({ ip: r.SrcIp, name: nameByIp.get(r.SrcIp) ?? null, totalBytes: Number(r.TotalBytes), requests: r.Requests }));
+}
+
+export interface CurrentBandwidthRate {
+  incomingBps: number;
+  outgoingBps: number;
+  // "interface" = accurate, firewall-self-reported WAN throughput (all protocols).
+  // "webfilter" = fallback estimate from proxied HTTP/HTTPS bytes only, used when the firewall
+  // hasn't pushed an interface reading recently.
+  source: "interface" | "webfilter";
+}
+
+// Reads the Sophos firewall's own self-reported WAN interface throughput when available - the
+// firewall pushes a "System Health / Interface / Usage" syslog message for every physical
+// interface (SystemHealthLogs, handleSystemHealth in syslog/listener.ts); Port2 is the WAN
+// uplink on this box. In practice this health message arrives sporadically (observed gaps of
+// 40+ minutes), so when it's stale this falls back to estimating from WebFilterLogs - that only
+// covers proxied HTTP/HTTPS traffic and undercounts true throughput. WebFilterLogs also writes
+// one row per completed request rather than a continuous byte counter, so it arrives in bursts
+// (observed as few as ~7 rows across 5 minutes) - a short window very often catches nothing and
+// reads as ~0, so the fallback window is 5 minutes to smooth that burstiness into a usable average.
+const WAN_INTERFACE_NAME = "Port2";
+const INTERFACE_STALE_AFTER_SECONDS = 120;
+const WEBFILTER_FALLBACK_WINDOW_SECONDS = 5 * 60;
+
+async function getInterfaceBandwidthRate(): Promise<{ incomingBps: number; outgoingBps: number } | null> {
+  const db = await getDb();
+  const result = await db
+    .request()
+    .input("interfaceName", sql.NVarChar, WAN_INTERFACE_NAME)
+    .input("staleAfterSeconds", sql.Int, INTERFACE_STALE_AFTER_SECONDS)
+    .query<{ ReceivedKbits: string | null; TransmittedKbits: string | null }>(`
+      SELECT TOP 1 JSON_VALUE(Fields, '$.receivedkbits') AS ReceivedKbits, JSON_VALUE(Fields, '$.transmittedkbits') AS TransmittedKbits
+      FROM SystemHealthLogs
+      WHERE LogComponent = 'Interface' AND LogSubtype = 'Usage'
+        AND JSON_VALUE(Fields, '$.interface') = @interfaceName
+        AND ReceivedAt >= DATEADD(SECOND, -@staleAfterSeconds, SYSUTCDATETIME())
+      ORDER BY Id DESC
+    `);
+  const row = result.recordset[0];
+  if (!row) return null;
+  const receivedKbits = Number(row.ReceivedKbits ?? 0);
+  const transmittedKbits = Number(row.TransmittedKbits ?? 0);
+  return { incomingBps: (receivedKbits * 1000) / 8, outgoingBps: (transmittedKbits * 1000) / 8 };
+}
+
+async function getWebFilterBandwidthEstimate(): Promise<{ incomingBps: number; outgoingBps: number }> {
+  const db = await getDb();
+  const result = await db
+    .request()
+    .input("windowSeconds", sql.Int, WEBFILTER_FALLBACK_WINDOW_SECONDS)
+    .query<{ IncomingBytes: string | null; OutgoingBytes: string | null }>(`
+      SELECT SUM(ISNULL(BytesReceived, 0)) AS IncomingBytes, SUM(ISNULL(BytesSent, 0)) AS OutgoingBytes
+      FROM WebFilterLogs
+      WHERE ReceivedAt >= DATEADD(SECOND, -@windowSeconds, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
+        AND SrcIp NOT IN (${EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+    `);
+  const row = result.recordset[0];
+  const incomingBytes = Number(row?.IncomingBytes ?? 0);
+  const outgoingBytes = Number(row?.OutgoingBytes ?? 0);
+  return {
+    incomingBps: incomingBytes / WEBFILTER_FALLBACK_WINDOW_SECONDS,
+    outgoingBps: outgoingBytes / WEBFILTER_FALLBACK_WINDOW_SECONDS,
+  };
+}
+
+export async function getCurrentSophosBandwidthRate(): Promise<CurrentBandwidthRate> {
+  const interfaceRate = await getInterfaceBandwidthRate();
+  if (interfaceRate) return { ...interfaceRate, source: "interface" };
+  const fallback = await getWebFilterBandwidthEstimate();
+  return { ...fallback, source: "webfilter" };
 }
 
 // Grouped in JS rather than SQL, since the grouping key (Domain when present, else a hostname
@@ -130,6 +234,69 @@ export async function getTopWebsites(hours: number, limit: number): Promise<TopW
     .map(([website, v]) => ({ website, ...v }))
     .sort((a, b) => b.totalBytes - a.totalBytes)
     .slice(0, limit);
+}
+
+export interface TopVisitedRow {
+  name: string;
+  source: "sophos" | "mikrotik";
+  requests: number;
+  // 0 for MikroTik rows - RouterWebLogs is a raw WEBCONN connection log (no byte counters),
+  // unlike WebFilterLogs which has per-request BytesSent/BytesReceived.
+  totalBytes: number;
+}
+
+// Combined "top visited" list across both firewall sources - NOT a true merge like
+// getTopBandwidthStaff (there's no shared identity to join on): Sophos identifies sites by
+// Domain (from real web-filter/URL categorization), while the MikroTik only logs raw WEBCONN
+// connections with a reverse-DNS lookup of the destination IP (ReverseDns) - often a cloud
+// hostname (e.g. "ec2-...amazonaws.com") rather than the actual site name, since MikroTik
+// doesn't do the deep packet inspection Sophos does. So each source's top-N is fetched
+// separately, tagged with its source, and interleaved by request count rather than pretending
+// "facebook.com" (Sophos) and some EC2 reverse-DNS entry (MikroTik) are ever the same row.
+// WebFilterLogs.Application/ApplicationCategory (a distinct "visiting application" signal) is
+// intentionally not used here - confirmed live that Sophos never actually populates it via this
+// log format (0 of ~1,900 rows in a sample day), so Domain is the only real signal available.
+export async function getTopVisited(hours: number, limit: number): Promise<TopVisitedRow[]> {
+  const db = await getDb();
+  const [sophosResult, routerResult] = await Promise.all([
+    db
+      .request()
+      .input("hours", sql.Int, hours)
+      .query<{ Domain: string; Requests: number; TotalBytes: string | null }>(`
+        SELECT TOP ${limit} Domain,
+          COUNT(*) AS Requests,
+          SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes
+        FROM WebFilterLogs
+        WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND Domain IS NOT NULL AND Domain <> ''
+        GROUP BY Domain
+        ORDER BY Requests DESC
+      `),
+    db
+      .request()
+      .input("hours", sql.Int, hours)
+      .query<{ ReverseDns: string; Requests: number }>(`
+        SELECT TOP ${limit} ReverseDns, COUNT(*) AS Requests
+        FROM RouterWebLogs
+        WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND ReverseDns IS NOT NULL AND ReverseDns <> ''
+        GROUP BY ReverseDns
+        ORDER BY Requests DESC
+      `),
+  ]);
+
+  const sophosRows: TopVisitedRow[] = sophosResult.recordset.map((r) => ({
+    name: r.Domain,
+    source: "sophos",
+    requests: r.Requests,
+    totalBytes: Number(r.TotalBytes ?? 0),
+  }));
+  const routerRows: TopVisitedRow[] = routerResult.recordset.map((r) => ({
+    name: r.ReverseDns,
+    source: "mikrotik",
+    requests: r.Requests,
+    totalBytes: 0,
+  }));
+
+  return [...sophosRows, ...routerRows].sort((a, b) => b.requests - a.requests).slice(0, limit);
 }
 
 export async function getTopUsers(hours: number, limit: number): Promise<TopUserRow[]> {
@@ -197,11 +364,11 @@ export async function getTopServers(hours: number, limit: number): Promise<TopSe
 // Resolves a router-side client IP to a staff name directly via RouterClients' own
 // MacAddress column (unlike getIpToStaffNameMap above, no SophosClients intermediary needed -
 // RouterClients already carries both IpAddress and MacAddress from the DHCP lease list).
-async function getIpToStaffNameMapViaRouter(): Promise<Map<string, string>> {
+export async function getIpToStaffNameMapViaRouter(): Promise<Map<string, string>> {
   const db = await getDb();
   const result = await db.query<{ IpAddress: string; Name: string }>(`
     SELECT rc.IpAddress, s.Name FROM RouterClients rc
-    JOIN Staff s ON UPPER(s.MacAddress) = UPPER(rc.MacAddress)
+    JOIN Staff s ON s.MacAddress = rc.MacAddress
     WHERE rc.MacAddress IS NOT NULL
   `);
   return new Map(result.recordset.map((r) => [r.IpAddress, r.Name]));
@@ -256,3 +423,76 @@ export async function getTopRouterClients(hours: number, limit: number): Promise
     flows: r.Flows,
   }));
 }
+
+export interface TopBandwidthStaffRow {
+  name: string;
+  ipAddresses: string[];
+  totalBytes: number;
+}
+
+// Combines both network sources into one per-staff ranking (unlike getTopIps/getTopRouterClients
+// above, which each only see their own side) - a staff member can carry traffic on both the
+// Sophos-side (192.168.1.x) and MikroTik-side (192.168.20.x) address spaces simultaneously, so
+// their totals from each are summed together rather than shown as two separate, lower-ranked
+// entries. Fetches full unaggregated-by-staff per-IP totals from both sources (no TOP N at the
+// SQL level) so the staff-level merge below sees everything before truncating to `limit` -
+// truncating per-source first could drop an entry that's only large after combining both.
+// Staff-only by design: an IP that doesn't resolve to a known staff MAC on either network is
+// excluded rather than shown as a bare IP, matching the "top bandwidth using staff" framing.
+export async function getTopBandwidthStaff(hours: number, limit: number): Promise<TopBandwidthStaffRow[]> {
+  const db = await getDb();
+  const managementIpList = ROUTER_MANAGEMENT_IPS.map((ip) => `'${ip}'`).join(", ");
+
+  const [sophosResult, routerResult, sophosNameByIp, routerNameByIp] = await Promise.all([
+    db
+      .request()
+      .input("hours", sql.Int, hours)
+      .query<{ SrcIp: string; TotalBytes: string }>(`
+        SELECT SrcIp, SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes
+        FROM WebFilterLogs
+        WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
+          AND SrcIp NOT IN (${EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+        GROUP BY SrcIp
+      `),
+    db
+      .request()
+      .input("hours", sql.Int, hours)
+      .query<{ ClientIp: string; TotalBytes: string }>(`
+        ;WITH Attributed AS (
+          SELECT t.SrcAddress AS ClientIp, t.Bytes
+          FROM RouterClientTraffic t
+          WHERE t.ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME())
+            AND EXISTS (SELECT 1 FROM RouterClients rc WHERE rc.IpAddress = t.SrcAddress)
+            AND t.DstAddress NOT IN (${managementIpList})
+          UNION ALL
+          SELECT t.DstAddress AS ClientIp, t.Bytes
+          FROM RouterClientTraffic t
+          WHERE t.ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME())
+            AND EXISTS (SELECT 1 FROM RouterClients rc WHERE rc.IpAddress = t.DstAddress)
+            AND t.SrcAddress NOT IN (${managementIpList})
+        )
+        SELECT ClientIp, SUM(Bytes) AS TotalBytes FROM Attributed GROUP BY ClientIp
+      `),
+    getIpToStaffNameMap(),
+    getIpToStaffNameMapViaRouter(),
+  ]);
+
+  const perStaff = new Map<string, { totalBytes: number; ipAddresses: Set<string> }>();
+  const accumulate = (name: string | undefined, ip: string, bytes: number) => {
+    if (!name) return;
+    const entry = perStaff.get(name) ?? { totalBytes: 0, ipAddresses: new Set<string>() };
+    entry.totalBytes += bytes;
+    entry.ipAddresses.add(ip);
+    perStaff.set(name, entry);
+  };
+
+  for (const r of sophosResult.recordset) accumulate(sophosNameByIp.get(r.SrcIp), r.SrcIp, Number(r.TotalBytes));
+  for (const r of routerResult.recordset) accumulate(routerNameByIp.get(r.ClientIp), r.ClientIp, Number(r.TotalBytes));
+
+  return [...perStaff.entries()]
+    .map(([name, v]) => ({ name, ipAddresses: [...v.ipAddresses], totalBytes: v.totalBytes }))
+    .sort((a, b) => b.totalBytes - a.totalBytes)
+    .slice(0, limit);
+}
+
+

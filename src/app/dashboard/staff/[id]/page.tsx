@@ -2,14 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getDb, sql } from "@/lib/db";
-import { parseRouterDurationToSeconds } from "@/lib/mikrotikParser";
 import { classifyDevice } from "@/lib/deviceType";
-import { formatDuration } from "@/lib/staffStatus";
+import { formatDuration, computeDeviceStatus } from "@/lib/staffStatus";
 import { parseJsonArray } from "@/lib/parseJsonArray";
-import { getBrowserActivitySession } from "@/lib/requireBrowserActivityPermission";
+import { getBrowserActivityAccess } from "@/lib/requireBrowserActivityPermission";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeviceReportToggle } from "@/components/staff/DeviceReportToggle";
+import { DevicePowerActions } from "@/components/endpointAgents/DevicePowerActions";
+import { isSelfDevice } from "@/lib/selfDevice";
+import { getAppUsageSessions } from "@/lib/appUsage";
 import { CategoryDonutChart, type CategoryDatum } from "@/components/staff/CategoryDonutChart";
+import { formatDwell } from "@/components/browserActivity/riskTones";
 import type {
   HardwareInfo,
   DiskRow,
@@ -20,6 +23,7 @@ import type {
   ProcessRow,
   ServiceRow,
   SoftwareRow,
+  LocalUserRow,
   DeviceAlertRow,
   UsbEventRow,
 } from "@/components/endpointAgents/DeviceDetail";
@@ -57,35 +61,16 @@ interface LinkedDevice {
   Hostname: string;
   OS: string;
   LastHeartbeat: string | null;
+  LastIp: string | null;
+  StaticIpAddress: string | null;
+  EnrolledAt: string | null;
+  VpnActive: boolean | null;
 }
 
 interface HistoricalIp {
   IpAddress: string;
   Source: "mikrotik" | "sophos";
   UpdatedAt: string;
-}
-
-function isPollFresh(updatedAt: string | null, staleMinutes = 10): boolean {
-  if (!updatedAt) return false;
-  return Date.now() - new Date(updatedAt).getTime() <= staleMinutes * 60 * 1000;
-}
-
-function lastSeenAt(updatedAt: string | null, lastSeenRaw: string | null): Date | null {
-  if (!updatedAt) return null;
-  const seconds = parseRouterDurationToSeconds(lastSeenRaw);
-  if (seconds === null) return null;
-  return new Date(new Date(updatedAt).getTime() - seconds * 1000);
-}
-
-interface WebFilterRow {
-  Id: number;
-  ReceivedAt: string;
-  SrcIp: string;
-  Domain: string | null;
-  Url: string | null;
-  Category: string | null;
-  Application: string | null;
-  Action: string | null;
 }
 
 interface RouterWebRow {
@@ -97,6 +82,24 @@ interface RouterWebRow {
   ReverseDns: string | null;
 }
 
+interface WebFilterRow {
+  Id: number;
+  ReceivedAt: string;
+  SrcIp: string;
+  Domain: string | null;
+  Url: string | null;
+  Category: string | null;
+  Action: string | null;
+  Application: string | null;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exp = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
+}
+
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const staffId = Number(id);
@@ -105,71 +108,83 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const t = await getTranslations("employees.detail");
   const db = await getDb();
 
-  const staffResult = await db
-    .request()
-    .input("id", sql.Int, staffId)
-    .query<StaffRow>(`
-      SELECT s.Id, s.Name, s.MacAddress, s.ComputerNameOverride, s.Email, s.Phone, s.Department, s.Position, s.Address, s.PhotoPath,
-        best.IpAddress AS RouterIp, best.Hostname, best.Status, best.LastSeenRaw, best.UpdatedAt AS RouterUpdatedAt, best.Os,
-        best.FirstSeen AS RouterFirstSeen,
-        sophosBest.IpAddress AS SophosIp, sophosBest.UpdatedAt AS SophosUpdatedAt, sophosBest.Hostname AS SophosHostname,
-        sophosBest.Os AS SophosOs, sophosBest.FirstSeen AS SophosFirstSeen,
-        ov.VendorName
-      FROM Staff s
-      OUTER APPLY (
-        SELECT TOP 1 IpAddress, Hostname, Status, LastSeenRaw, UpdatedAt, Os, FirstSeen
-        FROM RouterClients rc WHERE UPPER(rc.MacAddress) = UPPER(s.MacAddress)
-        ORDER BY UpdatedAt DESC
-      ) best
-      OUTER APPLY (
-        SELECT TOP 1 IpAddress, UpdatedAt, Hostname, Os, FirstSeen
-        FROM SophosClients sc WHERE UPPER(sc.MacAddress) = UPPER(s.MacAddress)
-        ORDER BY UpdatedAt DESC
-      ) sophosBest
-      LEFT JOIN OuiVendors ov ON ov.Prefix = REPLACE(LEFT(s.MacAddress, 8), ':', '')
-      WHERE s.Id = @id
-    `);
+  // staffResult and linkedDeviceResult both only need staffId - no reason to make the second
+  // wait on the first, since that used to just add a whole extra sequential round-trip to
+  // every page load.
+  const [staffResult, linkedDeviceResult, appUsageSessions] = await Promise.all([
+    db
+      .request()
+      .input("id", sql.Int, staffId)
+      .query<StaffRow>(`
+        SELECT s.Id, s.Name, s.MacAddress, s.ComputerNameOverride, s.Email, s.Phone, s.Department, s.Position, s.Address, s.PhotoPath,
+          best.IpAddress AS RouterIp, best.Hostname, best.Status, best.LastSeenRaw, best.UpdatedAt AS RouterUpdatedAt, best.Os,
+          best.FirstSeen AS RouterFirstSeen,
+          sophosBest.IpAddress AS SophosIp, sophosBest.UpdatedAt AS SophosUpdatedAt, sophosBest.Hostname AS SophosHostname,
+          sophosBest.Os AS SophosOs, sophosBest.FirstSeen AS SophosFirstSeen,
+          ov.VendorName
+        FROM Staff s
+        OUTER APPLY (
+          SELECT TOP 1 IpAddress, Hostname, Status, LastSeenRaw, UpdatedAt, Os, FirstSeen
+          FROM RouterClients rc WHERE rc.MacAddress = s.MacAddress
+          ORDER BY UpdatedAt DESC
+        ) best
+        OUTER APPLY (
+          SELECT TOP 1 IpAddress, UpdatedAt, Hostname, Os, FirstSeen
+          FROM SophosClients sc WHERE sc.MacAddress = s.MacAddress
+          ORDER BY UpdatedAt DESC
+        ) sophosBest
+        LEFT JOIN OuiVendors ov ON ov.Prefix = REPLACE(LEFT(s.MacAddress, 8), ':', '')
+        WHERE s.Id = @id
+      `),
+    // Reverse-lookup of the existing, already-working Devices.StaffId link (set from the
+    // Endpoint Agents device's own "Assigned staff member" field) — surfaced here purely for
+    // visibility, not re-editable from this page, so there's only one place that writes it.
+    db
+      .request()
+      .input("id", sql.Int, staffId)
+      .query<LinkedDevice>(`
+        SELECT d.DeviceId, d.Hostname, d.OS, d.LastHeartbeat, d.LastIp, d.StaticIpAddress, d.EnrolledAt, dni.VpnActive
+        FROM Devices d
+        LEFT JOIN DeviceNetworkInfo dni ON dni.DeviceId = d.DeviceId
+        WHERE d.StaffId = @id
+      `),
+    getAppUsageSessions({ staffId, limit: 30 }),
+  ]);
 
   const staffMember = staffResult.recordset[0];
   if (!staffMember) notFound();
-
-  const routerTime = staffMember.RouterIp && staffMember.RouterUpdatedAt ? new Date(staffMember.RouterUpdatedAt).getTime() : -Infinity;
-  const sophosTime = staffMember.SophosIp && staffMember.SophosUpdatedAt ? new Date(staffMember.SophosUpdatedAt).getTime() : -Infinity;
-  const source: "mikrotik" | "sophos" | null =
-    routerTime === -Infinity && sophosTime === -Infinity ? null : routerTime >= sophosTime ? "mikrotik" : "sophos";
-  const currentIp = source === "mikrotik" ? staffMember.RouterIp : source === "sophos" ? staffMember.SophosIp : null;
-  // Classification stays driven by the network-reported hostname even when an admin has
-  // overridden the displayed name — see the matching comment in getStaffWithStatus.
-  const autoDeviceName = source === "mikrotik" ? staffMember.Hostname : source === "sophos" ? staffMember.SophosHostname : null;
-  const deviceName = staffMember.ComputerNameOverride ?? autoDeviceName;
-  const os = source === "mikrotik" ? staffMember.Os : source === "sophos" ? staffMember.SophosOs : null;
-  const firstSeenRaw = source === "mikrotik" ? staffMember.RouterFirstSeen : source === "sophos" ? staffMember.SophosFirstSeen : null;
-  const firstSeen = firstSeenRaw ? new Date(firstSeenRaw) : null;
-  const deviceType = classifyDevice(autoDeviceName, staffMember.VendorName);
-
-  let isOnline = false;
-  if (source === "mikrotik") {
-    isOnline = !!staffMember.MacAddress && staffMember.Status === "bound" && isPollFresh(staffMember.RouterUpdatedAt);
-  } else if (source === "sophos" && currentIp) {
-    const activeResult = await db
-      .request()
-      .input("ip", sql.VarChar, currentIp)
-      .query<{ Cnt: number }>(`
-        SELECT COUNT(*) AS Cnt FROM WebFilterLogs WHERE SrcIp = @ip AND ReceivedAt >= DATEADD(MINUTE, -10, SYSUTCDATETIME())
-      `);
-    isOnline = activeResult.recordset[0].Cnt > 0;
-  }
-
-  // Reverse-lookup of the existing, already-working Devices.StaffId link (set from the
-  // Endpoint Agents device's own "Assigned staff member" field) — surfaced here purely for
-  // visibility, not re-editable from this page, so there's only one place that writes it.
-  const linkedDeviceResult = await db
-    .request()
-    .input("id", sql.Int, staffId)
-    .query<LinkedDevice>(
-      "SELECT DeviceId, Hostname, OS, LastHeartbeat FROM Devices WHERE StaffId = @id"
-    );
   const linkedDevice = linkedDeviceResult.recordset[0] ?? null;
+
+  // Single source of truth (computeDeviceStatus in staffStatus.ts) shared with
+  // getStaffWithStatus() - this page used to carry its own independent copy of this
+  // precedence/freshness logic, which silently reverted to "prefer whichever of agent/router/
+  // sophos is freshest" instead of "an enrolled agent always wins once one exists" the first
+  // time it was touched, reintroducing the stale-agent-reported-online bug the shared version
+  // already fixed once. One implementation instead of two that can drift apart.
+  const { source, currentIp, deviceName, os, deviceType, isOnline, isRemoteVpn, firstSeen, lastSeen: seenAt } = computeDeviceStatus({
+    macAddress: staffMember.MacAddress,
+    computerNameOverride: staffMember.ComputerNameOverride,
+    routerIp: staffMember.RouterIp,
+    routerHostname: staffMember.Hostname,
+    routerStatus: staffMember.Status,
+    routerLastSeenRaw: staffMember.LastSeenRaw,
+    routerUpdatedAt: staffMember.RouterUpdatedAt,
+    routerOs: staffMember.Os,
+    routerFirstSeen: staffMember.RouterFirstSeen,
+    sophosIp: staffMember.SophosIp,
+    sophosUpdatedAt: staffMember.SophosUpdatedAt,
+    sophosHostname: staffMember.SophosHostname,
+    sophosOs: staffMember.SophosOs,
+    sophosFirstSeen: staffMember.SophosFirstSeen,
+    vendorName: staffMember.VendorName,
+    agentDeviceIp: linkedDevice?.LastIp ?? null,
+    agentHostname: linkedDevice?.Hostname ?? null,
+    agentOs: linkedDevice?.OS ?? null,
+    agentLastHeartbeat: linkedDevice?.LastHeartbeat ?? null,
+    agentEnrolledAt: linkedDevice?.EnrolledAt ?? null,
+    agentDeviceId: linkedDevice?.DeviceId ?? null,
+    agentVpnActive: linkedDevice?.VpnActive ?? null,
+  });
 
   // Full device report, fetched only when a PC is actually linked - same queries as the
   // Endpoint Agents detail page, reused here so an admin doesn't have to leave this page to
@@ -184,21 +199,54 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   let deviceProcesses: ProcessRow[] = [];
   let deviceServices: ServiceRow[] = [];
   let deviceSoftware: SoftwareRow[] = [];
+  let deviceLocalUsers: LocalUserRow[] = [];
   let deviceAlerts: DeviceAlertRow[] = [];
   let deviceUsbEvents: UsbEventRow[] = [];
+  let historicalIps: HistoricalIp[] = [];
+  let routerWebRows: RouterWebRow[] = [];
+  let destinationBreakdown: CategoryDatum[] = [];
+  let webFilterRows: WebFilterRow[] = [];
+  let webFilterCategoryBreakdown: CategoryDatum[] = [];
+  let webFilterApplicationBreakdown: CategoryDatum[] = [];
+  let webFilterBandwidthBytes = 0;
+  let canViewBrowserActivity = false;
+  let browserActivityRows: {
+    Id: number;
+    VisitedAt: string;
+    Domain: string;
+    PageTitle: string | null;
+    Browser: string;
+    CategoryName: string | null;
+    DwellSeconds: number | null;
+  }[] = [];
+  let browserActivityCategoryBreakdown: CategoryDatum[] = [];
 
-  if (linkedDevice) {
+  const CHART_WINDOW_DAYS = 30;
+  const chartWindowStart = new Date(Date.now() - CHART_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : isRemoteVpn ? "warning" : "critical";
+
+  // The three sections below (device report, web-filter/router-web activity, browser
+  // activity) are entirely independent of each other - previously they ran as three
+  // sequential stages, so the page's total load time was the SUM of all three instead of
+  // just the slowest one. Running them concurrently is what actually fixes the "takes so
+  // long to open" complaint; the query changes within each are secondary wins on top of that.
+  const deviceReportChain = (async () => {
+    if (!linkedDevice) return;
     const did = linkedDevice.DeviceId;
-    const [metricsRes, hwRes, disksRes, diskSpaceRes, volumesRes, secRes, netRes, procRes, svcRes, swRes, alertsRes, usbRes] = await Promise.all([
+    const [metricsRes, hwRes, disksRes, diskSpaceRes, volumesRes, secRes, netRes, procRes, svcRes, swRes, localUsersRes, alertsRes, usbRes] = await Promise.all([
       db.request().input("id", sql.VarChar, did).query<{ CpuPct: number | null; MemPct: number | null; DiskPct: number | null }>(
         "SELECT TOP 1 CpuPct, MemPct, DiskPct FROM DeviceMetrics WHERE DeviceId = @id ORDER BY ReceivedAt DESC"
       ),
       db.request().input("id", sql.VarChar, did).query<HardwareInfo>(`
-        SELECT CpuModel AS cpuModel, CpuManufacturer AS cpuManufacturer, CpuCores AS cpuCores, CpuThreads AS cpuThreads,
-          CpuClockMhz AS cpuClockMhz, MemoryTotalMB AS memoryTotalMB, DiskModel AS diskModel, DiskType AS diskType,
-          DiskCapacityGB AS diskCapacityGB, GpuName AS gpuName, OsEdition AS osEdition, OsBuild AS osBuild,
-          KernelVersion AS kernelVersion, Architecture AS architecture
-        FROM DeviceHardwareInfo WHERE DeviceId = @id
+        SELECT dev.Manufacturer AS manufacturer, dev.Model AS model, dev.SerialNumber AS serialNumber,
+          dhi.CpuModel AS cpuModel, dhi.CpuManufacturer AS cpuManufacturer, dhi.CpuCores AS cpuCores, dhi.CpuThreads AS cpuThreads,
+          dhi.CpuClockMhz AS cpuClockMhz, dhi.MemoryTotalMB AS memoryTotalMB, dhi.DiskModel AS diskModel, dhi.DiskType AS diskType,
+          dhi.DiskCapacityGB AS diskCapacityGB, dhi.GpuName AS gpuName, dhi.OsEdition AS osEdition, dhi.OsBuild AS osBuild,
+          dhi.KernelVersion AS kernelVersion, dhi.Architecture AS architecture
+        FROM DeviceHardwareInfo dhi
+        JOIN Devices dev ON dev.DeviceId = dhi.DeviceId
+        WHERE dhi.DeviceId = @id
       `),
       db.request().input("id", sql.VarChar, did).query<DiskRow>(`
         SELECT DiskIndex AS diskIndex, Model AS model, Type AS type, CapacityGB AS capacityGB,
@@ -238,6 +286,11 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       db.request().input("id", sql.VarChar, did).query<{ SoftwareJson: string }>(
         "SELECT SoftwareJson FROM DeviceSoftwareSnapshot WHERE DeviceId = @id"
       ),
+      db.request().input("id", sql.VarChar, did).query<LocalUserRow>(`
+        SELECT Username AS username, FullName AS fullName, IsAdmin AS isAdmin,
+          IsDisabled AS isDisabled, LastLogon AS lastLogon
+        FROM DeviceLocalUsers WHERE DeviceId = @id ORDER BY Username ASC
+      `),
       db.request().input("id", sql.VarChar, did).query<DeviceAlertRow>(`
         SELECT TOP 20 Id AS id, AlertType AS alertType, Severity AS severity, Message AS message,
           TriggeredAt AS triggeredAt, ResolvedAt AS resolvedAt
@@ -265,128 +318,110 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     deviceProcesses = parseJsonArray<ProcessRow>(procRes.recordset[0]?.ProcessesJson);
     deviceServices = parseJsonArray<ServiceRow>(svcRes.recordset[0]?.ServicesJson);
     deviceSoftware = parseJsonArray<SoftwareRow>(swRes.recordset[0]?.SoftwareJson);
+    deviceLocalUsers = localUsersRes.recordset;
     deviceAlerts = alertsRes.recordset;
     deviceUsbEvents = usbRes.recordset;
-  }
+  })();
 
-  const statusColor = !staffMember.MacAddress ? "unknown" : isOnline ? "good" : "critical";
-  // MikroTik gives a precise "last seen X ago" from the lease; Sophos-side only tells us the
-  // device was still in the firewall's ARP table as of its last poll — coarser, still useful.
-  const seenAt =
-    source === "mikrotik"
-      ? lastSeenAt(staffMember.RouterUpdatedAt, staffMember.LastSeenRaw)
-      : source === "sophos" && staffMember.SophosUpdatedAt
-        ? new Date(staffMember.SophosUpdatedAt)
-        : null;
-
-  // Every IP this MAC has ever held, on either network — so the activity report below covers
-  // the full history, not just whatever the device's IP happens to be right now.
-  let historicalIps: HistoricalIp[] = [];
-  if (staffMember.MacAddress) {
+  const activityReportChain = (async () => {
+    // Every IP this MAC has ever held, on either network — so the activity report below
+    // covers the full history, not just whatever the device's IP happens to be right now.
+    if (!staffMember.MacAddress) return;
     const historyResult = await db
       .request()
       .input("mac", sql.VarChar, staffMember.MacAddress)
       .query<HistoricalIp>(`
         SELECT IpAddress, 'mikrotik' AS Source, UpdatedAt
-        FROM RouterClients WHERE UPPER(MacAddress) = UPPER(@mac)
+        FROM RouterClients WHERE MacAddress = @mac
         UNION ALL
         SELECT IpAddress, 'sophos' AS Source, UpdatedAt
-        FROM SophosClients WHERE UPPER(MacAddress) = UPPER(@mac)
+        FROM SophosClients WHERE MacAddress = @mac
         ORDER BY UpdatedAt DESC
       `);
     historicalIps = historyResult.recordset;
-  }
-  const allIps = [...new Set(historicalIps.map((h) => h.IpAddress))];
+    const allIps = [...new Set(historicalIps.map((h) => h.IpAddress))];
+    if (allIps.length === 0) return;
 
-  const CHART_WINDOW_DAYS = 30;
-  const chartWindowStart = new Date(Date.now() - CHART_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-
-  let webFilterRows: WebFilterRow[] = [];
-  let routerWebRows: RouterWebRow[] = [];
-  let categoryBreakdown: CategoryDatum[] = [];
-  let applicationBreakdown: CategoryDatum[] = [];
-  let destinationBreakdown: CategoryDatum[] = [];
-  let bandwidthMB = 0;
-  if (allIps.length > 0) {
     const ipList = allIps.map((_, i) => `@ip${i}`).join(", ");
-    const wfRequest = db.request();
     const rwRequest = db.request();
+    const rwDestinationRequest = db.request();
+    // WebFilterLogs is the Sophos-side equivalent of RouterWebLogs above (the MikroTik
+    // side) - populated by the same syslog listener's "Content Filtering"/"HTTP" handler,
+    // already indexed on (SrcIp, ReceivedAt) for exactly this query shape. Previously there
+    // was no panel reading it on this page at all - only translation strings for one
+    // (webFilterReportTitle etc. in messages/*.json) that never got wired up, so every
+    // Sophos-only employee's activity report looked permanently empty even though their
+    // real traffic was being captured the whole time and was already visible on the
+    // all-staff /dashboard/web-filter report.
+    const wfRowsRequest = db.request();
     const wfCategoryRequest = db.request();
     const wfApplicationRequest = db.request();
-    const rwDestinationRequest = db.request();
     const wfBandwidthRequest = db.request();
     allIps.forEach((ip, i) => {
-      wfRequest.input(`ip${i}`, sql.VarChar, ip);
       rwRequest.input(`ip${i}`, sql.VarChar, ip);
+      rwDestinationRequest.input(`ip${i}`, sql.VarChar, ip);
+      wfRowsRequest.input(`ip${i}`, sql.VarChar, ip);
       wfCategoryRequest.input(`ip${i}`, sql.VarChar, ip);
       wfApplicationRequest.input(`ip${i}`, sql.VarChar, ip);
-      rwDestinationRequest.input(`ip${i}`, sql.VarChar, ip);
       wfBandwidthRequest.input(`ip${i}`, sql.VarChar, ip);
     });
 
-    const [webFilterResult, routerWebResult, categoryResult, applicationResult, destinationResult, bandwidthResult] = await Promise.all([
-      wfRequest.query<WebFilterRow>(`
-        SELECT TOP 50 Id, ReceivedAt, SrcIp, Domain, Url, Category, Application, Action
-        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) ORDER BY ReceivedAt DESC
-      `),
-      rwRequest.query<RouterWebRow>(`
+    const [routerWebResult, destinationResult, webFilterResult, webFilterCategoryResult, webFilterApplicationResult, webFilterBandwidthResult] =
+      await Promise.all([
+        // Bounded to the same CHART_WINDOW_DAYS as the aggregate query below, not full
+        // history - this table goes back years, so an unbounded "ORDER BY ReceivedAt DESC" scan
+        // across every IP this MAC has ever held (potentially dozens, for a device that's
+        // bounced across DHCP leases for a long time) was scanning far more than "the 50 most
+        // recent events" actually needs, and was the main reason this page was slow to open.
+        rwRequest.input("since", sql.DateTime2, chartWindowStart).query<RouterWebRow>(`
         SELECT TOP 50 Id, ReceivedAt, SrcIp, DstIp, DstPort, ReverseDns
-        FROM RouterWebLogs WHERE SrcIp IN (${ipList}) ORDER BY ReceivedAt DESC
+        FROM RouterWebLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since ORDER BY ReceivedAt DESC
       `),
-      // Scoped to the last CHART_WINDOW_DAYS, not full history like the IP-history/table
-      // queries elsewhere on this page - these tables go back years, so an all-time breakdown
-      // never reflects what an employee is doing lately (an old backlog of tens of millions of
-      // rows would permanently dominate the chart over any recent activity, and would also
-      // never stop showing "Uncategorized"/"Unclassified" if Category/Application ever went
-      // back to being unparsed for a stretch of time - a rolling window self-heals from that,
-      // an all-time aggregate never does).
-      wfCategoryRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Category: string; Cnt: number }>(`
-        SELECT COALESCE(NULLIF(Category, ''), 'Uncategorized') AS Category, COUNT(*) AS Cnt
-        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
-        GROUP BY COALESCE(NULLIF(Category, ''), 'Uncategorized')
-      `),
-      // Application (Sophos App Control's app_name) is only populated once that engine has
-      // classified the flow - many short-lived connections never get one, so those are folded
-      // into "Unclassified" rather than silently dropped from the chart's total.
-      wfApplicationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Application: string; Cnt: number }>(`
-        SELECT COALESCE(NULLIF(Application, ''), 'Unclassified') AS Application, COUNT(*) AS Cnt
-        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
-        GROUP BY COALESCE(NULLIF(Application, ''), 'Unclassified')
-      `),
-      rwDestinationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Destination: string; Cnt: number }>(`
+        rwDestinationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Destination: string; Cnt: number }>(`
         SELECT COALESCE(NULLIF(ReverseDns, ''), NULLIF(DstIp, ''), 'Unknown') AS Destination, COUNT(*) AS Cnt
         FROM RouterWebLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
         GROUP BY COALESCE(NULLIF(ReverseDns, ''), NULLIF(DstIp, ''), 'Unknown')
       `),
-      // Bandwidth is Sophos-only - Mikrotik's WEBCONN log lines never carry a byte count, only
-      // connection tuples (see RouterWebLogs' schema), so this can't be totaled across both
-      // sources the way the category/destination breakdowns are.
-      wfBandwidthRequest.input("since", sql.DateTime2, chartWindowStart).query<{ TotalBytes: number | null }>(`
-        SELECT SUM(CAST(ISNULL(BytesSent, 0) AS BIGINT) + CAST(ISNULL(BytesReceived, 0) AS BIGINT)) AS TotalBytes
+        wfRowsRequest.input("since", sql.DateTime2, chartWindowStart).query<WebFilterRow>(`
+        SELECT TOP 50 Id, ReceivedAt, SrcIp, Domain, Url, Category, Action, Application
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since ORDER BY ReceivedAt DESC
+      `),
+        wfCategoryRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Category: string; Cnt: number }>(`
+        SELECT COALESCE(NULLIF(Category, ''), 'Uncategorized') AS Category, COUNT(*) AS Cnt
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+        GROUP BY COALESCE(NULLIF(Category, ''), 'Uncategorized')
+      `),
+        wfApplicationRequest.input("since", sql.DateTime2, chartWindowStart).query<{ Application: string; Cnt: number }>(`
+        SELECT COALESCE(NULLIF(Application, ''), 'Unknown') AS Application, COUNT(*) AS Cnt
+        FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
+        GROUP BY COALESCE(NULLIF(Application, ''), 'Unknown')
+      `),
+        wfBandwidthRequest.input("since", sql.DateTime2, chartWindowStart).query<{ TotalBytes: number | null }>(`
+        SELECT SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes
         FROM WebFilterLogs WHERE SrcIp IN (${ipList}) AND ReceivedAt >= @since
       `),
-    ]);
-    webFilterRows = webFilterResult.recordset;
+      ]);
     routerWebRows = routerWebResult.recordset;
-    categoryBreakdown = categoryResult.recordset.map((r) => ({ name: r.Category, value: r.Cnt }));
-    applicationBreakdown = applicationResult.recordset.map((r) => ({ name: r.Application, value: r.Cnt }));
     destinationBreakdown = destinationResult.recordset.map((r) => ({ name: r.Destination, value: r.Cnt }));
-    bandwidthMB = (bandwidthResult.recordset[0]?.TotalBytes ?? 0) / (1024 * 1024);
-  }
+    webFilterRows = webFilterResult.recordset;
+    webFilterCategoryBreakdown = webFilterCategoryResult.recordset.map((r) => ({ name: r.Category, value: r.Cnt }));
+    webFilterApplicationBreakdown = webFilterApplicationResult.recordset.map((r) => ({ name: r.Application, value: r.Cnt }));
+    webFilterBandwidthBytes = webFilterBandwidthResult.recordset[0]?.TotalBytes ?? 0;
+  })();
 
-  // Browser Activity (Agent) - a separate, richer source from the WebFilterLogs panel above:
-  // this comes from the endpoint agent reading local browser history directly (page titles,
-  // real per-domain dwell estimates), not from Sophos/Mikrotik observing network traffic.
-  // Deliberately keyed by Devices.StaffId (not IP/MAC like the panel above) and never merged
-  // into the same table - the two have different guarantees and shouldn't be presented as one
+  // Browser Activity (Agent) - this comes from the endpoint agent reading local browser
+  // history directly (page titles, real per-domain dwell estimates), not from Sophos/Mikrotik
+  // observing network traffic. Deliberately keyed by Devices.StaffId (not IP/MAC like the
+  // panel above) and never merged into the same table - the two have different guarantees
+  // and shouldn't be presented as one
   // dataset. Only ever populated for devices where an admin has explicitly enabled the
   // collector (see BrowserActivityIntervalMinutes), so an empty result here is normal, not a
   // sign anything is broken.
-  const canViewBrowserActivity = (await getBrowserActivitySession("ba_view")) !== null;
-  let browserActivityRows: { Id: number; VisitedAt: string; Domain: string; PageTitle: string | null; Browser: string; CategoryName: string | null }[] = [];
-  let browserActivityCategoryBreakdown: CategoryDatum[] = [];
-  if (canViewBrowserActivity) {
-    const canViewPageTitles = (await getBrowserActivitySession("ba_view_page_titles")) !== null;
+  const browserActivityChain = (async () => {
+    const { can } = await getBrowserActivityAccess();
+    canViewBrowserActivity = can.ba_view === true;
+    if (!canViewBrowserActivity) return;
+    const canViewPageTitles = can.ba_view_page_titles === true;
     const [rowsResult, categoryResult] = await Promise.all([
       db.request().input("staffId", sql.Int, staffMember.Id).query<{
         Id: number;
@@ -395,8 +430,9 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         PageTitle: string | null;
         Browser: string;
         CategoryName: string | null;
+        DwellSeconds: number | null;
       }>(`
-        SELECT TOP 50 e.Id, e.VisitedAt, e.Domain, e.PageTitle, e.Browser, c.Name AS CategoryName
+        SELECT TOP 50 e.Id, e.VisitedAt, e.Domain, e.PageTitle, e.Browser, c.Name AS CategoryName, e.DwellSeconds
         FROM BrowserActivityEvents e LEFT JOIN DomainCategories c ON c.Id = e.CategoryId
         WHERE e.StaffId = @staffId ORDER BY e.VisitedAt DESC
       `),
@@ -412,7 +448,11 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       PageTitle: canViewPageTitles ? r.PageTitle : r.PageTitle ? "•••" : null,
     }));
     browserActivityCategoryBreakdown = categoryResult.recordset.map((r) => ({ name: r.CategoryName, value: r.Cnt }));
-  }
+  })();
+
+  await Promise.all([deviceReportChain, activityReportChain, browserActivityChain]);
+
+  const allIps = [...new Set(historicalIps.map((h) => h.IpAddress))];
 
   return (
     <div>
@@ -447,10 +487,19 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       </div>
 
       <div className="dash-panel">
-        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>{t("assignedEndpointAgentTitle")}</h2>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <h2 style={{ fontSize: "1rem", margin: 0 }}>{t("assignedEndpointAgentTitle")}</h2>
+          {linkedDevice && (
+            <DevicePowerActions
+              deviceId={linkedDevice.DeviceId}
+              hostname={linkedDevice.Hostname}
+              isSelf={isSelfDevice({ hostname: linkedDevice.Hostname, lastIp: linkedDevice.LastIp, staticIpAddress: linkedDevice.StaticIpAddress })}
+            />
+          )}
+        </div>
         {linkedDevice ? (
           <div>
-            <p style={{ fontSize: "0.85rem", margin: "0 0 0.75rem" }}>
+            <p style={{ fontSize: "0.85rem", margin: "0.5rem 0 0.75rem" }}>
               <Link href={`/dashboard/endpoint-agents/${linkedDevice.DeviceId}`} style={{ color: "var(--series-1)" }}>
                 {linkedDevice.Hostname}
               </Link>{" "}
@@ -470,6 +519,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
               processes={deviceProcesses}
               services={deviceServices}
               software={deviceSoftware}
+              localUsers={deviceLocalUsers}
               alerts={deviceAlerts}
               usbEvents={deviceUsbEvents}
             />
@@ -488,11 +538,58 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       </div>
 
       <div className="dash-panel">
+        <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>Application Usage</h2>
+        <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", marginTop: 0, marginBottom: "0.75rem" }}>
+          Built from process snapshots polled every ~90 seconds - times are approximate, not exact, and multiple windows/tabs of the
+          same app count as one session.
+        </p>
+        {appUsageSessions.length === 0 ? (
+          <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)", margin: 0 }}>No application usage recorded yet.</p>
+        ) : (
+          <table style={{ width: "100%", fontSize: "0.82rem", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "0.3rem" }}>Application</th>
+                <th style={{ padding: "0.3rem" }}>Started</th>
+                <th style={{ padding: "0.3rem" }}>Ended</th>
+                <th style={{ padding: "0.3rem" }}>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {appUsageSessions.map((s) => {
+                const start = new Date(s.startedAt).getTime();
+                const end = s.endedAt ? new Date(s.endedAt).getTime() : new Date(s.lastSeenAt).getTime();
+                const durationMin = Math.max(0, Math.round((end - start) / 60000));
+                return (
+                  <tr key={s.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "0.3rem" }}>{s.processName}</td>
+                    <td style={{ padding: "0.3rem", whiteSpace: "nowrap" }}>{new Date(s.startedAt).toLocaleString()}</td>
+                    <td style={{ padding: "0.3rem", whiteSpace: "nowrap" }}>
+                      {s.endedAt ? new Date(s.endedAt).toLocaleString() : <span style={{ color: "var(--success)" }}>Still running</span>}
+                    </td>
+                    <td style={{ padding: "0.3rem" }}>
+                      {durationMin < 60 ? `${durationMin}m` : `${Math.floor(durationMin / 60)}h ${durationMin % 60}m`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="dash-panel">
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", fontSize: "0.85rem" }}>
           <span>
             <span className={`status-dot status-${statusColor}`} style={{ marginRight: "0.4rem" }} />
             <span style={{ color: "var(--ink-muted)" }}>{t("statusLabel")}</span>{" "}
-            {!staffMember.MacAddress ? t("noDeviceAssigned") : isOnline ? t("onlineLabel") : t("offlineLabel")}
+            {!staffMember.MacAddress
+              ? t("noDeviceAssigned")
+              : isOnline
+                ? t("onlineLabel")
+                : isRemoteVpn
+                  ? <span title={t("offlineRemoteHint")}>{t("offlineRemoteLabel")}</span>
+                  : t("offlineLabel")}
           </span>
           <span>
             <span style={{ color: "var(--ink-muted)" }}>{t("macAddressLabel")}</span>{" "}
@@ -504,7 +601,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </span>
           <span>
             <span style={{ color: "var(--ink-muted)" }}>{t("sourceLabel")}</span>{" "}
-            {source === "mikrotik" ? "MikroTik" : source === "sophos" ? "Sophos" : "-"}
+            {source === "mikrotik" ? "MikroTik" : source === "sophos" ? "Sophos" : source === "agent" ? "Agent" : "-"}
           </span>
           <span>
             <span style={{ color: "var(--ink-muted)" }}>{t("deviceLabel2")}</span> {deviceName ?? "-"}
@@ -555,38 +652,34 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      {allIps.length === 0 ? (
-        <div className="dash-panel">
-          <p style={{ color: "var(--ink-muted)" }}>
-            {t("noDeviceEverSeenNotice")}
-          </p>
-        </div>
-      ) : (
-        <>
+      {/* Each panel below already has its own empty-state message (Web Filter's and Router
+          Web Connections' "No ... yet" messages, Browser Activity's implicit empty table) -
+          no need for an outer "no device ever seen" gate here. That gate used to wrap these
+          panels behind allIps.length (MAC-derived network history only), which meant a
+          direct-enrollment employee with no MacAddress at all never saw their own working
+          Browser Activity data, even though it has nothing to do with MAC-based history. */}
+      <>
           <div className="dash-panel">
-            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>
-              {t("webFilterReportTitle")}
-            </h2>
-            <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
-              {t("activityReportSub")}
-            </p>
-            <p style={{ fontSize: "0.85rem", margin: "0 0 1rem" }}>
-              <span style={{ color: "var(--ink-muted)" }}>{t("bandwidthLabel")}</span>{" "}
-              <strong>{bandwidthMB >= 1024 ? `${(bandwidthMB / 1024).toFixed(2)} GB` : `${bandwidthMB.toFixed(1)} MB`}</strong>
-            </p>
-            {(categoryBreakdown.length > 0 || applicationBreakdown.length > 0) && (
+            <h2 style={{ fontSize: "1rem", marginTop: 0, marginBottom: "0.5rem" }}>{t("webFilterReportTitle")}</h2>
+            <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>{t("activityReportSub")}</p>
+            {(webFilterCategoryBreakdown.length > 0 || webFilterApplicationBreakdown.length > 0) && (
               <div className="flex flex-wrap gap-4" style={{ marginBottom: "1rem" }}>
-                {categoryBreakdown.length > 0 && (
-                  <div style={{ flex: "1 1 320px", maxWidth: 420 }}>
-                    <CategoryDonutChart title={t("categoryChartTitle")} data={categoryBreakdown} emptyMessage={t("noWebFilterEvents")} />
+                {webFilterCategoryBreakdown.length > 0 && (
+                  <div style={{ maxWidth: 420, flex: "1 1 320px" }}>
+                    <CategoryDonutChart title={t("categoryChartTitle")} data={webFilterCategoryBreakdown} emptyMessage={t("noWebFilterEvents")} />
                   </div>
                 )}
-                {applicationBreakdown.length > 0 && (
-                  <div style={{ flex: "1 1 320px", maxWidth: 420 }}>
-                    <CategoryDonutChart title={t("applicationChartTitle")} data={applicationBreakdown} emptyMessage={t("noWebFilterEvents")} />
+                {webFilterApplicationBreakdown.length > 0 && (
+                  <div style={{ maxWidth: 420, flex: "1 1 320px" }}>
+                    <CategoryDonutChart title={t("applicationChartTitle")} data={webFilterApplicationBreakdown} emptyMessage={t("noWebFilterEvents")} />
                   </div>
                 )}
               </div>
+            )}
+            {webFilterBandwidthBytes > 0 && (
+              <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem" }}>
+                {t("bandwidthLabel")} {formatBytes(webFilterBandwidthBytes)}
+              </p>
             )}
             {webFilterRows.length === 0 ? (
               <p style={{ color: "var(--ink-muted)" }}>{t("noWebFilterEvents")}</p>
@@ -598,16 +691,14 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                     <th style={{ padding: "0.4rem" }}>{t("ipColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("domainColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("categoryColumn")}</th>
-                    <th style={{ padding: "0.4rem" }}>{t("applicationColumn")}</th>
                     <th style={{ padding: "0.4rem" }}>{t("actionColumn")}</th>
+                    <th style={{ padding: "0.4rem" }}>{t("applicationColumn")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {webFilterRows.map((r) => (
                     <tr key={r.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
-                      <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>
-                        {new Date(r.ReceivedAt).toLocaleString()}
-                      </td>
+                      <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(r.ReceivedAt).toLocaleString()}</td>
                       <td style={{ padding: "0.4rem" }}>
                         <Link href={`/dashboard/web-filter/${encodeURIComponent(r.SrcIp)}`} style={{ color: "var(--series-1)" }}>
                           {r.SrcIp}
@@ -615,8 +706,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                       </td>
                       <td style={{ padding: "0.4rem" }}>{r.Domain ?? r.Url ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.Category ?? "-"}</td>
-                      <td style={{ padding: "0.4rem" }}>{r.Application ?? "-"}</td>
                       <td style={{ padding: "0.4rem" }}>{r.Action ?? "-"}</td>
+                      <td style={{ padding: "0.4rem" }}>{r.Application ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -649,6 +740,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                       <th style={{ padding: "0.4rem" }}>Page Title</th>
                       <th style={{ padding: "0.4rem" }}>Browser</th>
                       <th style={{ padding: "0.4rem" }}>Category</th>
+                      <th style={{ padding: "0.4rem" }}>Time Spent</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -659,6 +751,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                         <td style={{ padding: "0.4rem" }}>{r.PageTitle ?? "—"}</td>
                         <td style={{ padding: "0.4rem", textTransform: "capitalize" }}>{r.Browser}</td>
                         <td style={{ padding: "0.4rem" }}>{r.CategoryName ?? "Uncategorized"}</td>
+                        <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{formatDwell(r.DwellSeconds)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -716,7 +809,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             )}
           </div>
         </>
-      )}
     </div>
   );
 }
+
+

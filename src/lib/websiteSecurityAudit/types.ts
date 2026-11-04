@@ -27,6 +27,10 @@ export interface EnterpriseFindingFields {
 }
 
 export interface Finding extends EnterpriseFindingFields {
+  // Set only once read back from WebsiteAuditFindings after a scan is persisted — absent on
+  // the in-memory Finding objects runScan.ts builds before the INSERT assigns an identity.
+  id?: number;
+  auditorNote?: string | null;
   category: string;
   severity: Severity;
   title: string;

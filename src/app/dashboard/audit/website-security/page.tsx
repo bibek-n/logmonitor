@@ -1,10 +1,13 @@
 import { getDb } from "@/lib/db";
 import WebsiteSecurityAuditClient, { type WebsiteSummary } from "@/components/websiteSecurity/WebsiteSecurityAuditClient";
+import { getWebsiteSecurityHeatmap } from "@/lib/websiteSecurityAudit/heatmap";
+import { SecurityHeatmapSection } from "@/components/websiteSecurity/SecurityHeatmapSection";
 
 export const dynamic = "force-dynamic";
 
 export default async function WebsiteSecurityAuditPage() {
   const db = await getDb();
+  const heatmapRows = await getWebsiteSecurityHeatmap();
   const result = await db.query<WebsiteSummary>(`
     SELECT w.Id, w.Name, w.Url,
            latest.Id AS LatestScanId, latest.ScanDate AS LatestScanDate, latest.Status AS LatestStatus,
@@ -31,7 +34,10 @@ export default async function WebsiteSecurityAuditPage() {
         every enabled website, scores the result, and emails a PDF report daily. No brute-force, password, denial-of-
         service, or destructive testing is ever performed. Any secret found is masked everywhere it's shown.
       </p>
-      <WebsiteSecurityAuditClient websites={result.recordset} />
+      <SecurityHeatmapSection rows={heatmapRows} />
+      <div id="website-security-table">
+        <WebsiteSecurityAuditClient websites={result.recordset} />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import net from "net";
 import { getDb, sql } from "./db";
 import { connectRaw, connectTlsDirect, upgradeToTls, sendCmd, replyCode, dotStuff, readSmtpReply } from "./emailTools";
+import { sendWebhookNotification } from "./notifyWebhook";
+import { sendPushNotification } from "./pushNotifications";
 
 export interface EmailAttachment {
   filename: string;
@@ -137,6 +139,14 @@ export async function sendNotificationEmail(opts: NotifyEmailOptions): Promise<S
     return { success: false, error: "Notifications disabled" };
   }
 
+  // Fired in parallel, not awaited - the webhook channel (Settings > Notifications >
+  // Webhook Alerts) is independent of whether SMTP itself is configured or working, and a
+  // slow/unreachable webhook endpoint must never delay or block the email send.
+  sendWebhookNotification(opts.subject, opts.body).catch(() => {});
+  // Same reasoning for browser push - independent per-viewer opt-in, must never block or
+  // delay the email send, and already no-ops safely if push isn't set up or has no subscribers.
+  sendPushNotification(opts.subject, opts.body).catch(() => {});
+
   const config = await resolveSmtpConfig();
   if (!config) {
     console.error("[notifyEmail] no SMTP configuration available (neither SmtpSettings row nor NOTIFY_SMTP_* env vars) — skipping send.");
@@ -199,5 +209,30 @@ export async function sendNotificationEmail(opts: NotifyEmailOptions): Promise<S
     console.error(`[notifyEmail] failed to send to ${opts.to}:`, message);
     await logDelivery(opts.to, opts.subject, false, message);
     return { success: false, error: message };
+  }
+}
+
+// Defers an email instead of sending it immediately - for high-volume, automated sources
+// (intrusion detection alerts specifically) where sending one message per event is what got
+// this app's sending mailbox (alert@tulipstechnologies.com) blocked for spam by its provider
+// on 2026-09-13 after a sustained multi-thousand-per-day send rate. A separate scheduled job
+// (scripts/send-email-digest.ts, run every 15 minutes) batches everything queued per
+// recipient into a single combined email via sendNotificationEmail above - this function
+// itself never talks to SMTP at all, just inserts a row, so it can't fail the same way a live
+// send can (and callers that already wrap sendNotificationEmail in a best-effort .catch() work
+// unchanged with this swapped in). Every other email path in this app (contact form replies,
+// OTP, ticket notifications, reports) is unaffected - only intrusion detection's two
+// alert-notification call sites use this.
+export async function queueDigestEmail(to: string, subject: string, body: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db
+      .request()
+      .input("to", sql.NVarChar, to)
+      .input("subject", sql.NVarChar, subject)
+      .input("body", sql.NVarChar, body)
+      .query("INSERT INTO PendingEmailDigestQueue (ToAddress, Subject, Body) VALUES (@to, @subject, @body)");
+  } catch (err) {
+    console.error(`[notifyEmail] failed to queue digest email for ${to}:`, err instanceof Error ? err.message : err);
   }
 }

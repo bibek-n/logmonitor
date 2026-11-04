@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Pencil, Search, X, Globe } from "lucide-react";
+import { Pencil, Search, X, Globe, ShieldAlert, RotateCw, ShieldOff } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ToastProvider } from "@/components/ui/Toast";
 import { EditEmployeeModal, type EditableEmployee } from "./EditEmployeeModal";
@@ -25,8 +25,15 @@ function formatDuration(from: Date | null): string {
   return `${minutes}m`;
 }
 
+export interface DeviceHealth {
+  outdatedAgent: boolean;
+  rebootRequired: boolean;
+  criticalUpdatesPending: boolean;
+}
+
 export interface EmployeeRow extends EditableEmployee {
   isOnline: boolean;
+  isRemoteVpn: boolean;
   MacAddress: string | null;
   deviceName: string | null;
   deviceType: string;
@@ -37,6 +44,26 @@ export interface EmployeeRow extends EditableEmployee {
   source: "mikrotik" | "sophos" | null;
   webActivityCount: number;
   webActivityLastSeen: Date | null;
+  health: DeviceHealth | null;
+}
+
+// Small inline warning icons next to a staff member's online/offline status - surfaces
+// agent/update problems (previously only visible by opening Security & Updates separately)
+// right where an admin is already looking for "is this person's device OK".
+function HealthBadges({ health }: { health: DeviceHealth | null }) {
+  if (!health) return null;
+  const items: { Icon: typeof ShieldAlert; title: string; color: string }[] = [];
+  if (health.criticalUpdatesPending) items.push({ Icon: ShieldAlert, title: "Critical security updates pending", color: "var(--danger)" });
+  if (health.rebootRequired) items.push({ Icon: RotateCw, title: "Reboot required to finish installing updates", color: "var(--warning)" });
+  if (health.outdatedAgent) items.push({ Icon: ShieldOff, title: "Monitoring agent is out of date", color: "var(--ink-muted)" });
+  if (items.length === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1" style={{ marginLeft: "0.4rem" }}>
+      {items.map(({ Icon, title, color }, i) => (
+        <Icon key={i} size={13} color={color} title={title} />
+      ))}
+    </span>
+  );
 }
 
 function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
@@ -99,7 +126,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
       <>
       <div className="flex flex-col gap-3 md:hidden">
         {filteredEmployees.map((s) => {
-          const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "critical";
+          const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : s.isRemoteVpn ? "warning" : "critical";
           return (
             <div key={s.Id} className="flex flex-col gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "0.9rem 1rem" }}>
               <div className="flex items-start justify-between gap-2">
@@ -112,8 +139,9 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                         {s.Name}
                       </Link>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }}>
-                      {!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : t("offlineStatus")}
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--ink-muted)" }} title={!s.isOnline && s.isRemoteVpn ? t("offlineRemoteTitle") : undefined}>
+                      {!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : s.isRemoteVpn ? t("offlineRemoteStatus") : t("offlineStatus")}
+                      <HealthBadges health={s.health} />
                     </p>
                   </div>
                 </div>
@@ -214,7 +242,7 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
           </thead>
           <tbody>
             {filteredEmployees.map((s) => {
-              const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : "critical";
+              const status = !s.MacAddress ? "unknown" : s.isOnline ? "good" : s.isRemoteVpn ? "warning" : "critical";
               return (
                 <tr key={s.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
                   <td style={{ padding: "0.5rem" }}>
@@ -226,7 +254,10 @@ function EmployeesTableInner({ employees }: { employees: EmployeeRow[] }) {
                       {s.Name}
                     </Link>
                   </td>
-                  <td style={{ padding: "0.5rem" }}>{!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : t("offlineStatus")}</td>
+                  <td style={{ padding: "0.5rem" }} title={!s.isOnline && s.isRemoteVpn ? t("offlineRemoteTitle") : undefined}>
+                    {!s.MacAddress ? t("noDeviceStatus") : s.isOnline ? t("onlineStatus") : s.isRemoteVpn ? t("offlineRemoteStatus") : t("offlineStatus")}
+                    <HealthBadges health={s.health} />
+                  </td>
                   <td style={{ padding: "0.5rem" }}>{s.Email ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Department ?? "-"}</td>
                   <td style={{ padding: "0.5rem" }}>{s.Position ?? "-"}</td>

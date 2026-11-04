@@ -1,8 +1,8 @@
 import dns from "dns";
 import type { Finding } from "./types";
+import { safeFetch } from "./safeNetwork";
 
 const FETCH_TIMEOUT_MS = 15000;
-const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
 
 export interface WebsiteInfo {
   domain: string;
@@ -64,12 +64,7 @@ async function lookupIpInfo(ip: string): Promise<{ hostingProvider: string | nul
 
 async function pathExists(origin: string, path: string): Promise<boolean> {
   try {
-    const res = await fetch(`${origin}${path}`, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { "User-Agent": UA },
-    });
+    const res = await safeFetch(`${origin}${path}`, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     return res.status === 200;
   } catch {
     return false;

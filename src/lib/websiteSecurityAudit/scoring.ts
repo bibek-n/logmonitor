@@ -10,12 +10,18 @@ const SEVERITY_DEDUCTION: Record<Severity, number> = {
   info: 0,
 };
 
+// Previously a single flat deduct-from-100 pool across every finding in the whole report,
+// independent of computeModuleScores() below — a report with findings spread across many of
+// the 10 modules (each only mildly affected) could still pool enough small deductions to hit
+// 0/"Critical" overall while every individual module score looked fine, which read as
+// contradictory/wrong next to the module breakdown shown in the same report. Now the overall
+// score IS the average of the module scores, so the two numbers always agree, and one bad
+// module can no longer sink the overall score further than that module's own severity.
 export function computeSecurityScore(findings: Finding[], dependencyFindings: DependencyFinding[], codeFindings: CodeFinding[]): number {
-  let score = 100;
-  for (const f of findings) score -= SEVERITY_DEDUCTION[f.severity];
-  for (const f of dependencyFindings) score -= SEVERITY_DEDUCTION[f.severity];
-  for (const f of codeFindings) score -= SEVERITY_DEDUCTION[f.severity];
-  return Math.max(0, Math.round(score));
+  const moduleScores = computeModuleScores(findings, dependencyFindings, codeFindings);
+  const values = Object.values(moduleScores);
+  const average = values.reduce((sum, v) => sum + v, 0) / values.length;
+  return Math.max(0, Math.round(average));
 }
 
 export function riskLevelForScore(score: number): RiskLevel {

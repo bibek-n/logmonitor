@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWebsiteSecurityPermission, isWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
 import { logAdminAction } from "@/lib/adminAudit";
 import { createScanRow, executeScan } from "@/lib/websiteSecurityAudit/runScan";
 import { sendScanReportEmail } from "@/lib/websiteSecurityAudit/emailReport";
@@ -9,8 +9,8 @@ import { sendScanReportEmail } from "@/lib/websiteSecurityAudit/emailReport";
 // end replaces non-2xx response bodies with a generic HTML error page, which would
 // otherwise hand the dashboard's res.json() an HTML document instead of {ok:false, error}.
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWebsiteSecurityPermission("wsa_scan");
+  if (!isWebsiteSecuritySession(admin)) return admin;
 
   const body = await req.json().catch(() => null);
   const websiteId = Number(body?.websiteId);

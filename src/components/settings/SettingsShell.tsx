@@ -36,6 +36,7 @@ export interface SettingsInitialData {
   notificationTemplates: any;
   notificationRules: any;
   notificationRecipients: any;
+  webhookSettings: any;
   branding: any;
   backupSchedule: any;
   backupHistory: any;
@@ -74,6 +75,7 @@ function SettingsContent({ active, data }: { active: string; data: SettingsIniti
           initialTemplates={data.notificationTemplates}
           initialRules={data.notificationRules}
           initialRecipients={data.notificationRecipients}
+          initialWebhookSettings={data.webhookSettings}
         />
       );
     case "branding":

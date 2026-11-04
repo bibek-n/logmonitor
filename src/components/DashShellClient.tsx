@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 import { MobileSidebarContext } from "./MobileSidebarContext";
 import { ToastProvider } from "./ui/Toast";
 import FloatingChatWidget from "./chat/FloatingChatWidget";
+import { CommandPalette } from "./commandPalette/CommandPalette";
 
 export default function DashShellClient({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function DashShellClient({ children }: { children: ReactNode }) {
           {open && <div className="dash-mobile-backdrop" onClick={value.close} />}
         </div>
         <FloatingChatWidget />
+        <CommandPalette />
       </ToastProvider>
     </MobileSidebarContext.Provider>
   );

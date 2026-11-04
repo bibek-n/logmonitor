@@ -1,4 +1,5 @@
 import type { CodeFinding } from "./types";
+import { safeFetch } from "./safeNetwork";
 
 // Mask a matched secret to a few boundary characters only — this function's output is the
 // ONLY form a secret is ever allowed to take once found: it's what gets stored in the DB,
@@ -127,17 +128,21 @@ export async function scanClientBundlesForSecrets(pageUrl: string, html: string)
     .filter((src) => !src.startsWith("http") || src.startsWith(new URL(pageUrl).origin))
     .slice(0, 8); // cap how many bundles we fetch per scan — this is a lightweight check, not a full crawl
 
-  const findings: CodeFinding[] = [];
-  for (const src of scriptSrcs) {
-    try {
+  // Fetched in parallel, not one-at-a-time - up to 8 bundles at 10s timeout each was an 80s
+  // worst case serially, same anti-pattern as the other probe loops in this scanner.
+  const results = await Promise.allSettled(
+    scriptSrcs.map(async (src) => {
       const scriptUrl = new URL(src, pageUrl).toString();
-      const res = await fetch(scriptUrl, { signal: AbortSignal.timeout(10000) });
-      if (!res.ok) continue;
+      const res = await safeFetch(scriptUrl, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return [];
       const body = await res.text();
-      findings.push(...scanSourceForSecrets(body, scriptUrl));
-    } catch {
-      // one bundle failing to fetch shouldn't fail the whole scan
-    }
+      return scanSourceForSecrets(body, scriptUrl);
+    })
+  );
+  const findings: CodeFinding[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") findings.push(...r.value);
+    // one bundle failing to fetch shouldn't fail the whole scan
   }
   return findings;
 }

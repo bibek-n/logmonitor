@@ -1202,8 +1202,12 @@ export async function getDashboardStats(): Promise<Record<string, number>> {
       (SELECT COUNT(*) FROM SoftwareInventory WHERE IsDeleted = 0 AND SoftwareStatus = 'Unsupported') AS UnsupportedSoftware,
       (SELECT COUNT(*) FROM SoftwareInventory WHERE IsDeleted = 0 AND LicenceExpiryDate IS NOT NULL AND LicenceExpiryDate <= DATEADD(DAY, 30, SYSUTCDATETIME())) AS LicencesExpiringSoon,
       (SELECT COUNT(*) FROM MaintenanceLogs WHERE IsDeleted = 0 AND Status IN ('Planned','Scheduled') AND ScheduledDate <= DATEADD(DAY, 7, SYSUTCDATETIME())) AS MaintenanceTasksDue,
-      (SELECT COUNT(*) FROM MaintenanceLogs WHERE IsDeleted = 0 AND Status IN ('Planned','Scheduled') AND ScheduledDate < CAST(SYSUTCDATETIME() AS DATE)) AS OverdueMaintenanceTasks,
-      (SELECT COUNT(*) FROM Assets WHERE IsDeleted = 0 AND (NextInventoryCheckDate IS NULL OR NextInventoryCheckDate < CAST(SYSUTCDATETIME() AS DATE))) AS AssetsNotCheckedRecently
+      -- ScheduledDate/NextInventoryCheckDate are plain DATE columns representing a Nepal-local
+      -- calendar date (not a UTC instant) - comparing against raw UTC "today" would misjudge
+      -- overdue status for the first ~5h45m of every Nepal day, so "today" is derived by
+      -- shifting SYSUTCDATETIME() by the +5:45 offset before truncating to a date.
+      (SELECT COUNT(*) FROM MaintenanceLogs WHERE IsDeleted = 0 AND Status IN ('Planned','Scheduled') AND ScheduledDate < CAST(DATEADD(MINUTE, 345, SYSUTCDATETIME()) AS DATE)) AS OverdueMaintenanceTasks,
+      (SELECT COUNT(*) FROM Assets WHERE IsDeleted = 0 AND (NextInventoryCheckDate IS NULL OR NextInventoryCheckDate < CAST(DATEADD(MINUTE, 345, SYSUTCDATETIME()) AS DATE))) AS AssetsNotCheckedRecently
   `;
   return result.recordset[0];
 }

@@ -19,6 +19,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     await db.request().input("id", sql.Int, roleId).query("DELETE FROM RolePermissions WHERE RoleId = @id");
+    await db.request().input("id", sql.Int, roleId).query("DELETE FROM RoleMenuAccess WHERE RoleId = @id");
     await db.request().input("id", sql.Int, roleId).query("DELETE FROM Roles WHERE Id = @id");
   } catch {
     return NextResponse.json({ ok: false, error: "Cannot delete: this role is still referenced elsewhere." }, { status: 409 });

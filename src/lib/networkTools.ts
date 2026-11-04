@@ -1,6 +1,9 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import dns from "dns";
+import http from "http";
+import https from "https";
+import { checkLiteralIpNotRestricted, createSafeLookup, SsrfBlockedError } from "./websiteApiMonitoring/ssrfGuard";
 
 const execFileAsync = promisify(execFile);
 const dnsPromises = dns.promises;
@@ -219,6 +222,121 @@ export function parsePingSummary(output: string): { sent: number; recv: number; 
     avg: rttMatch ? `${rttMatch[3]}ms` : "-",
     max: rttMatch ? `${rttMatch[2]}ms` : "-",
   };
+}
+
+// --- Redirect Checker ---
+// Follows a URL's full redirect chain hop by hop (not just the final destination), reusing
+// the same SSRF guard the Website & API Monitoring engine uses (checkLiteralIpNotRestricted +
+// createSafeLookup, re-validated on every hop) since this accepts an arbitrary admin-supplied
+// URL the same way that monitoring engine does. Only reads response headers (res.resume()
+// discards the body) - a redirect chain never needs page content, just status + Location.
+const MAX_REDIRECT_HOPS = 15;
+const REDIRECT_HOP_TIMEOUT_MS = 10000;
+
+interface RedirectHopResult {
+  statusCode: number;
+  location: string | null;
+}
+
+function fetchHeadersOnce(targetUrl: string): Promise<RedirectHopResult> {
+  return new Promise((resolve, reject) => {
+    let u: URL;
+    try {
+      u = new URL(targetUrl);
+    } catch {
+      reject(new Error(`"${targetUrl}" is not a valid URL.`));
+      return;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      reject(new Error(`Unsupported protocol "${u.protocol}" - only http and https are allowed.`));
+      return;
+    }
+    try {
+      checkLiteralIpNotRestricted(u.hostname);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+
+    const isHttps = u.protocol === "https:";
+    const req = (isHttps ? https : http).request(
+      targetUrl,
+      {
+        method: "GET",
+        headers: { "User-Agent": "LogMonitor-RedirectChecker/1.0", Accept: "text/html,application/xhtml+xml,*/*" },
+        timeout: REDIRECT_HOP_TIMEOUT_MS,
+        lookup: createSafeLookup(),
+        autoSelectFamily: false,
+      },
+      (res) => {
+        res.resume(); // discard the body - only status/headers matter for a redirect chain
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          location: typeof res.headers.location === "string" ? res.headers.location : null,
+        });
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("Request timed out.")));
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+export async function checkRedirectChain(rawUrl: string): Promise<string> {
+  const startUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+  const hops: { url: string; statusCode: number | null; nextUrl: string | null; error: string | null }[] = [];
+  const seen = new Set<string>();
+  let currentUrl = startUrl;
+  let stoppedAtCap = false;
+
+  for (let i = 0; i < MAX_REDIRECT_HOPS; i++) {
+    if (seen.has(currentUrl)) {
+      hops.push({ url: currentUrl, statusCode: null, nextUrl: null, error: "Redirect loop detected - this exact URL was already visited earlier in the chain." });
+      break;
+    }
+    seen.add(currentUrl);
+
+    try {
+      const { statusCode, location } = await fetchHeadersOnce(currentUrl);
+      const isRedirect = statusCode >= 300 && statusCode < 400 && location;
+      if (!isRedirect) {
+        hops.push({ url: currentUrl, statusCode, nextUrl: null, error: null });
+        break;
+      }
+      const nextUrl = new URL(location, currentUrl).toString();
+      hops.push({ url: currentUrl, statusCode, nextUrl, error: null });
+      currentUrl = nextUrl;
+      if (i === MAX_REDIRECT_HOPS - 1) stoppedAtCap = true;
+    } catch (err) {
+      const message = err instanceof SsrfBlockedError ? err.message : err instanceof Error ? err.message : "Request failed.";
+      hops.push({ url: currentUrl, statusCode: null, nextUrl: null, error: message });
+      break;
+    }
+  }
+
+  const lines: string[] = [`Redirect chain for ${startUrl}:`, ""];
+  hops.forEach((hop, i) => {
+    lines.push(`${i + 1}. ${hop.url}`);
+    if (hop.error) {
+      lines.push(`   -> ${hop.error}`);
+    } else if (hop.nextUrl) {
+      lines.push(`   -> HTTP ${hop.statusCode} -> ${hop.nextUrl}`);
+    } else {
+      lines.push(`   -> HTTP ${hop.statusCode} (final destination, no further redirect)`);
+    }
+    lines.push("");
+  });
+
+  const redirectCount = hops.filter((h) => h.nextUrl).length;
+  const last = hops[hops.length - 1];
+  lines.push(`Total redirects: ${redirectCount}`);
+  if (last && !last.error && !last.nextUrl) {
+    lines.push(`Final URL: ${last.url} (HTTP ${last.statusCode})`);
+  } else if (stoppedAtCap) {
+    lines.push(`Stopped after ${MAX_REDIRECT_HOPS} hops without reaching a final page - likely a redirect loop or an unusually long chain.`);
+  }
+
+  return lines.join("\n");
 }
 
 export async function runMtr(target: string): Promise<string> {

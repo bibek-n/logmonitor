@@ -1,11 +1,13 @@
 import tls from "tls";
 import { getDb, sql } from "@/lib/db";
+import { safeTlsLookup } from "./safeNetwork";
 import { detectPlatform, detectTechSignals, detectVulnerableJsLibraries, checkPhpVersion } from "./platformDetect";
 import { runHttpChecks } from "./httpChecks";
 import { runDependencyChecks, detectExposedManifest } from "./dependencyChecks";
 import { scanSourceForSecrets, scanClientBundlesForSecrets } from "./codeChecks";
 import { computeSecurityScore, riskLevelForScore, buildRecommendations, computeModuleScores, buildRemediationRoadmap } from "./scoring";
 import { lookupCatalog } from "./findingCatalog";
+import { checkAndSendScoreDropAlert } from "./scoreDropAlert";
 import { gatherWebsiteInfo, type WebsiteInfo } from "./websiteInfoChecks";
 import { runDnsChecks } from "./dnsChecks";
 import { runEmailSecurityChecks } from "./emailSecurityChecks";
@@ -27,7 +29,7 @@ const EMPTY_TLS_RESULT: TlsCheckResult = { findings: [], supportedVersions: [], 
 
 function attemptTlsVersion(host: string, port: number, version: "TLSv1" | "TLSv1.1" | "TLSv1.2" | "TLSv1.3"): Promise<boolean> {
   return new Promise((resolvePromise) => {
-    const socket = tls.connect({ host, port, servername: host, minVersion: version, maxVersion: version, rejectUnauthorized: false, timeout: 6000 }, () => {
+    const socket = tls.connect({ host, port, servername: host, minVersion: version, maxVersion: version, rejectUnauthorized: false, timeout: 6000, lookup: safeTlsLookup }, () => {
       socket.end();
       resolvePromise(true);
     });
@@ -57,7 +59,7 @@ function checkTls(inputUrl: string): Promise<TlsCheckResult> {
     }
 
     const findings: Finding[] = [];
-    const socket = tls.connect({ host, port, servername: host, rejectUnauthorized: false, timeout: 10000 }, async () => {
+    const socket = tls.connect({ host, port, servername: host, rejectUnauthorized: false, timeout: 10000, lookup: safeTlsLookup }, async () => {
       const cert = socket.getPeerCertificate();
       const protocol = socket.getProtocol();
       const cipher = socket.getCipher();
@@ -229,7 +231,21 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
 
   try {
     await logProgress(scanId, `Connecting to ${opts.url} and checking HTTP headers, cookies, CORS, methods...`);
-    const { findings: httpFindings, context } = await runHttpChecks(opts.url);
+    // One retry before treating the site as unreachable - this single fetch gates the entire
+    // scan (a throw here skips TLS/DNS/email/performance/OWASP/dependency checks entirely and
+    // forces score 0 / Critical risk below), so a one-off transient timeout/ECONNRESET
+    // shouldn't be allowed to tank an otherwise-healthy site's scan. Only one retry, after a
+    // short fixed delay - a genuinely unreachable site should still fail fast rather than
+    // doubling every scan's worst-case duration.
+    let httpResult: Awaited<ReturnType<typeof runHttpChecks>>;
+    try {
+      httpResult = await runHttpChecks(opts.url);
+    } catch (firstErr) {
+      await logProgress(scanId, `First connection attempt failed (${firstErr instanceof Error ? firstErr.message : "unknown error"}), retrying once...`);
+      await new Promise((r) => setTimeout(r, 2500));
+      httpResult = await runHttpChecks(opts.url);
+    }
+    const { findings: httpFindings, context } = httpResult;
     findings = httpFindings;
     websiteStatus = "Online";
     detectedPlatform = await detectPlatform(context.html, context.headers);
@@ -237,7 +253,20 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
 
     const domain = new URL(opts.url).hostname;
 
-    const [tlsResult, infoResult, dnsResult, emailResult, perfResult] = await Promise.all([
+    // Promise.allSettled, not Promise.all - each of these five checks already catches its own
+    // internal errors today and never rejects in practice, but allSettled means that stays
+    // true even if one is later changed to add an unguarded call: a single failing check
+    // degrades to one "inconclusive" info finding instead of silently discarding the other
+    // four checks' real, successful results (or - if this were in the outer try/catch's
+    // blast radius - the whole rest of the scan).
+    const checkMeta: { label: string; module: Finding["module"] }[] = [
+      { label: "TLS", module: "ssl" },
+      { label: "website info", module: "server" },
+      { label: "DNS", module: "dns" },
+      { label: "email security", module: "email" },
+      { label: "performance", module: "performance" },
+    ];
+    const settled = await Promise.allSettled([
       checkTls(opts.url),
       gatherWebsiteInfo(opts.url, context.headers),
       runDnsChecks(domain),
@@ -245,8 +274,28 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
       runPerformanceChecks(opts.url),
     ]);
 
-    findings.push(...tlsResult.findings, ...infoResult.findings, ...dnsResult.findings, ...emailResult.findings, ...perfResult.findings);
-    websiteInfo = infoResult.info;
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i];
+      if (result.status === "rejected") {
+        findings.push({
+          category: "check_inconclusive",
+          severity: "info",
+          title: `${checkMeta[i].label} check could not complete`,
+          description: result.reason instanceof Error ? result.reason.message : String(result.reason),
+          confidence: "Tentative",
+          module: checkMeta[i].module,
+        });
+      }
+    }
+    const [tlsSettled, infoSettled, dnsSettled, emailSettled, perfSettled] = settled;
+    const tlsResult = tlsSettled.status === "fulfilled" ? tlsSettled.value : EMPTY_TLS_RESULT;
+    const infoResult = infoSettled.status === "fulfilled" ? infoSettled.value : null;
+    const dnsResult = dnsSettled.status === "fulfilled" ? dnsSettled.value : null;
+    const emailResult = emailSettled.status === "fulfilled" ? emailSettled.value : null;
+    const perfResult = perfSettled.status === "fulfilled" ? perfSettled.value : null;
+
+    findings.push(...tlsResult.findings, ...(infoResult?.findings ?? []), ...(dnsResult?.findings ?? []), ...(emailResult?.findings ?? []), ...(perfResult?.findings ?? []));
+    websiteInfo = infoResult?.info ?? null;
     await logProgress(scanId, "TLS/DNS/email/performance checks complete.");
 
     findings.push({
@@ -331,7 +380,13 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error during scan";
-    findings.push({ category: "scan_error", severity: "info", title: "Some checks could not complete", description: message });
+    findings.push({
+      category: "scan_error",
+      severity: "critical",
+      title: "Website unreachable - security could not be verified",
+      description: message,
+      recommendation: "Check hosting/DNS/firewall status; a site that cannot be reached cannot be confirmed secure.",
+    });
     await logProgress(scanId, `Some checks could not complete: ${message}`);
   }
 
@@ -341,9 +396,17 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
   dependencyFindings = dependencyFindings.map(mergeDependencyCatalog);
   codeFindings = codeFindings.map(mergeCatalogMetadata);
 
-  const securityScore = computeSecurityScore(findings, dependencyFindings, codeFindings);
-  const riskLevel = riskLevelForScore(securityScore);
-  const moduleScores = computeModuleScores(findings, dependencyFindings, codeFindings);
+  // A site the scanner never connected to previously still scored 100/100 "Low risk" - the
+  // only finding pushed was a 0-deduction "info" note, so every module score (and therefore
+  // their average, computeSecurityScore's result) had nothing to deduct. "Unreachable" is
+  // itself the worst outcome a security audit can report (nothing could be verified), so
+  // it's forced explicitly instead of falling out of the normal per-finding math.
+  const securityScore = websiteStatus === "Unreachable" ? 0 : computeSecurityScore(findings, dependencyFindings, codeFindings);
+  const riskLevel = websiteStatus === "Unreachable" ? "Critical" : riskLevelForScore(securityScore);
+  const moduleScores =
+    websiteStatus === "Unreachable"
+      ? ({ headers: 0, ssl: 0, auth: 0, cookies: 0, js: 0, dns: 0, email: 0, server: 0, owasp: 0, performance: 0 } as ReturnType<typeof computeModuleScores>)
+      : computeModuleScores(findings, dependencyFindings, codeFindings);
   const scanDurationMs = Date.now() - scanStart;
 
   // Each insert is isolated — one malformed/oversized finding shouldn't abort the whole scan
@@ -472,6 +535,13 @@ async function executeScanInner(scanId: number, opts: RunScanOptions): Promise<S
     );
 
   await logProgress(scanId, `Scan completed — score ${securityScore}/100, risk ${riskLevel}.`);
+
+  // Best-effort, never fails the scan itself - compares against the previous completed scan
+  // and only emails if the score dropped sharply, risk got worse, or a new critical finding
+  // showed up (separate, narrower-audience alert from the always-on scan-complete report).
+  await checkAndSendScoreDropAlert(opts.websiteId, securityScore, riskLevel, findings).catch((err) => {
+    console.error("[runScan] score-drop alert check failed:", err instanceof Error ? err.message : err);
+  });
 
   return {
     scanId,

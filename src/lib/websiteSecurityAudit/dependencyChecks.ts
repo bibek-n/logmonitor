@@ -1,4 +1,5 @@
 import type { DependencyFinding, Severity } from "./types";
+import { safeFetch } from "./safeNetwork";
 
 interface ParsedPackage {
   name: string;
@@ -6,7 +7,6 @@ interface ParsedPackage {
 }
 
 const FETCH_TIMEOUT_MS = 10000;
-const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
 
 // Checked in priority order (lockfiles first — they give exact resolved versions rather
 // than ranges). If a site accidentally serves one of these publicly (a real, if minor,
@@ -41,20 +41,21 @@ export interface ExposedManifest {
 // content itself is only ever used for the dependency-CVE lookup, never re-displayed raw.
 export async function detectExposedManifest(baseUrl: string): Promise<ExposedManifest | null> {
   const u = new URL(baseUrl);
-  for (const filename of EXPOSED_MANIFEST_CANDIDATES) {
-    try {
-      const res = await fetch(`${u.origin}/${filename}`, {
-        redirect: "manual",
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { "User-Agent": UA },
-      });
-      if (res.status !== 200) continue;
+  // Probed in parallel, not one-at-a-time - 8 candidates at up to 10s timeout each was a
+  // worst case of 80s serially, same anti-pattern httpChecks.ts's login-path probe had.
+  // First candidate in EXPOSED_MANIFEST_CANDIDATES order that looks genuine still wins.
+  const results = await Promise.allSettled(
+    EXPOSED_MANIFEST_CANDIDATES.map(async (filename) => {
+      const res = await safeFetch(`${u.origin}/${filename}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      if (res.status !== 200) return null;
       const content = await res.text();
-      if (content.length > 2_000_000) continue;
-      if (looksLikeGenuineManifest(filename, content)) return { filename, content };
-    } catch {
-      // unreachable — try the next candidate
-    }
+      if (content.length > 2_000_000) return null;
+      return looksLikeGenuineManifest(filename, content) ? { filename, content } : null;
+    })
+  );
+  for (let i = 0; i < EXPOSED_MANIFEST_CANDIDATES.length; i++) {
+    const r = results[i];
+    if (r.status === "fulfilled" && r.value) return r.value;
   }
   return null;
 }

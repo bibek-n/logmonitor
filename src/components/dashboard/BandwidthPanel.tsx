@@ -32,10 +32,10 @@ export function BandwidthPanel({ data, sparseRanges }: BandwidthPanelProps) {
   const isSparse = sparseRanges.includes(range);
 
   return (
-    <Card className="col-span-full">
+    <Card className="col-span-full" hoverLift tilt3d>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
         <div>
-          <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Bandwidth Analytics</h2>
+          <h2 style={{ fontSize: "1.125rem", margin: 0, color: "var(--ink)" }}>Bandwidth Analytics</h2>
           <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: "0.2rem 0 0" }}>
             WLAN interface (Port2) upload/download rate over time
             {isSparse && " — monitoring history doesn't cover this full window yet, showing what's retained"}
@@ -66,7 +66,7 @@ export function BandwidthPanel({ data, sparseRanges }: BandwidthPanelProps) {
       {points.length < 2 ? (
         <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>Not enough data yet for this range.</p>
       ) : (
-        <div style={{ height: 300 }}>
+        <div style={{ height: 340 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>

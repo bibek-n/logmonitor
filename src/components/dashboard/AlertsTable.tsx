@@ -14,11 +14,11 @@ const SEVERITY_TONE: Record<string, "danger" | "warning" | "info" | "neutral"> =
 
 export function AlertsTable({ alerts }: { alerts: AlertRow[] }) {
   return (
-    <Card>
+    <Card className="h-full flex flex-col" hoverLift tilt3d>
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h2 style={{ fontSize: "1rem", margin: 0, color: "var(--ink)" }}>Recent Alerts</h2>
-          <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: "0.2rem 0 0" }}>
+          <h2 style={{ fontSize: "1.125rem", margin: 0, color: "var(--ink)" }}>Recent Alerts</h2>
+          <p style={{ fontSize: "0.8125rem", color: "var(--ink-muted)", margin: "0.2rem 0 0" }}>
             MikroTik warnings/errors and current DHCP conflicts — most recent first.
           </p>
         </div>
@@ -30,7 +30,7 @@ export function AlertsTable({ alerts }: { alerts: AlertRow[] }) {
       {alerts.length === 0 ? (
         <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>No alerts logged.</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div className="ov-scroll" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>

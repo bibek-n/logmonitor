@@ -1,6 +1,6 @@
 import type { CodeFinding, Finding } from "./types";
+import { safeFetch as sharedSafeFetch } from "./safeNetwork";
 
-const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
 const FETCH_TIMEOUT_MS = 15000;
 const MAX_CRAWL_PAGES = 15;
 const MAX_TOTAL_REQUESTS = 30;
@@ -19,7 +19,7 @@ interface DiscoveredForm {
 }
 
 async function safeFetch(url: string, init?: RequestInit) {
-  return fetch(url, { redirect: "manual", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": UA }, ...init });
+  return sharedSafeFetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), ...init });
 }
 
 function extractSameOriginLinks(html: string, baseUrl: string, limit: number): string[] {

@@ -1,7 +1,6 @@
 import tls from "tls";
 import type { Finding } from "./types";
-
-const UA = "LogMonitor-WebsiteSecurityAudit/1.0 (+authorized-scan)";
+import { safeFetch, safeTlsLookup } from "./safeNetwork";
 
 export interface PerformanceInfo {
   responseTimeMs: number;
@@ -17,7 +16,7 @@ export interface PerformanceInfo {
 function checkAlpn(hostname: string, port: number): Promise<string | null> {
   return new Promise((resolvePromise) => {
     const socket = tls.connect(
-      { host: hostname, port, servername: hostname, ALPNProtocols: ["h2", "http/1.1"], rejectUnauthorized: false, timeout: 8000 },
+      { host: hostname, port, servername: hostname, ALPNProtocols: ["h2", "http/1.1"], rejectUnauthorized: false, timeout: 8000, lookup: safeTlsLookup },
       () => {
         const proto = socket.alpnProtocol || null;
         socket.end();
@@ -44,7 +43,7 @@ export async function runPerformanceChecks(url: string): Promise<{ info: Perform
   let http3Advertised = false;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": UA } });
+    const res = await safeFetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000) });
     ttfbMs = Date.now() - t0;
     contentEncoding = res.headers.get("content-encoding");
     cacheControl = res.headers.get("cache-control");

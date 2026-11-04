@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, Settings2 } from "lucide-react";
+import { Plus, Settings2, FolderTree } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/Switch";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
+import { MenuAccessTreeView } from "./MenuAccessTreeView";
+import { type MenuNode, updateNodeAllowed, flattenMenuAccess } from "@/lib/menuAccessTree";
 
 interface RoleRow {
   Id: number;
@@ -35,6 +37,7 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [newRole, setNewRole] = useState({ name: "", description: "" });
   const [permRole, setPermRole] = useState<RoleRow | null>(null);
+  const [menuRole, setMenuRole] = useState<RoleRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RoleRow | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -103,6 +106,9 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
               <button onClick={() => setPermRole(r)} title={t("managePermissionsTooltip")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
                 <Settings2 size={15} />
               </button>
+              <button onClick={() => setMenuRole(r)} title="Menu Access" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)" }}>
+                <FolderTree size={15} />
+              </button>
               {!r.IsSystem && (
                 <button onClick={() => setDeleteTarget(r)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.78rem" }}>
                   {t("deleteButton")}
@@ -146,6 +152,7 @@ export function RolesPermissionsPanel({ roles }: { roles: RoleRow[] }) {
       </Modal>
 
       {permRole && <PermissionsModal role={permRole} onClose={() => setPermRole(null)} />}
+      {menuRole && <MenuAccessModal role={menuRole} onClose={() => setMenuRole(null)} />}
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -227,6 +234,78 @@ function PermissionsModal({ role, onClose }: { role: RoleRow; onClose: () => voi
               label={PERMISSION_LABEL_KEYS[p.key] ? t(`permissions.${PERMISSION_LABEL_KEYS[p.key]}`) : p.key}
             />
           ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function MenuAccessModal({ role, onClose }: { role: RoleRow; onClose: () => void }) {
+  const toast = useToast();
+  const t = useTranslations("settings.rolesPermissions");
+  const [tree, setTree] = useState<MenuNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/admin/settings/roles/${role.Id}/menu-access`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) setTree(data.tree);
+      })
+      .finally(() => setLoading(false));
+  }, [role.Id]);
+
+  function toggle(key: string, allowed: boolean) {
+    setTree((prev) => updateNodeAllowed(prev, key, allowed));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/settings/roles/${role.Id}/menu-access`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menuAccess: flattenMenuAccess(tree) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to save menu access.");
+      toast.show({ type: "success", message: "Menu access saved." });
+      onClose();
+    } catch (err) {
+      toast.show({ type: "error", message: err instanceof Error ? err.message : t("genericError") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Menu Access — ${role.Name}`}
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            {t("cancelButton")}
+          </Button>
+          <Button size="sm" onClick={save} disabled={saving || loading}>
+            {saving ? t("savingButton") : t("saveButton")}
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>{t("loadingText")}</p>
+      ) : (
+        <div className="flex flex-col">
+          <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", margin: "0 0 0.5rem" }}>
+            Choose exactly which sidebar menus and submenus this role can see. Unchecking a category or submenu hides it (and everything under
+            it) for every user with this role — on top of their existing permissions, never beyond them. Leave everything checked for default,
+            unrestricted visibility. An individual user's own Menu Access (set from Employee Accounts) overrides this per-person.
+          </p>
+          <MenuAccessTreeView tree={tree} onToggle={toggle} />
         </div>
       )}
     </Modal>

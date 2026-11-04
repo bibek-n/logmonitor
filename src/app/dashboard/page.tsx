@@ -15,11 +15,61 @@ import { ActivityTimeline, type TimelineEvent } from "@/components/dashboard/Act
 import { RightRail } from "@/components/dashboard/RightRail";
 import { TopOverviewBar } from "@/components/dashboard/TopOverviewBar";
 import { NepaliCalendarCard } from "@/components/dashboard/NepaliCalendarCard";
-import { DashboardWidgetGrid, type DashboardWidget } from "@/components/dashboard/DashboardWidgetGrid";
-import { OfflineDevicesCard, ExpiringSslCard, MalwareFindingsCard, TopBandwidthConsumersCard } from "@/components/dashboard/ExtraWidgets";
-import { getOfflineDevices, getExpiringSslCertificates } from "@/lib/aiAssistant/tools";
-import { getTopIps } from "@/lib/topConsumers";
+import { OfflineDevicesCard, ExpiringSslCard, DomainExpiryCard, MalwareFindingsCard, TopBandwidthConsumersCard, TopBandwidthRouterClientsCard, TopBandwidthStaffCard, TopVisitedCard, ConnectedDevicesCard, AllServersCard } from "@/components/dashboard/ExtraWidgets";
+import { TotalBandwidthCard } from "@/components/dashboard/TotalBandwidthCard";
+import { WifiUsersCard } from "@/components/dashboard/WifiUsersCard";
+import { CameraRotationCard } from "@/components/dashboard/CameraRotationCard";
+import { OfflineWebsitesCard } from "@/components/dashboard/OfflineWebsitesCard";
+import { ActiveDirectoryStatusCard } from "@/components/dashboard/ActiveDirectoryStatusCard";
+import { getTopIps, getTopRouterClients, getTopBandwidthStaff, getTopVisited, NON_STAFF_INFRASTRUCTURE_IPS } from "@/lib/topConsumers";
 import { Cpu, MemoryStick, HardDrive, Globe, Wifi, Laptop, Router } from "lucide-react";
+import { DashboardGridClient } from "@/components/dashboard/DashboardGridClient";
+import {
+  QuickStatsCard,
+  UserSummaryCard,
+  LoginStatisticsCard,
+  SecuritySummaryCard,
+  VulnerabilitySummaryCard,
+  RemoteAccessSummaryCard,
+  ItAssetSummaryCard,
+  BrowserActivitySummaryCard,
+  WebsiteSummaryCard,
+  MonitoringSummaryCard,
+  AutomationSummaryCard,
+  AdministrationSummaryCard,
+  ActivityFeedCard,
+  NotificationsCard,
+  QuickActionsCard,
+  WelcomeCard,
+  PatchStatusCard,
+  RecentIncidentsCard,
+  NetworkFirewallCard,
+} from "@/components/dashboard/NewWidgetCards";
+import { NotesCard } from "@/components/dashboard/NotesCard";
+import {
+  getQuickStats,
+  getUserManagementSummary,
+  getSecurityCenterSummary,
+  getRemoteAccessSummary,
+  getItAssetSummary,
+  getBrowserActivitySummary,
+  getWebsiteManagementSummary,
+  getMonitoringSummary,
+  getAutomationSummary,
+  getAdministrationSummary,
+  getActivityFeed,
+  getNotificationsSummary,
+  getPatchStatusSummary,
+  getRecentIncidents,
+  getNetworkFirewallSummary,
+  getConnectedDevices,
+  getOfflineDevices,
+  getAllServers,
+  getExpiringSslCertificates,
+  getExpiringDomains,
+} from "@/lib/dashboardLayouts/queries";
+import { getAdminSession } from "@/lib/requireAdmin";
+import type { DashboardLayoutContent, DashboardLayoutFull } from "@/lib/dashboardLayouts/types";
 
 export const dynamic = "force-dynamic";
 
@@ -57,16 +107,18 @@ const BANDWIDTH_RANGES: { key: BandwidthRange; hours: number }[] = [
   { key: "30D", hours: 24 * 30 },
 ];
 
-// Infrastructure IPs that generate their own heavy WebFilterLogs traffic and would
-// otherwise dominate "Top Active Devices" forever - not an employee's device, so excluded
-// from that widget. 192.168.1.7 is the Sophos firewall/gateway appliance itself (confirmed
-// via its VMware-VM MAC prefix and its DeviceName always logging as "TULIP-TECHNOLOGIES",
-// never a person's PC, with no MikroTik lease or Staff match at all).
-const TOP_DEVICES_EXCLUDED_IPS = ["192.168.1.7"];
+// Infrastructure IPs that generate their own heavy WebFilterLogs traffic and would otherwise
+// dominate "Top Active Devices" forever - not an employee's device, so excluded from that
+// widget. Shared with topConsumers.ts's Top IPs widget (NON_STAFF_INFRASTRUCTURE_IPS) rather
+// than kept as a separate local list, after the two drifted out of sync once already (this
+// list was missing the VPN concentrator, MikroTik management IPs, and the two Ruijie network
+// appliances that topConsumers.ts had already learned to exclude).
+const TOP_DEVICES_EXCLUDED_IPS = NON_STAFF_INFRASTRUCTURE_IPS;
 
 export default async function DashboardHome() {
   const t = await getTranslations("dashboardHome");
   const db = await getDb();
+  const admin = await getAdminSession();
 
   // Everything the page needs — 13 DB queries, staff status, conflicts, alerts, and all 6
   // external lookups (weather x3, IP, traffic-by-country, threats) — runs in ONE parallel
@@ -97,9 +149,31 @@ export default async function DashboardHome() {
     nepalCitiesWeather,
     swedenWeather,
     offlineDevices,
+    allServers,
     expiringSslCerts,
+    expiringDomains,
     malwareFindingsRes,
     topBandwidthIps,
+    topBandwidthRouterClients,
+    topBandwidthStaff,
+    topVisited,
+    quickStats,
+    userManagementSummary,
+    securityCenterSummary,
+    remoteAccessSummary,
+    itAssetSummary,
+    browserActivitySummary,
+    websiteManagementSummary,
+    monitoringSummary,
+    automationSummary,
+    administrationSummary,
+    activityFeed,
+    notificationsSummary,
+    patchStatusSummary,
+    recentIncidents,
+    networkFirewallSummary,
+    connectedDevices,
+    activeLayoutRow,
   ] = await Promise.all([
     db.query<{ Fields: string | null; ReceivedAt: string }>(
       `SELECT TOP 20 Fields, ReceivedAt FROM SystemHealthLogs WHERE LogComponent = 'CPU' ORDER BY ReceivedAt DESC`
@@ -114,8 +188,8 @@ export default async function DashboardHome() {
       SELECT Fields, ReceivedAt FROM SystemHealthLogs
       WHERE Id IN (
         SELECT MAX(Id) FROM SystemHealthLogs
-        WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') IN ('Port1', 'Port2')
-        GROUP BY JSON_VALUE(Fields, '$.interface')
+        WHERE LogComponent = 'Interface' AND InterfaceName IN ('Port1', 'Port2')
+        GROUP BY InterfaceName
       )
     `),
     // Combines both network sources (MikroTik RouterClients + Sophos ARP-walk
@@ -153,7 +227,7 @@ export default async function DashboardHome() {
               JSON_VALUE(Fields, '$.receivedkbits') AS Rx,
               JSON_VALUE(Fields, '$.transmittedkbits') AS Tx
             FROM SystemHealthLogs
-            WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') = @ifName
+            WHERE LogComponent = 'Interface' AND InterfaceName = @ifName
               AND ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME())
             ORDER BY ReceivedAt DESC
           `)
@@ -183,7 +257,7 @@ export default async function DashboardHome() {
     db.query<{ IpAddress: string; Name: string }>(`
       SELECT sc.IpAddress, s.Name
       FROM SophosClients sc
-      JOIN Staff s ON UPPER(s.MacAddress) = UPPER(sc.MacAddress)
+      JOIN Staff s ON s.MacAddress = sc.MacAddress
       WHERE sc.MacAddress IS NOT NULL
     `),
     // Intranet = Sophos Port1 interface bandwidth history (for the sparkline only — the
@@ -194,7 +268,7 @@ export default async function DashboardHome() {
         JSON_VALUE(Fields, '$.receivedkbits') AS Rx,
         JSON_VALUE(Fields, '$.transmittedkbits') AS Tx
       FROM SystemHealthLogs
-      WHERE LogComponent = 'Interface' AND JSON_VALUE(Fields, '$.interface') = 'Port1'
+      WHERE LogComponent = 'Interface' AND InterfaceName = 'Port1'
       ORDER BY ReceivedAt DESC
     `),
     getStaffWithStatus(),
@@ -207,17 +281,50 @@ export default async function DashboardHome() {
     getNepalCitiesWeather().catch((): WeatherSummary[] => []),
     getSwedenWeather().catch((): WeatherSummary | null => null),
     getOfflineDevices({ withinDays: 7 }).catch(() => []),
+    getAllServers().catch(() => []),
+    // Shows certificates expiring within 1 month, plus any already-expired ones regardless of
+    // window (see alreadyExpired in getExpiringSslCertificates) since those are more urgent
+    // than "expiring soon," not less.
     getExpiringSslCertificates({ withinDays: 30 }).catch(() => []),
+    getExpiringDomains({ withinDays: 60 }).catch(() => []),
     db
       .query<{ CheckType: string; Severity: string; FilePath: string; DeviceName: string | null; Hostname: string | null }>(`
         SELECT TOP 20 f.CheckType, f.Severity, f.FilePath, d.DeviceName, d.Hostname
         FROM MalwareFindings f
-        JOIN Devices d ON d.DeviceId = f.DeviceId
+        LEFT JOIN Devices d ON d.DeviceId = f.DeviceId
         WHERE f.Status = 'Open'
         ORDER BY CASE f.Severity WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END, f.FirstDetectedAt DESC
       `)
       .catch(() => ({ recordset: [] })),
-    getTopIps(24, 5).catch(() => []),
+    getTopIps(6, 5).catch(() => []),
+    getTopRouterClients(6, 5).catch(() => []),
+    getTopBandwidthStaff(1, 10).catch(() => []),
+    getTopVisited(1, 10).catch(() => []),
+    getQuickStats().catch(() => ({ totalUsers: 0, activeDevices: 0, onlineServers: 0, activeWebsites: 0, runningAutomations: 0, openSecurityAlerts: 0 })),
+    getUserManagementSummary().catch(() => ({ totalUsers: 0, activeUsers: 0, disabledUsers: 0, mfaEnabledUsers: 0, loginSuccess24h: 0, loginFailed24h: 0 })),
+    getSecurityCenterSummary().catch(() => ({ overallScore: 0, criticalAlerts: 0, blockedIps: 0, vulnerabilitiesBySeverity: {}, devicesWithFirewallOff: 0, devicesWithAvDisabled: 0 })),
+    getRemoteAccessSummary().catch(() => ({ activeSessions: 0, pendingApprovalRequests: 0, avgSessionDurationMinutes: null, recentSessions: [] })),
+    getItAssetSummary().catch(() => ({ totalActiveAssets: 0, assignedAssets: 0, availableAssets: 0, warrantyExpiringSoon: 0, licencesExpiringSoon: 0, assetsNotCheckedRecently: 0 })),
+    getBrowserActivitySummary().catch(() => ({ topDomains: [], securityEventCount: 0, activeDevices24h: 0 })),
+    getWebsiteManagementSummary().catch(() => ({ total: 0, live: 0, staging: 0, dev: 0, enabled: 0 })),
+    getMonitoringSummary().catch(() => ({ websitesUp: 0, websitesDown: 0, apisUp: 0, apisDown: 0, avgResponseMs: null, errorRatePct: null })),
+    getAutomationSummary().catch(() => ({ scheduledJobs: 0, running: 0, failed7d: 0, success7d: 0, successRatePct: null })),
+    getAdministrationSummary().catch(() => ({ lastBackupStatus: null, lastBackupAt: null, serversWithRebootPending: 0, serversStale90d: 0, auditLogCountToday: 0 })),
+    getActivityFeed(20).catch(() => []),
+    admin ? getNotificationsSummary(admin.userId).catch(() => ({ unreadCount: 0, activeMaintenanceWindows: [] })) : Promise.resolve({ unreadCount: 0, activeMaintenanceWindows: [] }),
+    getPatchStatusSummary().catch(() => ({ criticalPatchesPending: 0, failedPatchInstallations: 0, serversWithRebootPending: 0 })),
+    getRecentIncidents(5).catch(() => []),
+    getNetworkFirewallSummary().catch(() => ({ totalDevices: 0, firewallOn: 0, firewallOff: 0, devicesOff: [] })),
+    getConnectedDevices().catch(() => []),
+    admin
+      ? db
+          .request()
+          .input("userId", sql.Int, admin.userId)
+          .query<{ Id: number; Name: string; IsActive: boolean; LayoutJson: string; RefreshIntervalSeconds: number; CreatedAt: string; UpdatedAt: string }>(
+            "SELECT TOP 1 Id, Name, IsActive, LayoutJson, RefreshIntervalSeconds, CreatedAt, UpdatedAt FROM DashboardLayouts WHERE UserId = @userId AND IsActive = 1"
+          )
+          .catch(() => ({ recordset: [] }))
+      : Promise.resolve({ recordset: [] }),
   ]);
 
   const staffOnline = staff.filter((s) => s.isOnline).length;
@@ -377,140 +484,160 @@ export default async function DashboardHome() {
     target: f.DeviceName ?? f.Hostname ?? f.FilePath,
   }));
 
-  // Every top-level section is an independently show/hide-able, reorderable widget (see
-  // DashboardWidgetGrid) - all data fetching above is unchanged, this just tags the already-
-  // computed JSX with a stable id/title so the customize UI has something to label and persist
-  // an order for. "wide" widgets get their own full-width row; everything else shares an
-  // auto-fit grid row with whatever other non-wide widgets are adjacent in the user's order.
-  const widgets: DashboardWidget[] = [
-    {
-      id: "calendarWeather",
-      title: t("widgetCalendarWeather"),
-      wide: true,
-      node: (
-        <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
-          <NepaliCalendarCard />
-          <TopOverviewBar weather={weather} nepalCitiesWeather={nepalCitiesWeather} swedenWeather={swedenWeather} />
-        </div>
-      ),
-    },
-    {
-      id: "kpis",
-      title: t("widgetKpis"),
-      wide: true,
-      node: (
-        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          <KpiCard
-            icon={Cpu}
-            title={t("cpuUsage")}
-            value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : t("noData")}
-            sub={latestCpuFields.system ? t("systemUserSub", { system: latestCpuFields.system, user: latestCpuFields.user }) : undefined}
-            status={cpuStatus}
-            trendPct={trendPct(cpuUsage, cpuPrev)}
-            sparkline={cpuHistory.map((value) => ({ value }))}
-          />
-          <KpiCard
-            icon={MemoryStick}
-            title={t("memoryUsage")}
-            value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : t("noData")}
-            sub={memPct !== null ? t("pctUsed", { pct: memPct.toFixed(1) }) : undefined}
-            status={memStatus}
-            trendPct={trendPct(memPct, memPrev)}
-            sparkline={memHistory.map((value) => ({ value }))}
-          />
-          <KpiCard
-            icon={HardDrive}
-            title={t("diskUsage")}
-            value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : t("noData")}
-            sub={worstDiskEntry?.name}
-            status={diskStatus}
-            trendPct={trendPct(worstDiskPctNow, diskPrev)}
-            sparkline={diskHistory.map((value) => ({ value }))}
-          />
-          <KpiCard
-            icon={wlanKpi.icon}
-            title={t("usageTitle", { label: wlanKpi.label })}
-            value={wlanKpi.value}
-            sub={wlanKpi.sub}
-            status={wlanKpi.status}
-            sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
-          />
-          <KpiCard
-            icon={intranetKpi.icon}
-            title={t("usageTitle", { label: intranetKpi.label })}
-            value={intranetKpi.value}
-            sub={intranetKpi.sub}
-            status={intranetKpi.status}
-            sparkline={intranetSparkline}
-          />
-          <KpiCard
-            icon={Laptop}
-            title={t("connectedDevices")}
-            value={`${routerClientsStats?.ConnectedNow ?? 0}`}
-            sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
-            status="good"
-          />
-        </div>
-      ),
-    },
-    {
-      id: "bandwidth",
-      title: t("widgetBandwidth"),
-      wide: true,
-      node: <BandwidthPanel data={bandwidthData} sparseRanges={["7D", "30D"]} />,
-    },
-    {
-      id: "deviceStatus",
-      title: t("widgetDeviceStatus"),
-      wide: true,
-      node: (
-        <div>
-          <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>{t("deviceStatusTitle")}</h2>
-          <DeviceStatusRow total={staff.length} online={staffOnline} offline={staffOffline} attention={attentionCount} />
-        </div>
-      ),
-    },
-    {
-      id: "alertsTimeline",
-      title: t("widgetAlertsTimeline"),
-      wide: true,
-      node: (
-        <div className="flex flex-col gap-6">
-          <AlertsTable alerts={alerts} />
-          <ActivityTimeline events={timelineEvents} />
-        </div>
-      ),
-    },
-    {
-      id: "rightRail",
-      title: t("widgetRightRail"),
-      node: (
-        <RightRail
-          healthScore={healthScore}
-          ip={myIp}
-          latestSpeedTest={latestSpeedTest}
-          topDevices={topDevices}
-          monitoringSince={monitoringSince}
-          diskFreePct={worstDiskEntry ? 100 - worstDiskEntry.pct : null}
-          trafficByCountry={trafficByCountry}
-          threatSummary={threatSummary}
+  // Every catalog widget's rendered content, keyed by its id (see src/lib/dashboardLayouts/
+  // catalog.ts) - all data fetching above is unchanged, this just maps the already-computed
+  // JSX to a stable id so DashboardGridClient can place/size/reorder each one per the user's
+  // saved layout. Only ids present here are ever shown in Manage Widgets (see `availableIds`
+  // in DashboardGridClient) - nothing is offered that doesn't have real content behind it.
+  const widgetNodes: Record<string, React.ReactNode> = {
+    welcome: <WelcomeCard username={admin?.username ?? null} />,
+    notes: <NotesCard />,
+    quickStats: <QuickStatsCard stats={quickStats} />,
+    systemHealth: (
+      <div className="ov-kpi-grid">
+        <KpiCard
+          icon={Cpu}
+          title={t("cpuUsage")}
+          value={cpuUsage !== null ? `${cpuUsage.toFixed(1)}%` : t("noData")}
+          sub={latestCpuFields.system ? t("systemUserSub", { system: latestCpuFields.system, user: latestCpuFields.user }) : undefined}
+          status={cpuStatus}
+          trendPct={trendPct(cpuUsage, cpuPrev)}
+          sparkline={cpuHistory.map((value) => ({ value }))}
+          href="/dashboard/system-health"
         />
-      ),
-    },
-    { id: "offlineDevices", title: t("widgetOfflineDevices"), node: <OfflineDevicesCard devices={offlineDevices} /> },
-    { id: "expiringSsl", title: t("widgetExpiringSsl"), node: <ExpiringSslCard certs={expiringSslCerts} /> },
-    { id: "malwareFindings", title: t("widgetMalwareFindings"), node: <MalwareFindingsCard findings={malwareFindings} /> },
-    { id: "topBandwidthConsumers", title: t("widgetTopBandwidthConsumers"), node: <TopBandwidthConsumersCard ips={topBandwidthIps} /> },
-  ];
+        <KpiCard
+          icon={MemoryStick}
+          title={t("memoryUsage")}
+          value={memUsed !== null && memTotal !== null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(1)} GB` : t("noData")}
+          sub={memPct !== null ? t("pctUsed", { pct: memPct.toFixed(1) }) : undefined}
+          status={memStatus}
+          trendPct={trendPct(memPct, memPrev)}
+          sparkline={memHistory.map((value) => ({ value }))}
+          href="/dashboard/system-health"
+        />
+        <KpiCard
+          icon={HardDrive}
+          title={t("diskUsage")}
+          value={worstDiskPctNow !== null ? `${worstDiskPctNow.toFixed(0)}%` : t("noData")}
+          sub={worstDiskEntry?.name}
+          status={diskStatus}
+          trendPct={trendPct(worstDiskPctNow, diskPrev)}
+          sparkline={diskHistory.map((value) => ({ value }))}
+          href="/dashboard/system-health"
+        />
+        <KpiCard
+          icon={wlanKpi.icon}
+          title={t("usageTitle", { label: wlanKpi.label })}
+          value={wlanKpi.value}
+          sub={wlanKpi.sub}
+          status={wlanKpi.status}
+          sparkline={bandwidthData["24H"].map((p) => ({ value: p.rx + p.tx }))}
+          href="/dashboard/system-health"
+        />
+        <KpiCard
+          icon={intranetKpi.icon}
+          title={t("usageTitle", { label: intranetKpi.label })}
+          value={intranetKpi.value}
+          sub={intranetKpi.sub}
+          status={intranetKpi.status}
+          sparkline={intranetSparkline}
+          href="/dashboard/system-health"
+        />
+        <KpiCard
+          icon={Laptop}
+          title={t("connectedDevices")}
+          value={`${routerClientsStats?.ConnectedNow ?? 0}`}
+          sub={t("knownDevicesTotal", { count: routerClientsStats?.TotalKnown ?? 0 })}
+          status="good"
+          href="/dashboard/router-clients"
+        />
+      </div>
+    ),
+    bandwidth: <BandwidthPanel data={bandwidthData} sparseRanges={["7D", "30D"]} />,
+    recentAlerts: <AlertsTable alerts={alerts} />,
+    systemLogs: <ActivityTimeline events={timelineEvents} />,
+    activityFeed: <ActivityFeedCard entries={activityFeed} />,
+    notifications: <NotificationsCard summary={notificationsSummary} />,
+    quickActions: <QuickActionsCard />,
+    operationsSnapshot: (
+      <RightRail
+        healthScore={healthScore}
+        ip={myIp}
+        latestSpeedTest={latestSpeedTest}
+        topDevices={topDevices}
+        monitoringSince={monitoringSince}
+        diskFreePct={worstDiskEntry ? 100 - worstDiskEntry.pct : null}
+        trafficByCountry={trafficByCountry}
+        threatSummary={threatSummary}
+      />
+    ),
+    deviceStatus: (
+      <div>
+        <h2 style={{ fontSize: "1.125rem", marginBottom: "0.75rem" }}>{t("deviceStatusTitle")}</h2>
+        <DeviceStatusRow total={staff.length} online={staffOnline} offline={staffOffline} attention={attentionCount} />
+      </div>
+    ),
+    calendarWeather: (
+      <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)]" style={{ gap: 16 }}>
+        <NepaliCalendarCard />
+        <TopOverviewBar weather={weather} nepalCitiesWeather={nepalCitiesWeather} swedenWeather={swedenWeather} />
+      </div>
+    ),
+    userSummary: <UserSummaryCard summary={userManagementSummary} />,
+    loginStatistics: <LoginStatisticsCard summary={userManagementSummary} />,
+    activeDirectoryStatus: <ActiveDirectoryStatusCard />,
+    securitySummary: <SecuritySummaryCard summary={securityCenterSummary} />,
+    vulnerabilitySummary: <VulnerabilitySummaryCard summary={securityCenterSummary} />,
+    patchStatus: <PatchStatusCard summary={patchStatusSummary} />,
+    connectedDevices: <ConnectedDevicesCard devices={connectedDevices} />,
+    offlineDevices: <OfflineDevicesCard devices={offlineDevices} />,
+    allServers: <AllServersCard servers={allServers} />,
+    offlineWebsites: <OfflineWebsitesCard />,
+    networkFirewall: <NetworkFirewallCard summary={networkFirewallSummary} />,
+    remoteAccessSummary: <RemoteAccessSummaryCard summary={remoteAccessSummary} />,
+    itAssetSummary: <ItAssetSummaryCard summary={itAssetSummary} />,
+    browserActivitySummary: <BrowserActivitySummaryCard summary={browserActivitySummary} />,
+    websiteSummary: <WebsiteSummaryCard summary={websiteManagementSummary} />,
+    expiringSsl: <ExpiringSslCard certs={expiringSslCerts} />,
+    domainExpiry: <DomainExpiryCard domains={expiringDomains} />,
+    monitoringSummary: <MonitoringSummaryCard summary={monitoringSummary} />,
+    recentIncidents: <RecentIncidentsCard incidents={recentIncidents} />,
+    automationSummary: <AutomationSummaryCard summary={automationSummary} />,
+    administrationSummary: <AdministrationSummaryCard summary={administrationSummary} />,
+    malwareFindings: <MalwareFindingsCard findings={malwareFindings} />,
+    topBandwidthConsumers: <TopBandwidthConsumersCard ips={topBandwidthIps} />,
+    topBandwidthRouterClients: <TopBandwidthRouterClientsCard clients={topBandwidthRouterClients} />,
+    topBandwidthStaff: <TopBandwidthStaffCard staff={topBandwidthStaff} />,
+    totalSophosBandwidth: <TotalBandwidthCard />,
+    wifiUsers: <WifiUsersCard />,
+    cameraRotation: <CameraRotationCard />,
+    topVisited: <TopVisitedCard sites={topVisited} />,
+  };
+
+  const activeLayoutRowData = activeLayoutRow.recordset[0];
+  const initialLayout: DashboardLayoutFull | null = activeLayoutRowData
+    ? {
+        id: activeLayoutRowData.Id,
+        name: activeLayoutRowData.Name,
+        isActive: activeLayoutRowData.IsActive,
+        createdAt: activeLayoutRowData.CreatedAt,
+        updatedAt: activeLayoutRowData.UpdatedAt,
+        refreshIntervalSeconds: activeLayoutRowData.RefreshIntervalSeconds,
+        content: JSON.parse(activeLayoutRowData.LayoutJson) as DashboardLayoutContent,
+      }
+    : null;
 
   return (
     <div className="mx-auto" style={{ width: "100%" }}>
-      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
-      <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
+      <h1 style={{ fontSize: "1.75rem", marginBottom: "0.25rem" }}>{t("title")}</h1>
+      <p style={{ color: "var(--ink-muted)", fontSize: "0.8125rem", marginTop: 0, marginBottom: "1.5rem" }}>
         {t("subtitle")}
       </p>
 
-      <DashboardWidgetGrid widgets={widgets} customizeLabel={t("customizeDashboard")} doneLabel={t("doneCustomizing")} />
+      <DashboardGridClient initialLayout={initialLayout} widgetNodes={widgetNodes} isAdmin={admin !== null} />
     </div>
   );
 }
+
+
+

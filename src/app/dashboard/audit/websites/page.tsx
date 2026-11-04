@@ -1,5 +1,17 @@
 import { getDb } from "@/lib/db";
-import { addWebsite, removeWebsite, updateWebsite, toggleWebsiteEnabled } from "./actions";
+import {
+  addWebsite,
+  removeWebsite,
+  updateWebsite,
+  toggleWebsiteEnabled,
+  scanPhpVersion,
+  scanAllPhpVersions,
+  scanSelectedPhpVersions,
+  setPhpVersionManually,
+  clearPhpVersionManualOverride,
+  setPlatformVersionManually,
+  clearPlatformVersionManualOverride,
+} from "./actions";
 import { EnvironmentSelect } from "@/components/websites/EnvironmentSelect";
 import { WebsitesListClient, type WebsiteRow } from "@/components/websites/WebsitesListClient";
 
@@ -14,7 +26,10 @@ export default async function WebsitesPage({
   const editId = edit ? Number(edit) : null;
   const db = await getDb();
 
-  const result = await db.query<WebsiteRow>(`SELECT Id, Name, Url, Enabled, Environment, CreatedAt FROM Websites ORDER BY Name`);
+  const result = await db.query<WebsiteRow>(
+    `SELECT Id, Name, Url, Enabled, Environment, CreatedAt, PhpVersion, PhpVersionCheckedAt, PhpVersionScanError, Platform, PlatformVersion, ServerHeader, PhpVersionManual, PlatformVersionManual FROM Websites
+     ORDER BY CASE Environment WHEN 'Live' THEN 0 WHEN 'Dev' THEN 1 WHEN 'Staging' THEN 2 ELSE 3 END, Name`
+  );
   const websites = result.recordset;
   const editing = editId ? websites.find((w) => w.Id === editId) ?? null : null;
 
@@ -91,7 +106,18 @@ export default async function WebsitesPage({
         </div>
       )}
 
-      <WebsitesListClient websites={websites} toggleWebsiteEnabled={toggleWebsiteEnabled} removeWebsite={removeWebsite} />
+      <WebsitesListClient
+        websites={websites}
+        toggleWebsiteEnabled={toggleWebsiteEnabled}
+        removeWebsite={removeWebsite}
+        scanPhpVersion={scanPhpVersion}
+        scanAllPhpVersions={scanAllPhpVersions}
+        scanSelectedPhpVersions={scanSelectedPhpVersions}
+        setPhpVersionManually={setPhpVersionManually}
+        clearPhpVersionManualOverride={clearPhpVersionManualOverride}
+        setPlatformVersionManually={setPlatformVersionManually}
+        clearPlatformVersionManualOverride={clearPlatformVersionManualOverride}
+      />
     </div>
   );
 }

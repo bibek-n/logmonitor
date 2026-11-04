@@ -32,6 +32,52 @@ async function probeAll(baseUrl: string, paths: string[]): Promise<ProbeResult[]
   return results;
 }
 
+// Loose dotted-version comparison (same shape as platformDetect.ts's compareVersions) —
+// duplicated locally rather than imported since that file lives under websiteSecurityAudit
+// and this module is deliberately self-contained.
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+// Independent of WPSCAN_API_TOKEN/checkCoreVulnerabilities below - compares against
+// WordPress.org's own free update-check API (wpOrgApi.ts), so "an update is available" works
+// even with no vulnerability-database token configured at all.
+export async function checkCoreUpdateAvailable(coreVersion: string | null, latestVersion: string | null): Promise<ScanFinding[]> {
+  if (!coreVersion || !latestVersion || compareVersions(coreVersion, latestVersion) >= 0) return [];
+  return [
+    {
+      check: "core_update_available",
+      severity: "medium",
+      title: `WordPress core ${coreVersion} is behind the latest release ${latestVersion}`,
+      detail: `Running an older core version means missing out on the latest security patches.`,
+      recommendation: `Upgrade WordPress core to ${latestVersion} from the admin dashboard (Updates) or via WP-CLI.`,
+    },
+  ];
+}
+
+// Also independent of WPSCAN_API_TOKEN - flags a site whose PHP version is older than what
+// WordPress.org's own latest-release metadata recommends, which matters even when the PHP
+// version itself isn't individually EOL (see isPhpVersionEol in platformDetect.ts): an old-
+// but-still-supported PHP can still be too old for the current WordPress release to run well.
+export async function checkPhpCompatibility(phpVersion: string | null, requiredPhpVersion: string | null): Promise<ScanFinding[]> {
+  if (!phpVersion || !requiredPhpVersion || compareVersions(phpVersion, requiredPhpVersion) >= 0) return [];
+  return [
+    {
+      check: "php_compatibility",
+      severity: "medium",
+      title: `PHP ${phpVersion} is older than the ${requiredPhpVersion} WordPress currently recommends`,
+      detail: `An older PHP version misses out on WordPress's current compatibility target and PHP's own security patches.`,
+      recommendation: `Upgrade PHP to at least ${requiredPhpVersion} via your hosting control panel or server admin.`,
+    },
+  ];
+}
+
 export async function checkCoreVulnerabilities(coreVersion: string | null): Promise<ScanFinding[]> {
   if (!coreVersion) return [];
   const vulns = await lookupCoreVulnerabilities(coreVersion);
@@ -39,8 +85,11 @@ export async function checkCoreVulnerabilities(coreVersion: string | null): Prom
     check: "core_version_vulns",
     severity: v.severity,
     title: `WordPress core ${coreVersion}: ${v.title}`,
-    detail: v.fixedIn ? `Fixed in ${v.fixedIn} — this site is running an older, vulnerable version.` : "No fixed version published yet.",
+    detail: v.fixedIn ? `This site is running an older, vulnerable version.` : "No fixed version has been published yet for this issue.",
     evidence: v.reference ?? undefined,
+    recommendation: v.fixedIn
+      ? `Upgrade WordPress core to ${v.fixedIn} or later.`
+      : "No patched version exists yet — watch for a core update, or mitigate with a WAF/virtual patch in the meantime.",
   }));
 }
 
@@ -51,8 +100,11 @@ export async function checkThemeVulnerabilities(themeSlug: string | null, themeV
     check: "theme_vulns",
     severity: v.severity,
     title: `Theme "${themeSlug}"${themeVersion ? ` v${themeVersion}` : ""}: ${v.title}`,
-    detail: v.fixedIn ? `Fixed in ${v.fixedIn}.` : "No fixed version published yet.",
+    detail: v.fixedIn ? `This theme version is affected by a known vulnerability.` : "No fixed version has been published yet for this issue.",
     evidence: v.reference ?? undefined,
+    recommendation: v.fixedIn
+      ? `Upgrade the "${themeSlug}" theme to ${v.fixedIn} or later.`
+      : `No patched version exists yet for "${themeSlug}" — consider switching themes or restricting access until one ships.`,
   }));
 }
 
@@ -65,8 +117,11 @@ export async function checkPluginVulnerabilities(plugins: DetectedPlugin[]): Pro
         check: "plugin_vulns",
         severity: v.severity,
         title: `Plugin "${plugin.slug}"${plugin.version ? ` v${plugin.version}` : ""}: ${v.title}`,
-        detail: v.fixedIn ? `Fixed in ${v.fixedIn}.` : "No fixed version published yet.",
+        detail: v.fixedIn ? `This plugin version is affected by a known vulnerability.` : "No fixed version has been published yet for this issue.",
         evidence: v.reference ?? undefined,
+        recommendation: v.fixedIn
+          ? `Upgrade the "${plugin.slug}" plugin to ${v.fixedIn} or later.`
+          : `No patched version exists yet for "${plugin.slug}" — consider deactivating it or restricting access until one ships.`,
       });
     }
   }
@@ -87,10 +142,20 @@ export async function checkInterestingHeaders(headers: Record<string, string>): 
       check: "interesting_headers",
       severity: "info",
       title: `${key}: ${value}`,
+      recommendation:
+        key === "x-pingback"
+          ? "Remove or suppress the X-Pingback header (disable XML-RPC pingbacks) so the XML-RPC endpoint isn't handed out directly."
+          : "Suppress or genericize this header via your server config or a security plugin to reduce stack fingerprinting.",
     });
   }
   if (headers["link"]?.includes("wp-json")) {
-    findings.push({ check: "interesting_headers", severity: "info", title: "WP REST API discovery link is advertised", detail: headers["link"] });
+    findings.push({
+      check: "interesting_headers",
+      severity: "info",
+      title: "WP REST API discovery link is advertised",
+      detail: headers["link"],
+      recommendation: "If the REST API isn't needed publicly, remove the discovery Link header or restrict the API via a security plugin.",
+    });
   }
   return findings;
 }
@@ -103,8 +168,8 @@ export async function checkWpCron(baseUrl: string): Promise<ScanFinding[]> {
         check: "wp_cron",
         severity: "low",
         title: "wp-cron.php is publicly accessible",
-        detail:
-          "Anyone can trigger WordPress's scheduled-task runner directly, which can be abused for low-effort denial-of-service on busy sites. Consider disabling the built-in pseudo-cron (DISABLE_WP_CRON) and triggering it from a real system cron job instead.",
+        detail: "Anyone can trigger WordPress's scheduled-task runner directly, which can be abused for low-effort denial-of-service on busy sites.",
+        recommendation: "Disable the built-in pseudo-cron (define('DISABLE_WP_CRON', true)) and trigger wp-cron.php from a real system cron job instead.",
       },
     ];
   }
@@ -121,6 +186,7 @@ export async function checkUserEnumerationAndXmlRpc(baseUrl: string): Promise<Sc
       severity: "medium",
       title: "WP REST API user enumeration is possible",
       detail: "/wp-json/wp/v2/users returns a list of usernames without authentication, useful to an attacker building a credential-stuffing/brute-force target list.",
+      recommendation: "Block or disable the /wp-json/wp/v2/users endpoint (e.g. via a security plugin) or require authentication to access it.",
     });
   }
 
@@ -130,7 +196,8 @@ export async function checkUserEnumerationAndXmlRpc(baseUrl: string): Promise<Sc
       check: "user_enum_xmlrpc",
       severity: "low",
       title: "XML-RPC is enabled",
-      detail: "xmlrpc.php responds, which historically has been abused for pingback-based DDoS amplification and multi-call login brute-forcing. Disable it if nothing on the site depends on it (e.g. Jetpack, some mobile apps).",
+      detail: "xmlrpc.php responds, which historically has been abused for pingback-based DDoS amplification and multi-call login brute-forcing.",
+      recommendation: "Disable xmlrpc.php entirely (via an .htaccess/nginx rule or a security plugin) unless a specific integration (e.g. Jetpack, a mobile app) requires it.",
     });
   }
 
@@ -167,7 +234,8 @@ export async function checkConfigBackups(baseUrl: string): Promise<ScanFinding[]
       check: "config_backups",
       severity: "critical",
       title: `Exposed backup/config file: /${r.path}`,
-      detail: "This path returned HTTP 200 and may leak database credentials, secrets, or a full database dump. Remove it or block public access immediately.",
+      detail: "This path returned HTTP 200 and may leak database credentials, secrets, or a full database dump.",
+      recommendation: "Remove this file from the server immediately (or block public access to it), and rotate any credentials it may have exposed.",
     }));
 }
 
@@ -191,6 +259,7 @@ export async function checkTimThumb(baseUrl: string, themeSlug: string | null): 
       check: "timthumb",
       severity: "high",
       title: `TimThumb script found: /${r.path}`,
-      detail: "Older TimThumb versions have multiple known remote code execution vulnerabilities. Confirm the version in use and update or remove the script if it's outdated.",
+      detail: "Older TimThumb versions have multiple known remote code execution vulnerabilities.",
+      recommendation: "Confirm the version of this TimThumb script and update it to the latest patched release, or remove it entirely if it's unused.",
     }));
 }

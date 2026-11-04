@@ -62,7 +62,7 @@ export function TopOverviewBar({
   const now = useClock();
 
   return (
-    <Card>
+    <Card hoverLift tilt3d>
       <div className="flex items-center gap-6 flex-wrap">
         <div className="flex items-center gap-3">
           {now && <AnalogClock date={now} size={64} />}

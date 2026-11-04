@@ -54,7 +54,31 @@ function findingsByCategory(findings: Finding[], categories: string[]): Finding[
 // or native dependencies on its Windows/iisnode host (the same reason nodemailer was
 // avoided in favor of a hand-rolled raw-SMTP sender). Charts are hand-drawn with pdfkit's
 // vector primitives below — no chart library, no native canvas dependency.
+const LOGO_EMBEDDABLE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
+
+// pdfkit only embeds PNG/JPEG directly (no SVG/WebP/ICO rasterizer) - Settings > Company
+// Profile accepts a wider set for use elsewhere in the app (sidebar, favicon), so this reads
+// the logo defensively and simply omits it from the cover page rather than throwing when an
+// admin has uploaded an SVG/ICO/WebP logo, or when the file is missing on disk.
+async function loadCoverLogo(): Promise<{ buffer: Buffer; companyName: string | null } | null> {
+  try {
+    const db = await getDb();
+    const result = await db.query<{ LogoPath: string | null; CompanyName: string | null }>`SELECT LogoPath, CompanyName FROM CompanySettings WHERE Id = 1`;
+    const row = result.recordset[0];
+    if (!row?.LogoPath) return { buffer: Buffer.alloc(0), companyName: row?.CompanyName ?? null };
+    const ext = path.extname(row.LogoPath).toLowerCase();
+    if (!LOGO_EMBEDDABLE_EXTENSIONS.has(ext)) return { buffer: Buffer.alloc(0), companyName: row.CompanyName };
+    const filePath = path.join(process.cwd(), "public", row.LogoPath.replace(/^\//, ""));
+    const buffer = await fs.readFile(filePath);
+    return { buffer, companyName: row.CompanyName };
+  } catch (err) {
+    console.error("[generatePdf] failed to load company logo for cover page, continuing without it:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function generateAuditPdf(detail: ScanDetail): Promise<Buffer> {
+  const cover = await loadCoverLogo();
   const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true, autoFirstPage: false });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -232,6 +256,19 @@ export async function generateAuditPdf(detail: ScanDetail): Promise<Buffer> {
   // Cover page
   // =========================================================================
   doc.addPage();
+  if (cover?.buffer && cover.buffer.length > 0) {
+    try {
+      const logoWidth = 110;
+      doc.image(cover.buffer, (doc.page.width - logoWidth) / 2, doc.y, { width: logoWidth });
+      doc.moveDown(1);
+    } catch (err) {
+      console.error("[generatePdf] cover logo embed failed, continuing without it:", err instanceof Error ? err.message : err);
+    }
+  }
+  if (cover?.companyName) {
+    doc.fontSize(11).fillColor("#555").text(cover.companyName, { align: "center" });
+    doc.moveDown(0.5);
+  }
   doc.fontSize(24).fillColor("#000").text("Website Security Audit Report", { align: "center" });
   doc.moveDown(2);
   doc.fontSize(14).fillColor("#333").text(detail.websiteName, { align: "center" });

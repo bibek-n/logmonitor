@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
-import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
+import { requireWordpressScanPermission, isWordpressScanSession } from "@/lib/requireWordpressScanPermission";
 
 const PAGE_SIZE_DEFAULT = 25;
 const PAGE_SIZE_MAX = 100;
@@ -11,14 +11,16 @@ interface ScanListRow {
   TargetUrl: string;
   IsWordPress: boolean;
   CoreVersion: string | null;
+  PhpVersion: string | null;
+  LatestCoreVersion: string | null;
   RiskLevel: string;
   TriggeredByUsername: string | null;
   ScannedAt: string;
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!isAdminSession(admin)) return admin;
+  const admin = await requireWordpressScanPermission("wps_view");
+  if (!isWordpressScanSession(admin)) return admin;
 
   const sp = req.nextUrl.searchParams;
   const page = Math.max(1, Number(sp.get("page")) || 1);
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
   const total = countResult.recordset[0].total;
 
   const rowsResult = await db.request().input("offset", sql.Int, offset).input("pageSize", sql.Int, pageSize).query<ScanListRow>(`
-    SELECT Id, WebsiteId, TargetUrl, IsWordPress, CoreVersion, RiskLevel, TriggeredByUsername,
+    SELECT Id, WebsiteId, TargetUrl, IsWordPress, CoreVersion, PhpVersion, LatestCoreVersion, RiskLevel, TriggeredByUsername,
       CONVERT(VARCHAR(19), ScannedAt, 126) AS ScannedAt
     FROM WordPressDeepScans
     ORDER BY ScannedAt DESC

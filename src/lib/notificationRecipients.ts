@@ -18,6 +18,8 @@ export const NOTIFICATION_MODULES: NotificationModuleDef[] = [
   { moduleKey: "sql-monitoring", subModuleKey: "instance-down", moduleLabel: "SQL Server Monitoring", subModuleLabel: "Instance Down" },
   { moduleKey: "sql-monitoring", subModuleKey: "instance-recovered", moduleLabel: "SQL Server Monitoring", subModuleLabel: "Instance Recovered" },
   { moduleKey: "website-audit", subModuleKey: "scan-complete", moduleLabel: "Website Security Audit", subModuleLabel: "Scan Complete" },
+  { moduleKey: "website-audit", subModuleKey: "score-drop", moduleLabel: "Website Security Audit", subModuleLabel: "Score Drop / New Critical Finding" },
+  { moduleKey: "website-audit", subModuleKey: "monthly-digest", moduleLabel: "Website Security Audit", subModuleLabel: "Monthly Digest (All Websites)" },
   { moduleKey: "website-performance", subModuleKey: "threshold-breach", moduleLabel: "Website Speed & Performance", subModuleLabel: "Threshold Breach" },
 ];
 

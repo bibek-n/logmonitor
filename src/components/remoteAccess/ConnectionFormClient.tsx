@@ -257,13 +257,48 @@ function ConnectionFormInner({ connectionId }: { connectionId?: number }) {
         </Card>
       )}
 
+      {form.protocol === "VNC" && (
+        <Card style={{ marginBottom: "1rem" }}>
+          <h3 style={{ marginTop: 0, fontSize: "1rem" }}>VNC</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.7rem" }}>
+            {field(
+              "Password Credential (from Vault)",
+              <select value={form.credentialId} onChange={(e) => setForm((f) => ({ ...f, credentialId: e.target.value ? Number(e.target.value) : "" }))} style={inputStyle}>
+                <option value="">None (VNC server has no password set)</option>
+                {credentials.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: "0.5rem", marginBottom: 0 }}>
+            This is the VNC server&apos;s own password (RFB &quot;VNC Authentication&quot;), not a Windows login - leave as None only if that VNC server was deliberately configured with no password.
+          </p>
+        </Card>
+      )}
+
       {form.protocol === "RDP" && (
         <Card style={{ marginBottom: "1rem" }}>
           <h3 style={{ marginTop: 0, fontSize: "1rem" }}>RDP</h3>
-          {field("Windows Domain", <input value={form.domain} onChange={(e) => setForm((f) => ({ ...f, domain: e.target.value }))} style={inputStyle} />)}
-          <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem", marginTop: "0.5rem" }}>
-            In-browser RDP rendering is a Phase 2 item requiring a dedicated protocol gateway (see Remote Desktop page) - this saves connection
-            metadata now.
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.7rem" }}>
+            {field("Windows Domain", <input value={form.domain} onChange={(e) => setForm((f) => ({ ...f, domain: e.target.value }))} style={inputStyle} />)}
+            {field(
+              "Password Credential (from Vault)",
+              <select value={form.credentialId} onChange={(e) => setForm((f) => ({ ...f, credentialId: e.target.value ? Number(e.target.value) : "" }))} style={inputStyle}>
+                <option value="">None</option>
+                {credentials.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: "0.5rem", marginBottom: 0 }}>
+            In-browser RDP viewing goes through guacd (Apache Guacamole&apos;s proxy daemon) - click Connect from the connections list or the
+            Remote Desktop page once this is saved.
           </p>
         </Card>
       )}

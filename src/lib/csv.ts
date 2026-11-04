@@ -1,4 +1,4 @@
-// Hand-rolled CSV parse/serialize — no CSV library is installed anywhere in this app
+// Hand-rolled CSV parse/serialize â€” no CSV library is installed anywhere in this app
 // (confirmed: package.json has no papaparse/csv-parse), and the one existing CSV-adjacent
 // precedent (scripts/import-oui.ts) hand-rolls its own line parser rather than adding a
 // dependency. This follows the same zero-new-dependency approach, extended to also handle
@@ -36,7 +36,7 @@ export function parseCsv(content: string): string[][] {
       rows.push(row);
       row = [];
     } else if (ch === "\r") {
-      // skip — paired \n handles the row break
+      // skip â€” paired \n handles the row break
     } else {
       field += ch;
     }
@@ -50,7 +50,17 @@ export function parseCsv(content: string): string[][] {
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const str = String(value);
+  let str = String(value);
+  // CSV/formula injection: Excel/Sheets treats a cell starting with =, +, -, or @ as a
+  // formula when the file is opened, regardless of this being a plain CSV export - a
+  // free-text field containing attacker- or user-influenced content (e.g. a staff note, an
+  // imported hostname) could execute as a live formula for whoever opens the export. Prefix
+  // with a single quote, the standard OWASP-recommended mitigation: Excel/Sheets then render
+  // the value as literal text, and the leading quote is invisible in the cell display (it's a
+  // text-coercion marker, not real content, same convention Excel itself uses for this).
+  if (/^[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
   if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -69,7 +79,7 @@ export function rowsToCsv(headers: string[], rows: unknown[][]): string {
 // whitespace and tolerating a byte-order-mark on the first header (common from Excel exports).
 export function csvRowsToRecords(rows: string[][]): Record<string, string>[] {
   if (rows.length === 0) return [];
-  const headers = rows[0].map((h) => h.replace(/^﻿/, "").trim());
+  const headers = rows[0].map((h) => h.replace(/^ï»¿/, "").trim());
   return rows.slice(1).map((row) => {
     const record: Record<string, string> = {};
     headers.forEach((h, i) => {
@@ -78,3 +88,4 @@ export function csvRowsToRecords(rows: string[][]): Record<string, string>[] {
     return record;
   });
 }
+
