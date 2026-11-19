@@ -19,6 +19,7 @@ export interface AllSitesScanResultEntry {
   url: string;
   scanId: number;
   isWordPress: boolean;
+  blockReason: string | null;
   coreVersion: string | null;
   latestCoreVersion: string | null;
   phpVersion: string | null;
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
               url: site.Url,
               scanId,
               isWordPress: report.isWordPress,
+              blockReason: report.blockReason,
               coreVersion: report.coreVersion,
               latestCoreVersion: report.latestCoreVersion,
               phpVersion: report.phpVersion,
@@ -82,7 +84,9 @@ export async function POST(req: NextRequest) {
             emit(
               report.isWordPress
                 ? `[+] ${site.Name}: risk=${report.riskLevel}, core=${report.coreVersion ?? "unknown"}${report.latestCoreVersion ? ` (latest ${report.latestCoreVersion})` : ""}, ${report.plugins.length} plugin(s), ${report.findings.length} finding(s)`
-                : `[-] ${site.Name}: WordPress not confirmed at this URL`
+                : report.blockReason
+                  ? `[!] ${site.Name}: scan blocked - ${report.blockReason}`
+                  : `[-] ${site.Name}: WordPress not confirmed at this URL`
             );
           } catch (err) {
             const message = err instanceof Error ? err.message : "Scan failed.";
@@ -92,6 +96,7 @@ export async function POST(req: NextRequest) {
               url: site.Url,
               scanId: 0,
               isWordPress: false,
+              blockReason: null,
               coreVersion: null,
               latestCoreVersion: null,
               phpVersion: site.PhpVersion,

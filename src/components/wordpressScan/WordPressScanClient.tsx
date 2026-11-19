@@ -36,6 +36,7 @@ interface AllSitesScanResultEntry {
   url: string;
   scanId: number;
   isWordPress: boolean;
+  blockReason: string | null;
   coreVersion: string | null;
   latestCoreVersion: string | null;
   phpVersion: string | null;
@@ -166,8 +167,16 @@ function ReportView({ report, scanId }: { report: WordPressScanReport; scanId: n
     return (
       <div className="dash-panel" style={{ marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
-          <p style={{ color: "var(--ink-muted)", margin: 0 }}>
-            WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
+          <p style={{ color: report.blockReason ? "var(--warning)" : "var(--ink-muted)", margin: 0 }}>
+            {report.blockReason ? (
+              <>
+                Scan blocked at <strong>{report.targetUrl}</strong>: {report.blockReason}
+              </>
+            ) : (
+              <>
+                WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
+              </>
+            )}
           </p>
           <PdfLinks scanId={scanId} />
         </div>
@@ -345,6 +354,10 @@ function AllSitesTable({ results }: { results: AllSitesScanResultEntry[] }) {
                   <td style={{ padding: "0.4rem" }}>
                     {r.error ? (
                       <span style={{ color: "var(--warning)" }}>{r.error}</span>
+                    ) : r.blockReason ? (
+                      <span style={{ color: "var(--warning)" }} title={r.blockReason}>
+                        scan blocked
+                      </span>
                     ) : !r.isWordPress ? (
                       <span style={{ color: "var(--ink-muted)" }}>not WordPress</span>
                     ) : (

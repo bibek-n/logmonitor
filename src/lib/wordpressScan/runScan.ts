@@ -58,10 +58,15 @@ export async function runWordPressDeepScan(
   const detection = await detectWordPress(inputUrl);
 
   if (!detection.isWordPress) {
-    log(`[!] WordPress was not detected at this URL — no wp-content/wp-includes/wp-json markers found.`);
+    log(
+      detection.blockReason
+        ? `[!] Scan blocked: ${detection.blockReason}`
+        : `[!] WordPress was not detected at this URL — no wp-content/wp-includes/wp-json markers found.`
+    );
     return {
       targetUrl: detection.finalUrl,
       isWordPress: false,
+      blockReason: detection.blockReason,
       coreVersion: null,
       phpVersion: knownPhpVersion ?? null,
       latestCoreVersion: null,
@@ -143,6 +148,7 @@ export async function runWordPressDeepScan(
   return {
     targetUrl: detection.finalUrl,
     isWordPress: true,
+    blockReason: null,
     coreVersion: detection.coreVersion,
     phpVersion: knownPhpVersion ?? null,
     latestCoreVersion,

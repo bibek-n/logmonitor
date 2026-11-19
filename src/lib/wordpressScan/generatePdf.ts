@@ -114,6 +114,7 @@ export interface WordPressScanPdfInput {
   websiteName: string;
   targetUrl: string;
   isWordPress: boolean;
+  blockReason: string | null;
   coreVersion: string | null;
   phpVersion: string | null;
   latestCoreVersion: string | null;
@@ -183,7 +184,9 @@ export async function generateWordPressScanPdf(r: WordPressScanPdfInput): Promis
   if (!r.isWordPress) {
     heading("Result");
     body(
-      `WordPress was not detected at ${r.targetUrl} — no wp-content/wp-includes/wp-json markers were found on this page. This can mean the site genuinely isn't WordPress, the configured URL is wrong/stale, or the page served (e.g. a renamed admin/login path) happens to carry no front-end asset references. No further checks were run.`,
+      r.blockReason
+        ? `Scan blocked: ${r.blockReason} No further checks were run. This is not a statement that the site isn't WordPress - it means the scan never actually saw the real page.`
+        : `WordPress was not detected at ${r.targetUrl} — no wp-content/wp-includes/wp-json markers were found on this page. This can mean the site genuinely isn't WordPress, the configured URL is wrong/stale, or the page served (e.g. a renamed admin/login path) happens to carry no front-end asset references. No further checks were run.`,
       "#333"
     );
     doc.end();

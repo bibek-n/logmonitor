@@ -28,6 +28,45 @@ export interface WpDetection {
   themeSlug: string | null;
   themeVersion: string | null;
   plugins: DetectedPlugin[];
+  // Set when the page we fetched looks like an anti-bot/JS-challenge interstitial rather than
+  // the site's real content (see looksLikeAntiBotChallenge below). When this is set,
+  // `isWordPress: false` does NOT mean "confirmed not WordPress" - it means the scan never
+  // actually saw the real page, so the result is unknown rather than negative. Null otherwise.
+  blockReason: string | null;
+}
+
+// Known anti-bot/JS-challenge interstitials that a plain fetch() (no JS execution) can never
+// get past - these replace the real page for every non-browser client, not just this scanner,
+// so a passive detector sees only the challenge markup and nothing of the actual site. Matching
+// on the page's own title/body text rather than the hosting provider, since the same challenge
+// template is reused across many different WAFs/security products.
+const CHALLENGE_TEXT_SIGNATURES = [
+  /one moment,? please/i,
+  /just a moment/i,
+  /checking your browser before accessing/i,
+  /attention required!? \| cloudflare/i,
+  /ddos protection by/i,
+  /verify you are( a)? human/i,
+  /enable javascript and cookies to continue/i,
+  /please wait while we (check|verify)/i,
+  /browser verification/i,
+];
+
+// Structural fallback for challenge pages that don't match a known phrase: a short page
+// (real WordPress homepages are essentially never this small) whose only script content is an
+// immediate client-side redirect/reload with no actual page content to speak of.
+function looksLikeAntiBotChallenge(html: string): string | null {
+  for (const sig of CHALLENGE_TEXT_SIGNATURES) {
+    if (sig.test(html)) {
+      const titleMatch = /<title>([^<]*)<\/title>/i.exec(html);
+      return `Site returned an anti-bot/JS challenge page${titleMatch ? ` ("${titleMatch[1].trim()}")` : ""} instead of real content - a plain scan request cannot pass this, so WordPress could not be confirmed either way.`;
+    }
+  }
+  const hasAutoRedirect = /<script[^>]*>[\s\S]{0,400}?(location\.reload|location\.href\s*=|location\.replace)/i.test(html);
+  if (hasAutoRedirect && html.length < 4000 && !/wp-content|wp-includes|<article|<main\b/i.test(html)) {
+    return `Page is very small and immediately redirects/reloads via JavaScript with no real content - looks like an anti-bot challenge page rather than the site itself, so WordPress could not be confirmed either way.`;
+  }
+  return null;
 }
 
 // Passive-only detection: everything here comes from a single normal page load (plus, for
@@ -45,7 +84,8 @@ export async function detectWordPress(url: string): Promise<WpDetection> {
     headers["link"]?.includes("wp-json") === true;
 
   if (!isWordPress) {
-    return { isWordPress: false, html, headers, finalUrl, coreVersion: null, themeSlug: null, themeVersion: null, plugins: [] };
+    const blockReason = looksLikeAntiBotChallenge(html);
+    return { isWordPress: false, html, headers, finalUrl, coreVersion: null, themeSlug: null, themeVersion: null, plugins: [], blockReason };
   }
 
   const coreVersion = await detectCoreVersion(html, finalUrl);
@@ -53,7 +93,7 @@ export async function detectWordPress(url: string): Promise<WpDetection> {
   const themeVersion = themeSlug ? await detectThemeVersion(finalUrl, themeSlug) : null;
   const plugins = detectPlugins(html);
 
-  return { isWordPress: true, html, headers, finalUrl, coreVersion, themeSlug, themeVersion, plugins };
+  return { isWordPress: true, html, headers, finalUrl, coreVersion, themeSlug, themeVersion, plugins, blockReason: null };
 }
 
 async function detectCoreVersion(html: string, baseUrl: string): Promise<string | null> {

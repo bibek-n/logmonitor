@@ -98,8 +98,16 @@ function ReportView({
     return (
       <div className="dash-panel" style={{ marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
-          <p style={{ color: "var(--ink-muted)", margin: 0 }}>
-            WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
+          <p style={{ color: report.blockReason ? "var(--warning)" : "var(--ink-muted)", margin: 0 }}>
+            {report.blockReason ? (
+              <>
+                Scan blocked at <strong>{report.targetUrl}</strong>: {report.blockReason}
+              </>
+            ) : (
+              <>
+                WordPress was not detected at <strong>{report.targetUrl}</strong> — no wp-content/wp-includes/wp-json markers found.
+              </>
+            )}
           </p>
           <PdfLinks scanId={scanId} />
         </div>

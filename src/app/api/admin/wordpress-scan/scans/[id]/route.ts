@@ -8,6 +8,7 @@ interface ScanDetailRow {
   WebsiteId: number | null;
   TargetUrl: string;
   IsWordPress: boolean;
+  BlockReason: string | null;
   CoreVersion: string | null;
   PhpVersion: string | null;
   LatestCoreVersion: string | null;
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const db = await getDb();
   const result = await db.request().input("id", sql.Int, scanId).query<ScanDetailRow>(`
-    SELECT Id, WebsiteId, TargetUrl, IsWordPress, CoreVersion, PhpVersion, LatestCoreVersion, ThemeSlug, ThemeVersion, RiskLevel,
+    SELECT Id, WebsiteId, TargetUrl, IsWordPress, BlockReason, CoreVersion, PhpVersion, LatestCoreVersion, ThemeSlug, ThemeVersion, RiskLevel,
       FindingsJson, ChecksJson, PluginsJson, TriggeredByUsername,
       CONVERT(VARCHAR(19), ScannedAt, 126) AS ScannedAt
     FROM WordPressDeepScans
@@ -75,6 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       websiteId: row.WebsiteId,
       targetUrl: row.TargetUrl,
       isWordPress: row.IsWordPress,
+      blockReason: row.BlockReason,
       coreVersion: row.CoreVersion,
       phpVersion: row.PhpVersion,
       latestCoreVersion: row.LatestCoreVersion,

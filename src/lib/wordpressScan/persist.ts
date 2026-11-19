@@ -10,6 +10,7 @@ export async function saveWordPressScan(report: WordPressScanReport, websiteId: 
     .input("websiteId", sql.Int, websiteId)
     .input("targetUrl", sql.NVarChar, report.targetUrl)
     .input("isWordPress", sql.Bit, report.isWordPress)
+    .input("blockReason", sql.NVarChar, report.blockReason)
     .input("coreVersion", sql.NVarChar, report.coreVersion)
     .input("phpVersion", sql.NVarChar, report.phpVersion)
     .input("latestCoreVersion", sql.NVarChar, report.latestCoreVersion)
@@ -24,10 +25,10 @@ export async function saveWordPressScan(report: WordPressScanReport, websiteId: 
     .input("triggeredByUsername", sql.NVarChar, admin.username)
     .query<{ Id: number }>(`
       INSERT INTO WordPressDeepScans
-        (WebsiteId, TargetUrl, IsWordPress, CoreVersion, PhpVersion, LatestCoreVersion, ThemeSlug, ThemeVersion, RiskLevel, FindingsJson, ChecksJson, PluginsJson, Profile, TriggeredByUserId, TriggeredByUsername)
+        (WebsiteId, TargetUrl, IsWordPress, BlockReason, CoreVersion, PhpVersion, LatestCoreVersion, ThemeSlug, ThemeVersion, RiskLevel, FindingsJson, ChecksJson, PluginsJson, Profile, TriggeredByUserId, TriggeredByUsername)
       OUTPUT INSERTED.Id
       VALUES
-        (@websiteId, @targetUrl, @isWordPress, @coreVersion, @phpVersion, @latestCoreVersion, @themeSlug, @themeVersion, @riskLevel, @findingsJson, @checksJson, @pluginsJson, @profile, @triggeredByUserId, @triggeredByUsername)
+        (@websiteId, @targetUrl, @isWordPress, @blockReason, @coreVersion, @phpVersion, @latestCoreVersion, @themeSlug, @themeVersion, @riskLevel, @findingsJson, @checksJson, @pluginsJson, @profile, @triggeredByUserId, @triggeredByUsername)
     `);
   const scanId = result.recordset[0].Id;
 

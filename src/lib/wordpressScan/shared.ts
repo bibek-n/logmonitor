@@ -89,6 +89,11 @@ export interface DetectedPlugin {
 export interface WordPressScanReport {
   targetUrl: string;
   isWordPress: boolean;
+  // Set only when isWordPress is false AND the page we fetched looked like an anti-bot/JS
+  // challenge rather than real content (see src/lib/wordpressScan/detect.ts). Lets the UI/PDF
+  // say "could not confirm, scan was blocked" instead of the misleading "WordPress was not
+  // detected" when the real page was never actually seen.
+  blockReason: string | null;
   coreVersion: string | null;
   // The site's PHP version, pulled from the Websites list's own PHP Version column when this
   // scan is tied to a saved website (null for an ad-hoc URL not in that list) — this tool

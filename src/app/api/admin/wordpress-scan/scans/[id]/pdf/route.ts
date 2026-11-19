@@ -7,6 +7,7 @@ import { generateWordPressScanPdf, wordpressScanPdfFilename } from "@/lib/wordpr
 interface ScanPdfRow {
   TargetUrl: string;
   IsWordPress: boolean;
+  BlockReason: string | null;
   CoreVersion: string | null;
   PhpVersion: string | null;
   LatestCoreVersion: string | null;
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // LEFT JOIN, not INNER - an ad-hoc scan against a URL that was never saved to the Websites
   // list (WebsiteId IS NULL) still has a full report to print, it just has no friendly name.
   const result = await db.request().input("id", sql.Int, scanId).query<ScanPdfRow>(`
-    SELECT s.TargetUrl, s.IsWordPress, s.CoreVersion, s.PhpVersion, s.LatestCoreVersion, s.ThemeSlug, s.ThemeVersion,
+    SELECT s.TargetUrl, s.IsWordPress, s.BlockReason, s.CoreVersion, s.PhpVersion, s.LatestCoreVersion, s.ThemeSlug, s.ThemeVersion,
       s.RiskLevel, s.FindingsJson, s.ChecksJson, s.PluginsJson, s.TriggeredByUsername,
       CONVERT(VARCHAR(19), s.ScannedAt, 126) AS ScannedAt,
       w.Name AS WebsiteName
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     websiteName,
     targetUrl: row.TargetUrl,
     isWordPress: row.IsWordPress,
+    blockReason: row.BlockReason,
     coreVersion: row.CoreVersion,
     phpVersion: row.PhpVersion,
     latestCoreVersion: row.LatestCoreVersion,
