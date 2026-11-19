@@ -3,16 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Search, CornerDownLeft, User, Globe2, LayoutGrid, BookOpen, Siren } from "lucide-react";
+import { Search, CornerDownLeft, User, Globe2, LayoutGrid, BookOpen, Siren, Palette, Keyboard } from "lucide-react";
 import { SEARCH_INDEX } from "@/lib/navRoutes";
 import type { SearchResult } from "@/app/api/admin/search/route";
+import { THEMES } from "@/lib/themes";
+import { useTheme } from "@/components/ThemeProvider";
+import { useUiOverlays } from "@/lib/uiOverlaysStore";
 
 interface Item {
   key: string;
   label: string;
   sublabel: string | null;
-  href: string;
+  href: string | null;
   icon: typeof LayoutGrid;
+  onSelect?: () => void;
 }
 
 // Reuses navRoutes.ts's own SEARCH_INDEX (built from the same NAV_CATEGORIES the sidebar
@@ -41,6 +45,8 @@ function searchResultToItem(r: SearchResult): Item {
 // server results are appended once they arrive rather than replacing the list.
 export function CommandPalette() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const { openShortcuts } = useUiOverlays();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [serverResults, setServerResults] = useState<SearchResult[]>([]);
@@ -95,7 +101,26 @@ export function CommandPalette() {
     q.length === 0
       ? SEARCH_INDEX.slice(0, 8)
       : SEARCH_INDEX.filter((r) => r.label.toLowerCase().includes(q) || r.group.toLowerCase().includes(q));
-  const items: Item[] = [...localMatches.slice(0, 20).map(routeToItem), ...serverResults.map(searchResultToItem)];
+
+  // Non-navigation actions reachable from the same palette - only surfaced once the query
+  // actually matches one (e.g. "dark", "midnight", "shortcut"), so the default empty-query
+  // view stays exactly what it was before this was added.
+  const quickActions: Item[] =
+    q.length === 0
+      ? []
+      : [
+          { key: "action:shortcuts", label: "Keyboard shortcuts", sublabel: "Show shortcut cheat-sheet", href: null, icon: Keyboard, onSelect: openShortcuts },
+          ...THEMES.filter((t) => t.id !== theme).map((t): Item => ({
+            key: `action:theme:${t.id}`,
+            label: `Switch to ${t.label} theme`,
+            sublabel: "Theme",
+            href: null,
+            icon: Palette,
+            onSelect: () => setTheme(t.id),
+          })),
+        ].filter((item) => item.label.toLowerCase().includes(q));
+
+  const items: Item[] = [...localMatches.slice(0, 20).map(routeToItem), ...quickActions, ...serverResults.map(searchResultToItem)];
 
   useEffect(() => {
     setActiveIndex(0);
@@ -103,7 +128,8 @@ export function CommandPalette() {
 
   function go(item: Item) {
     setOpen(false);
-    router.push(item.href);
+    if (item.onSelect) item.onSelect();
+    else if (item.href) router.push(item.href);
   }
 
   if (!open || typeof document === "undefined") return null;
