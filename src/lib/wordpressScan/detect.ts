@@ -33,6 +33,10 @@ export interface WpDetection {
   // `isWordPress: false` does NOT mean "confirmed not WordPress" - it means the scan never
   // actually saw the real page, so the result is unknown rather than negative. Null otherwise.
   blockReason: string | null;
+  // True when the plain fetch() hit a challenge and this result (positive or negative) came
+  // from the headless-browser retry instead — informational only (see runScan.ts's log line),
+  // not persisted, since it doesn't change what the result means, only how it was obtained.
+  viaHeadlessBrowser: boolean;
 }
 
 // Known anti-bot/JS-challenge interstitials that a plain fetch() (no JS execution) can never
@@ -69,23 +73,131 @@ function looksLikeAntiBotChallenge(html: string): string | null {
   return null;
 }
 
-// Passive-only detection: everything here comes from a single normal page load (plus, for
-// version details that aren't in the HTML, one or two follow-up GETs of files WordPress
-// itself serves publicly — readme.html, a theme's style.css). No brute forcing, no
-// authentication attempts, nothing beyond what a browser visiting the site would trigger.
-export async function detectWordPress(url: string): Promise<WpDetection> {
-  const page = await fetchPage(url);
-  const { html, headers, finalUrl } = page;
-
-  const isWordPress =
+function checkIsWordPress(html: string, headers: Record<string, string>): boolean {
+  return (
     /wp-content|wp-includes/i.test(html) ||
     /\/wp-json\//i.test(html) ||
     /generator["'][^>]*content=["']wordpress/i.test(html) ||
-    headers["link"]?.includes("wp-json") === true;
+    headers["link"]?.includes("wp-json") === true
+  );
+}
+
+const BROWSER_NAV_TIMEOUT_MS = 25000;
+// Anti-bot interstitials (the ones matched by CHALLENGE_TEXT_SIGNATURES above) commonly clear
+// themselves a few seconds after their own JS runs, via a `location.reload()`/redirect to the
+// real page - this just needs to outlast that window before reading the page back.
+const BROWSER_CHALLENGE_SETTLE_MS = 8000;
+
+// Fallback for pages a plain fetch() can never get past: a real headless Chromium (Playwright,
+// already a project dependency - see src/lib/websiteSecurityAudit/nextjsVersionBrowserDetect.ts
+// for the same pattern) actually executes the challenge's JS and lands on the real page, the
+// same way a normal visitor's browser does. Only worth the cost (browser launch + several
+// seconds) when the plain fetch already looks blocked, so this is never called on a normal scan.
+// Requires Chromium to be installed on the app server (`npx playwright install chromium`).
+async function fetchPageViaBrowser(url: string): Promise<FetchedPage | null> {
+  let browser: import("@playwright/test").Browser | undefined;
+  try {
+    const { chromium } = await import("@playwright/test");
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 LogMonitor-WordPressScan/1.0 (+authorized-scan)",
+    });
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: BROWSER_NAV_TIMEOUT_MS });
+    await page.waitForTimeout(BROWSER_CHALLENGE_SETTLE_MS);
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+    const html = await page.content();
+    return { html, headers: response?.headers() ?? {}, finalUrl: page.url(), status: response?.status() ?? 0 };
+  } catch {
+    return null;
+  } finally {
+    await browser?.close().catch(() => {});
+  }
+}
+
+// Passive-only detection: everything here comes from a single normal page load (plus, for
+// version details that aren't in the HTML, one or two follow-up GETs of files WordPress
+// itself serves publicly — readme.html, a theme's style.css — and, only when that first load
+// looks like an anti-bot challenge, one headless-browser retry). No brute forcing, no
+// authentication attempts, nothing beyond what a browser visiting the site would trigger.
+export async function detectWordPress(url: string): Promise<WpDetection> {
+  const fetched = await fetchPage(url);
+  let { html, headers, finalUrl } = fetched;
+  let isWordPress = checkIsWordPress(html, headers);
+  let viaHeadlessBrowser = false;
 
   if (!isWordPress) {
     const blockReason = looksLikeAntiBotChallenge(html);
-    return { isWordPress: false, html, headers, finalUrl, coreVersion: null, themeSlug: null, themeVersion: null, plugins: [], blockReason };
+    if (!blockReason) {
+      return {
+        isWordPress: false,
+        html,
+        headers,
+        finalUrl,
+        coreVersion: null,
+        themeSlug: null,
+        themeVersion: null,
+        plugins: [],
+        blockReason: null,
+        viaHeadlessBrowser,
+      };
+    }
+
+    const viaBrowser = await fetchPageViaBrowser(url);
+    if (!viaBrowser) {
+      return {
+        isWordPress: false,
+        html,
+        headers,
+        finalUrl,
+        coreVersion: null,
+        themeSlug: null,
+        themeVersion: null,
+        plugins: [],
+        blockReason: `${blockReason} A headless-browser retry also failed to load the page (Chromium may not be installed on the server, or the page timed out).`,
+        viaHeadlessBrowser,
+      };
+    }
+
+    const browserIsWordPress = checkIsWordPress(viaBrowser.html, viaBrowser.headers);
+    const stillBlocked = !browserIsWordPress ? looksLikeAntiBotChallenge(viaBrowser.html) : null;
+    if (!browserIsWordPress && stillBlocked) {
+      return {
+        isWordPress: false,
+        html,
+        headers,
+        finalUrl,
+        coreVersion: null,
+        themeSlug: null,
+        themeVersion: null,
+        plugins: [],
+        blockReason: `${blockReason} A headless-browser retry also could not get past it (likely a CAPTCHA/human-verification step beyond plain JS execution, not just a timed reload).`,
+        viaHeadlessBrowser: true,
+      };
+    }
+
+    // Browser cleared the challenge (or at least reached real content) - trust this result,
+    // positive or negative, over the blocked plain-fetch one, and continue below with it.
+    html = viaBrowser.html;
+    headers = viaBrowser.headers;
+    finalUrl = viaBrowser.finalUrl;
+    isWordPress = browserIsWordPress;
+    viaHeadlessBrowser = true;
+
+    if (!isWordPress) {
+      return {
+        isWordPress: false,
+        html,
+        headers,
+        finalUrl,
+        coreVersion: null,
+        themeSlug: null,
+        themeVersion: null,
+        plugins: [],
+        blockReason: null,
+        viaHeadlessBrowser,
+      };
+    }
   }
 
   const coreVersion = await detectCoreVersion(html, finalUrl);
@@ -93,7 +205,7 @@ export async function detectWordPress(url: string): Promise<WpDetection> {
   const themeVersion = themeSlug ? await detectThemeVersion(finalUrl, themeSlug) : null;
   const plugins = detectPlugins(html);
 
-  return { isWordPress: true, html, headers, finalUrl, coreVersion, themeSlug, themeVersion, plugins, blockReason: null };
+  return { isWordPress: true, html, headers, finalUrl, coreVersion, themeSlug, themeVersion, plugins, blockReason: null, viaHeadlessBrowser };
 }
 
 async function detectCoreVersion(html: string, baseUrl: string): Promise<string | null> {

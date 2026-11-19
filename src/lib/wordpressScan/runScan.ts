@@ -82,6 +82,9 @@ export async function runWordPressDeepScan(
     };
   }
 
+  if (detection.viaHeadlessBrowser) {
+    log(`[i] Plain fetch was blocked by an anti-bot/JS challenge - retried with a headless browser, which got through.`);
+  }
   log(`[+] WordPress detected at ${detection.finalUrl}`);
   log(detection.coreVersion ? `[+] Core version: ${detection.coreVersion}` : `[-] Could not determine core version.`);
   if (detection.themeSlug) {
