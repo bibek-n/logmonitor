@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const responseStatus = sp.get("responseStatus");
   const ruleId = sp.get("ruleId");
   const protectedApplicationId = sp.get("protectedApplicationId");
+  const assignedToUserId = sp.get("assignedToUserId");
   const path = sp.get("path");
   const from = sp.get("from");
   const to = sp.get("to");
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
   if (responseStatus) clauses.push("a.ResponseStatus = @responseStatus");
   if (ruleId) clauses.push("a.RuleId = @ruleId");
   if (protectedApplicationId) clauses.push("a.ProtectedApplicationId = @protectedApplicationId");
+  if (assignedToUserId) clauses.push(assignedToUserId === "unassigned" ? "a.AssignedToUserId IS NULL" : "a.AssignedToUserId = @assignedToUserId");
   if (path) clauses.push("a.RequestPath LIKE @path");
   if (from) clauses.push("a.CreatedAt >= @from");
   if (to) clauses.push("a.CreatedAt <= @to");
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
     if (responseStatus) request.input("responseStatus", sql.Int, Number(responseStatus));
     if (ruleId) request.input("ruleId", sql.Int, Number(ruleId));
     if (protectedApplicationId) request.input("protectedApplicationId", sql.Int, Number(protectedApplicationId));
+    if (assignedToUserId && assignedToUserId !== "unassigned") request.input("assignedToUserId", sql.Int, Number(assignedToUserId));
     if (path) request.input("path", sql.NVarChar, `%${path}%`);
     if (from) request.input("from", sql.DateTime2, new Date(from));
     if (to) request.input("to", sql.DateTime2, new Date(to));
@@ -67,12 +70,13 @@ export async function GET(req: NextRequest) {
   const rowsResult = await buildRequest().input("offset", sql.Int, offset).input("pageSize", sql.Int, pageSize).query(`
     SELECT a.Id, a.RuleId, r.Name AS RuleName, a.ProtectedApplicationId, pa.Name AS ProtectedApplicationName, a.Category, a.Severity, a.Confidence, a.RiskScore,
       a.SourceIp, a.DestinationHost, a.RequestMethod, a.RequestPath, a.ResponseStatus, a.UserAgent, a.UserAccount,
-      a.Status, a.OccurrenceCount,
+      a.Status, a.OccurrenceCount, a.AssignedToUserId, au.Username AS AssignedToUsername,
       CONVERT(VARCHAR(19), a.FirstSeenAt, 126) AS FirstSeenAt, CONVERT(VARCHAR(19), a.LastSeenAt, 126) AS LastSeenAt,
       CONVERT(VARCHAR(19), a.CreatedAt, 126) AS CreatedAt
     FROM SecurityAlerts a
     LEFT JOIN SecurityDetectionRules r ON r.Id = a.RuleId
     LEFT JOIN SecurityProtectedApplications pa ON pa.Id = a.ProtectedApplicationId
+    LEFT JOIN Users au ON au.Id = a.AssignedToUserId
     ${whereClause}
     ORDER BY a.CreatedAt DESC
     OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY

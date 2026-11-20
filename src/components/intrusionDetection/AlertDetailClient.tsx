@@ -31,6 +31,15 @@ interface AlertDetail {
   FirstSeenAt: string;
   LastSeenAt: string;
   CreatedAt: string;
+  AssignedToUserId: number | null;
+  AssignedToUsername: string | null;
+  AcknowledgedAt: string | null;
+  AcknowledgedByUsername: string | null;
+}
+
+interface UserOption {
+  Id: number;
+  Username: string;
 }
 
 interface NoteRow {
@@ -97,6 +106,14 @@ export default function AlertDetailClient({ alertId }: { alertId: number }) {
   const [newNote, setNewNote] = useState("");
   const [statusReason, setStatusReason] = useState("");
   const [pendingStatus, setPendingStatus] = useState<AlertStatus | null>(null);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/intrusion-detection/users")
+      .then((r) => r.json())
+      .then((d) => d.ok && setUsers(d.data));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,6 +158,30 @@ export default function AlertDetailClient({ alertId }: { alertId: number }) {
     setPendingStatus(null);
     setStatusReason("");
     load();
+  }
+
+  async function assign(userId: string) {
+    setBusy(true);
+    try {
+      await fetch(`/api/admin/intrusion-detection/alerts/${alertId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: userId ? Number(userId) : null }),
+      });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function acknowledge() {
+    setBusy(true);
+    try {
+      await fetch(`/api/admin/intrusion-detection/alerts/${alertId}/acknowledge`, { method: "POST" });
+      await load();
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading) return <p style={{ color: "var(--ink-muted)" }}>Loading...</p>;
@@ -269,6 +310,30 @@ export default function AlertDetailClient({ alertId }: { alertId: number }) {
         </div>
 
         <div style={{ display: "grid", gap: "1rem", alignContent: "start" }}>
+          <div className="dash-panel">
+            <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Ownership</h3>
+            <Row
+              label="Assigned To"
+              value={
+                <select value={alert.AssignedToUserId ?? ""} disabled={busy} onChange={(e) => assign(e.target.value)} style={{ padding: "0.3rem 0.5rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", fontSize: "0.8rem" }}>
+                  <option value="">Unassigned</option>
+                  {users.map((u) => (
+                    <option key={u.Id} value={u.Id}>
+                      {u.Username}
+                    </option>
+                  ))}
+                </select>
+              }
+            />
+            {alert.AcknowledgedAt ? (
+              <Row label="Acknowledged" value={`${alert.AcknowledgedByUsername ?? "Unknown"} · ${new Date(alert.AcknowledgedAt).toLocaleString()}`} />
+            ) : (
+              <button className="submit" disabled={busy} onClick={acknowledge} style={{ width: "auto", marginTop: "0.5rem", padding: "0.35rem 0.8rem", fontSize: "0.8rem" }}>
+                Acknowledge
+              </button>
+            )}
+          </div>
+
           <div className="dash-panel">
             <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Update Status</h3>
             <div style={{ display: "grid", gap: "0.4rem" }}>

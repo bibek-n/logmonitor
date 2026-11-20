@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { DashboardStats, Severity } from "@/lib/intrusionDetection/shared";
+import { useSearchParams } from "next/navigation";
+import { SEVERITY_ORDER, type DashboardStats, type Severity } from "@/lib/intrusionDetection/shared";
+
+const SEVERITY_ORDER_DESC = [...SEVERITY_ORDER].reverse();
 
 function severityColor(s: string): string {
   if (s === "critical" || s === "high") return "var(--danger)";
@@ -39,6 +42,38 @@ function StatTile({ label, value, danger }: { label: string; value: string | num
   );
 }
 
+// Replaces the old pair of "Open Alerts" / "Critical Alerts" single numbers with one tile
+// that breaks the open count down by every severity that actually has alerts - clicking a
+// severity jumps straight into the Alerts tab pre-filtered to it, same mechanism as the
+// Website Report tab's "View Alerts" links (see jumpFilter above).
+function SeverityBreakdownStat({ bySeverity, onJump }: { bySeverity: Record<Severity, number>; onJump: (severity: Severity) => void }) {
+  const total = SEVERITY_ORDER_DESC.reduce((sum, s) => sum + bySeverity[s], 0);
+  const nonZero = SEVERITY_ORDER_DESC.filter((s) => bySeverity[s] > 0);
+  return (
+    <div style={{ background: "var(--plane)", border: "1px solid var(--border)", borderRadius: 10, padding: "0.75rem 1rem", gridColumn: "span 2" }}>
+      <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Open Alerts</div>
+      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: total > 0 ? "var(--danger)" : "var(--ink)" }}>{total}</div>
+      {nonZero.length > 0 && (
+        <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.35rem" }}>
+          {nonZero.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onJump(s)}
+              style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
+              title={`View ${s} alerts`}
+            >
+              <Badge tone={severityColor(s)}>
+                {s} {bySeverity[s]}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface AlertRow {
   Id: number;
   RuleName: string | null;
@@ -51,6 +86,28 @@ interface AlertRow {
   Status: string;
   OccurrenceCount: number;
   LastSeenAt: string;
+  AssignedToUserId: number | null;
+  AssignedToUsername: string | null;
+}
+
+interface UserOption {
+  Id: number;
+  Username: string;
+}
+
+// A minimal user picker for the alert "Assigned To" column/dropdown - scoped to the
+// intrusion-detection viewer role rather than Company Settings' user list, same reasoning
+// as /api/admin/monitoring/users (see that route's own comment).
+function useSecurityUsers() {
+  const [users, setUsers] = useState<UserOption[]>([]);
+  useEffect(() => {
+    fetch("/api/admin/intrusion-detection/users")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setUsers(d.data);
+      });
+  }, []);
+  return users;
 }
 
 interface EventRow {
@@ -117,15 +174,27 @@ const TABS = ["Alerts", "Events", "Rules", "Websites", "Website Report", "Allowl
 type Tab = (typeof TABS)[number];
 
 export default function SecurityDashboardClient() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("Alerts");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   // Set by the Website Report tab's "View Alerts"/"View Events" links - nonce forces the
   // target tab to remount with the new filter pre-applied even if the same app is clicked twice.
   const [jumpFilter, setJumpFilter] = useState<{ appId: number; nonce: number } | null>(null);
+  // Set by the dashboard's "Open Alerts" severity breakdown (here or the homepage Quick
+  // Stats widget, via ?severity= on load) - same remount-with-nonce mechanism as jumpFilter.
+  const [severityJump, setSeverityJump] = useState<{ severity: Severity; nonce: number } | null>(() => {
+    const s = searchParams.get("severity") as Severity | null;
+    return s ? { severity: s, nonce: 1 } : null;
+  });
 
   function jumpTo(t: "Alerts" | "Events", appId: number) {
     setJumpFilter((prev) => ({ appId, nonce: (prev?.nonce ?? 0) + 1 }));
     setTab(t);
+  }
+
+  function jumpToSeverity(severity: Severity) {
+    setSeverityJump((prev) => ({ severity, nonce: (prev?.nonce ?? 0) + 1 }));
+    setTab("Alerts");
   }
 
   useEffect(() => {
@@ -142,8 +211,7 @@ export default function SecurityDashboardClient() {
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
             <StatTile label="Total Events" value={stats.totalEvents.toLocaleString()} />
-            <StatTile label="Open Alerts" value={stats.openAlerts} />
-            <StatTile label="Critical Alerts" value={stats.criticalAlerts} danger={stats.criticalAlerts > 0} />
+            <SeverityBreakdownStat bySeverity={stats.openAlertsBySeverity} onJump={jumpToSeverity} />
             <StatTile label="Blocked IPs" value={stats.blockedIps} />
             <StatTile label="Failed Logins (24h)" value={stats.failedLogins24h} />
             <StatTile label="Requests/min" value={stats.requestsPerMinute} />
@@ -198,7 +266,13 @@ export default function SecurityDashboardClient() {
         ))}
       </div>
 
-      {tab === "Alerts" && <AlertsTab key={`alerts-${jumpFilter?.nonce ?? 0}`} initialProtectedApplicationId={jumpFilter?.appId} />}
+      {tab === "Alerts" && (
+        <AlertsTab
+          key={`alerts-${jumpFilter?.nonce ?? 0}-${severityJump?.nonce ?? 0}`}
+          initialProtectedApplicationId={jumpFilter?.appId}
+          initialSeverity={severityJump?.severity}
+        />
+      )}
       {tab === "Events" && <EventsTab key={`events-${jumpFilter?.nonce ?? 0}`} initialProtectedApplicationId={jumpFilter?.appId} />}
       {tab === "Rules" && <RulesTab />}
       {tab === "Websites" && <WebsitesTab />}
@@ -251,20 +325,23 @@ function Pager({ page, totalPages, onChange }: { page: number; totalPages: numbe
 
 const inputStyle = { padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", fontSize: "0.82rem" };
 
-function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicationId?: number } = {}) {
+function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initialProtectedApplicationId?: number; initialSeverity?: Severity } = {}) {
   const [rows, setRows] = useState<AlertRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [assigning, setAssigning] = useState<number | null>(null);
   const [filters, setFilters] = useState({
-    severity: "",
+    severity: initialSeverity ?? "",
     status: "",
     category: "",
     sourceIp: "",
     path: "",
     protectedApplicationId: initialProtectedApplicationId ? String(initialProtectedApplicationId) : "",
+    assignedToUserId: "",
   });
   const apps = useProtectedApplications();
+  const users = useSecurityUsers();
 
   const load = useCallback(async (p: number, f: typeof filters) => {
     setLoading(true);
@@ -287,6 +364,20 @@ function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
+  async function assign(alertId: number, userId: string) {
+    setAssigning(alertId);
+    try {
+      await fetch(`/api/admin/intrusion-detection/alerts/${alertId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: userId ? Number(userId) : null }),
+      });
+      await load(page, filters);
+    } finally {
+      setAssigning(null);
+    }
+  }
+
   return (
     <div className="dash-panel">
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
@@ -300,7 +391,7 @@ function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicat
         </select>
         <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} style={inputStyle}>
           <option value="">All statuses</option>
-          {["New", "Investigating", "Confirmed", "FalsePositive", "Resolved", "Suppressed"].map((s) => (
+          {["New", "Acknowledged", "Investigating", "Confirmed", "FalsePositive", "Resolved", "Suppressed"].map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
@@ -314,6 +405,15 @@ function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicat
           {apps.map((app) => (
             <option key={app.Id} value={app.Id}>
               {app.WebsiteId ? `🌐 ${app.Name}` : app.Name}
+            </option>
+          ))}
+        </select>
+        <select value={filters.assignedToUserId} onChange={(e) => setFilters((f) => ({ ...f, assignedToUserId: e.target.value }))} style={inputStyle}>
+          <option value="">Any owner</option>
+          <option value="unassigned">Unassigned</option>
+          {users.map((u) => (
+            <option key={u.Id} value={u.Id}>
+              {u.Username}
             </option>
           ))}
         </select>
@@ -336,6 +436,7 @@ function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicat
                 <th style={{ padding: "0.4rem" }}>Source IP</th>
                 <th style={{ padding: "0.4rem" }}>Path</th>
                 <th style={{ padding: "0.4rem" }}>Status</th>
+                <th style={{ padding: "0.4rem" }}>Assigned To</th>
                 <th style={{ padding: "0.4rem" }}>Count</th>
                 <th style={{ padding: "0.4rem" }}>Last Seen</th>
               </tr>
@@ -357,6 +458,21 @@ function AlertsTab({ initialProtectedApplicationId }: { initialProtectedApplicat
                   <td style={{ padding: "0.4rem" }}>{a.SourceIp ?? "-"}</td>
                   <td style={{ padding: "0.4rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.RequestPath ?? "-"}</td>
                   <td style={{ padding: "0.4rem" }}>{a.Status}</td>
+                  <td style={{ padding: "0.4rem" }}>
+                    <select
+                      value={a.AssignedToUserId ?? ""}
+                      disabled={assigning === a.Id}
+                      onChange={(e) => assign(a.Id, e.target.value)}
+                      style={{ ...inputStyle, padding: "0.25rem 0.4rem", fontSize: "0.78rem" }}
+                    >
+                      <option value="">Unassigned</option>
+                      {users.map((u) => (
+                        <option key={u.Id} value={u.Id}>
+                          {u.Username}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td style={{ padding: "0.4rem" }}>{a.OccurrenceCount}</td>
                   <td style={{ padding: "0.4rem", whiteSpace: "nowrap" }}>{new Date(a.LastSeenAt).toLocaleString()}</td>
                 </tr>

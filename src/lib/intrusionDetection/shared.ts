@@ -10,9 +10,9 @@ export function severityRank(s: Severity): number {
   return SEVERITY_ORDER.indexOf(s);
 }
 
-export type AlertStatus = "New" | "Investigating" | "Confirmed" | "FalsePositive" | "Resolved" | "Suppressed";
+export type AlertStatus = "New" | "Acknowledged" | "Investigating" | "Confirmed" | "FalsePositive" | "Resolved" | "Suppressed";
 
-export const ALERT_STATUSES: AlertStatus[] = ["New", "Investigating", "Confirmed", "FalsePositive", "Resolved", "Suppressed"];
+export const ALERT_STATUSES: AlertStatus[] = ["New", "Acknowledged", "Investigating", "Confirmed", "FalsePositive", "Resolved", "Suppressed"];
 
 // One entry per detection category a starter rule can classify an event as. Kept as a
 // plain string union (not an enum) so a new rule can introduce a new category value
@@ -95,6 +95,10 @@ export interface AlertRow {
   CreatedAt: string;
   UpdatedAt: string;
   RuleName?: string | null;
+  AssignedToUserId: number | null;
+  AssignedToUsername?: string | null;
+  AcknowledgedAt: string | null;
+  AcknowledgedByUsername?: string | null;
 }
 
 export interface DetectionRuleRow {
@@ -142,6 +146,7 @@ export interface DashboardStats {
   totalEvents: number;
   openAlerts: number;
   criticalAlerts: number;
+  openAlertsBySeverity: Record<Severity, number>;
   blockedIps: number;
   failedLogins24h: number;
   requestsPerMinute: number;

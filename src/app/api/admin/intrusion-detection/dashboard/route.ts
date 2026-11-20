@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireSecurityRole, isSecuritySession } from "@/lib/intrusionDetection/requireSecurityRole";
-import type { DashboardStats } from "@/lib/intrusionDetection/shared";
+import { SEVERITY_ORDER, type DashboardStats, type Severity } from "@/lib/intrusionDetection/shared";
 
 export async function GET() {
   const session = await requireSecurityRole("viewer");
@@ -9,7 +9,7 @@ export async function GET() {
 
   const db = await getDb();
 
-  const [totals, categories, paths, ips, rules, statusDist, overTime, health] = await Promise.all([
+  const [totals, bySeverity, categories, paths, ips, rules, statusDist, overTime, health] = await Promise.all([
     db.query<{ TotalEvents: number; OpenAlerts: number; CriticalAlerts: number; BlockedIps: number; FailedLogins24h: number }>(`
       SELECT
         (SELECT COUNT(*) FROM SecurityEvents) AS TotalEvents,
@@ -17,6 +17,11 @@ export async function GET() {
         (SELECT COUNT(*) FROM SecurityAlerts WHERE Severity = 'critical' AND Status NOT IN ('Resolved', 'FalsePositive')) AS CriticalAlerts,
         (SELECT COUNT(*) FROM SecurityIpBlocklist WHERE IsActive = 1 AND (ExpiresAt IS NULL OR ExpiresAt > SYSUTCDATETIME())) AS BlockedIps,
         (SELECT COUNT(*) FROM SecurityEvents WHERE DataSource = 'admin_audit_log' AND ResponseStatus = 401 AND EventTime >= DATEADD(HOUR, -24, SYSUTCDATETIME())) AS FailedLogins24h
+    `),
+    db.query<{ severity: Severity; count: number }>(`
+      SELECT Severity AS severity, COUNT(*) AS count FROM SecurityAlerts
+      WHERE Status NOT IN ('Resolved', 'FalsePositive')
+      GROUP BY Severity
     `),
     db.query<{ category: string; count: number }>(`
       SELECT TOP 8 Category AS category, COUNT(*) AS count FROM SecurityAlerts
@@ -60,10 +65,19 @@ export async function GET() {
     SELECT COUNT(*) AS Cnt FROM SecurityEvents WHERE EventTime >= DATEADD(MINUTE, -1, SYSUTCDATETIME())
   `);
 
+  const openAlertsBySeverity = SEVERITY_ORDER.reduce(
+    (acc, s) => {
+      acc[s] = bySeverity.recordset.find((r) => r.severity === s)?.count ?? 0;
+      return acc;
+    },
+    {} as Record<Severity, number>
+  );
+
   const stats: DashboardStats = {
     totalEvents: totals.recordset[0].TotalEvents,
     openAlerts: totals.recordset[0].OpenAlerts,
     criticalAlerts: totals.recordset[0].CriticalAlerts,
+    openAlertsBySeverity,
     blockedIps: totals.recordset[0].BlockedIps,
     failedLogins24h: totals.recordset[0].FailedLogins24h,
     requestsPerMinute: requestsPerMinuteResult.recordset[0].Cnt,

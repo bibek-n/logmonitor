@@ -20,10 +20,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const alertResult = await db.request().input("id", sql.Int, alertId).query(`
     SELECT a.*, r.Name AS RuleName, r.Description AS RuleDescription, r.Tags AS RuleTags, r.References_ AS RuleReferences,
-      pa.Name AS ProtectedApplicationName
+      pa.Name AS ProtectedApplicationName, au.Username AS AssignedToUsername, ak.Username AS AcknowledgedByUsername
     FROM SecurityAlerts a
     LEFT JOIN SecurityDetectionRules r ON r.Id = a.RuleId
     LEFT JOIN SecurityProtectedApplications pa ON pa.Id = a.ProtectedApplicationId
+    LEFT JOIN Users au ON au.Id = a.AssignedToUserId
+    LEFT JOIN Users ak ON ak.Id = a.AcknowledgedByUserId
     WHERE a.Id = @id
   `);
   const alert = alertResult.recordset[0];

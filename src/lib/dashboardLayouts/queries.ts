@@ -19,27 +19,39 @@ export interface QuickStats {
   activeWebsites: number;
   runningAutomations: number;
   openSecurityAlerts: number;
+  openSecurityAlertsBySeverity: { critical: number; high: number; medium: number; low: number; informational: number };
 }
 
 export async function getQuickStats(): Promise<QuickStats> {
   const db = await getDb();
-  const result = await db.query<{
-    TotalUsers: number;
-    ActiveDevices: number;
-    OnlineServers: number;
-    ActiveWebsites: number;
-    RunningAutomations: number;
-    OpenSecurityAlerts: number;
-  }>(`
-    SELECT
-      (SELECT COUNT(*) FROM Users) AS TotalUsers,
-      (SELECT COUNT(*) FROM Devices WHERE LastHeartbeat >= DATEADD(MINUTE, -10, SYSUTCDATETIME())) AS ActiveDevices,
-      (SELECT COUNT(*) FROM Devices WHERE DeviceType = 'Server' AND LastHeartbeat >= DATEADD(MINUTE, -10, SYSUTCDATETIME())) AS OnlineServers,
-      (SELECT COUNT(*) FROM Websites WHERE Enabled = 1) AS ActiveWebsites,
-      (SELECT COUNT(*) FROM AutomationJobTargets WHERE Status = 'Running') AS RunningAutomations,
-      (SELECT COUNT(*) FROM SecurityAlerts WHERE Status NOT IN ('Resolved', 'FalsePositive', 'Suppressed')) AS OpenSecurityAlerts
-  `);
+  const [result, bySeverityResult] = await Promise.all([
+    db.query<{
+      TotalUsers: number;
+      ActiveDevices: number;
+      OnlineServers: number;
+      ActiveWebsites: number;
+      RunningAutomations: number;
+      OpenSecurityAlerts: number;
+    }>(`
+      SELECT
+        (SELECT COUNT(*) FROM Users) AS TotalUsers,
+        (SELECT COUNT(*) FROM Devices WHERE LastHeartbeat >= DATEADD(MINUTE, -10, SYSUTCDATETIME())) AS ActiveDevices,
+        (SELECT COUNT(*) FROM Devices WHERE DeviceType = 'Server' AND LastHeartbeat >= DATEADD(MINUTE, -10, SYSUTCDATETIME())) AS OnlineServers,
+        (SELECT COUNT(*) FROM Websites WHERE Enabled = 1) AS ActiveWebsites,
+        (SELECT COUNT(*) FROM AutomationJobTargets WHERE Status = 'Running') AS RunningAutomations,
+        (SELECT COUNT(*) FROM SecurityAlerts WHERE Status NOT IN ('Resolved', 'FalsePositive', 'Suppressed')) AS OpenSecurityAlerts
+    `),
+    db.query<{ Severity: string; Cnt: number }>(`
+      SELECT Severity, COUNT(*) AS Cnt FROM SecurityAlerts
+      WHERE Status NOT IN ('Resolved', 'FalsePositive', 'Suppressed')
+      GROUP BY Severity
+    `),
+  ]);
   const r = result.recordset[0];
+  const bySeverity = { critical: 0, high: 0, medium: 0, low: 0, informational: 0 };
+  for (const row of bySeverityResult.recordset) {
+    if (row.Severity in bySeverity) bySeverity[row.Severity as keyof typeof bySeverity] = row.Cnt;
+  }
   return {
     totalUsers: r.TotalUsers,
     activeDevices: r.ActiveDevices,
@@ -47,6 +59,7 @@ export async function getQuickStats(): Promise<QuickStats> {
     activeWebsites: r.ActiveWebsites,
     runningAutomations: r.RunningAutomations,
     openSecurityAlerts: r.OpenSecurityAlerts,
+    openSecurityAlertsBySeverity: bySeverity,
   };
 }
 

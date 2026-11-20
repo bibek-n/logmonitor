@@ -64,6 +64,51 @@ function StatTile({ label, value, tone, href }: { label: string; value: string |
   );
 }
 
+const SEVERITY_TONE: Record<string, string> = {
+  critical: "var(--danger)",
+  high: "var(--danger)",
+  medium: "var(--warning)",
+  low: "var(--warning)",
+  informational: "var(--ink-muted)",
+};
+
+// Replaces a single "N open alerts" number (which tells you nothing about whether those are
+// 5 critical or 5 informational) with one segment per severity that actually has alerts -
+// each segment links straight into the Security Center alerts list pre-filtered to that
+// severity, so a click goes to the triage queue, not just a bare count.
+function SeverityBreakdownTile({ label, bySeverity, href }: { label: string; bySeverity: Record<string, number>; href: string }) {
+  const total = Object.values(bySeverity).reduce((a, b) => a + b, 0);
+  const nonZero = Object.entries(bySeverity).filter(([, n]) => n > 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: total > 0 ? "var(--danger)" : "var(--success)", lineHeight: 1.1 }}>{total}</div>
+      <div style={{ fontSize: "0.8125rem", color: "var(--ink-muted)" }}>{label}</div>
+      {nonZero.length > 0 && (
+        <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: 2 }}>
+          {nonZero.map(([sev, n]) => (
+            <Link
+              key={sev}
+              href={`${href}?severity=${sev}`}
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                padding: "0.1rem 0.4rem",
+                borderRadius: 999,
+                color: SEVERITY_TONE[sev] ?? "var(--ink-muted)",
+                background: `color-mix(in srgb, ${SEVERITY_TONE[sev] ?? "var(--ink-muted)"} 16%, transparent)`,
+                textDecoration: "none",
+              }}
+            >
+              {sev.slice(0, 4)} {n}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CardHeader({ icon: Icon, title, href }: { icon: typeof Users; title: string; href?: string }) {
   return (
     <div className="flex items-center justify-between" style={{ marginBottom: "0.75rem" }}>
@@ -90,12 +135,7 @@ export function QuickStatsCard({ stats }: { stats: QuickStats }) {
         <StatTile label="Online Servers" value={stats.onlineServers} href="/dashboard/servers" />
         <StatTile label="Active Websites" value={stats.activeWebsites} href="/dashboard/audit/websites" />
         <StatTile label="Running Automations" value={stats.runningAutomations} href="/dashboard/automation/tasks" />
-        <StatTile
-          label="Open Security Alerts"
-          value={stats.openSecurityAlerts}
-          tone={stats.openSecurityAlerts > 0 ? "danger" : "success"}
-          href="/dashboard/security-center"
-        />
+        <SeverityBreakdownTile label="Open Security Alerts" bySeverity={stats.openSecurityAlertsBySeverity} href="/dashboard/security" />
       </div>
     </Card>
   );
