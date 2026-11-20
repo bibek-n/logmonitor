@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,7 @@ import { ArrowUpDown, ChevronUp, ChevronDown, Check, Search, X } from "lucide-re
 import { NAV_CATEGORIES, GATED_GROUP_KEYS, GATED_CATEGORY_KEYS, CATEGORY_ICONS, type NavEntry, type NavSubGroup, type NavLink } from "@/lib/navRoutes";
 import { loadNavOrder, saveNavOrder, applyOrder, moveItem, type SidebarOrder } from "@/lib/navOrder";
 import { labelStyle } from "./sidebarLabelStyle";
+import { useRealtimeStore } from "@/lib/realtimeStore";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -171,25 +172,29 @@ export default function Sidebar({
   // Red badge on "Employee Chat" so a new message is visible from anywhere in the
   // dashboard, not just while already on the chat page - HeaderClient separately toasts
   // for the same unread messages, this just keeps the nav item itself lit up.
-  useEffect(() => {
-    let cancelled = false;
-    async function poll() {
-      try {
-        const res = await fetch("/api/admin/chat/unread");
-        if (!res.ok) return;
-        const data: { ok: boolean; count: number } = await res.json();
-        if (!cancelled && data.ok) setUnreadChatCount(data.count);
-      } catch {
-        // Transient network hiccup - just try again on the next tick.
-      }
+  const chatNudge = useRealtimeStore((s) => s.chatNudge);
+
+  const pollUnread = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/chat/unread");
+      if (!res.ok) return;
+      const data: { ok: boolean; count: number } = await res.json();
+      if (data.ok) setUnreadChatCount(data.count);
+    } catch {
+      // Transient network hiccup - just try again on the next tick.
     }
-    poll();
-    const id = setInterval(poll, 6000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
   }, []);
+
+  // Runs on mount and again immediately on every SSE-signaled chat message - the interval
+  // below (now much longer) is only a fallback for a dropped/reconnecting SSE stream.
+  useEffect(() => {
+    pollUnread();
+  }, [pollUnread, chatNudge]);
+
+  useEffect(() => {
+    const id = setInterval(pollUnread, 45000);
+    return () => clearInterval(id);
+  }, [pollUnread]);
 
   function persist(next: SidebarOrder) {
     setOrder(next);

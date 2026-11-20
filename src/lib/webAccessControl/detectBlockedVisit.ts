@@ -1,6 +1,7 @@
 import { getDb, sql } from "../db";
 import { loadRulesEngineData, getStaffGroupId } from "./loadData";
 import { resolveAccess } from "./rulesEngine";
+import { publishRealtimeEvent } from "../realtime/eventBus";
 
 // Best-effort detection of an employee visiting a site Website Access Control's own rules
 // say should be blocked for them - built on top of Browser Activity ingestion (already
@@ -50,5 +51,6 @@ export async function flagBlockedVisits(deviceId: string, staffId: number | null
         INSERT INTO DeviceAlerts (DeviceId, AlertType, Severity, Message, TriggeredAt)
         VALUES (@deviceId, 'wac_blocked_site_visit', 'warning', @message, SYSUTCDATETIME())
       `);
+    publishRealtimeEvent({ type: "alert" });
   }
 }

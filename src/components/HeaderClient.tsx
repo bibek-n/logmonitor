@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -10,9 +10,13 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { HeaderClock } from "./HeaderClock";
 import { useMobileSidebar } from "./MobileSidebarContext";
 import { MonitoringNotificationBell } from "./websiteApiMonitoring/MonitoringNotificationBell";
+import { useRealtimeStore } from "@/lib/realtimeStore";
 import type { AlertRow } from "@/lib/alerts";
 
-const ALERTS_POLL_INTERVAL_MS = 6000;
+// Now just the fallback cadence - RealtimeEventsProvider's SSE push (see alertsNudge below)
+// delivers new alerts instantly in the common case, so this only has to catch whatever a
+// dropped/reconnecting SSE connection might miss in between.
+const ALERTS_POLL_INTERVAL_MS = 45000;
 
 function useBreadcrumb(pathname: string, overviewFallback: string): string[] {
   return useMemo(() => {
@@ -64,54 +68,55 @@ export default function HeaderClient({
   // short grace window before mount means anything genuinely recent still pops once,
   // while true backlog (alerts from hours/days ago) stays silent.
   const lastSeenRef = useRef<number>(Date.now() - 2 * 60 * 1000);
+  const alertsNudge = useRealtimeStore((s) => s.alertsNudge);
+
+  const pollAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/alerts/recent");
+      if (!res.ok) return;
+      const data: { alerts: AlertRow[] } = await res.json();
+
+      const fresh = data.alerts
+        .filter((a) => new Date(a.EventTime).getTime() > lastSeenRef.current)
+        .sort((a, b) => new Date(a.EventTime).getTime() - new Date(b.EventTime).getTime());
+
+      for (const a of fresh) {
+        // Deliberately no in-app toast popup here anymore - alerts are visible via the
+        // notification bell (badge + dropdown, updated below via setAlerts) and via the
+        // real OS notification, but a toast auto-popping in the corner for every single
+        // alert (e.g. routine USB-insert events) was unwanted noise.
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const n = new Notification(a.Severity === "critical" || a.Severity === "warning" ? "LogMonitor alert" : "LogMonitor notice", {
+            body: a.Detail,
+            icon: "/branding/tulips-favicon.png",
+            tag: `logmonitor-alert-${a.EventTime}`,
+          });
+          n.onclick = () => {
+            window.focus();
+            n.close();
+          };
+        }
+      }
+      if (fresh.length > 0) {
+        lastSeenRef.current = Math.max(...fresh.map((a) => new Date(a.EventTime).getTime()));
+      }
+      setAlerts(data.alerts);
+    } catch {
+      // Transient network hiccup - just try again on the next tick.
+    }
+  }, []);
+
+  // Runs once on mount, then again immediately every time RealtimeEventsProvider's SSE stream
+  // signals a new alert - this is the primary, instant path now; the interval below is only
+  // the fallback for a dropped/reconnecting stream.
+  useEffect(() => {
+    pollAlerts();
+  }, [pollAlerts, alertsNudge]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const res = await fetch("/api/admin/alerts/recent");
-        if (!res.ok) return;
-        const data: { alerts: AlertRow[] } = await res.json();
-        if (cancelled) return;
-
-        const fresh = data.alerts
-          .filter((a) => new Date(a.EventTime).getTime() > lastSeenRef.current)
-          .sort((a, b) => new Date(a.EventTime).getTime() - new Date(b.EventTime).getTime());
-
-        for (const a of fresh) {
-          // Deliberately no in-app toast popup here anymore - alerts are visible via the
-          // notification bell (badge + dropdown, updated below via setAlerts) and via the
-          // real OS notification, but a toast auto-popping in the corner for every single
-          // alert (e.g. routine USB-insert events) was unwanted noise.
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            const n = new Notification(a.Severity === "critical" || a.Severity === "warning" ? "LogMonitor alert" : "LogMonitor notice", {
-              body: a.Detail,
-              icon: "/branding/tulips-favicon.png",
-              tag: `logmonitor-alert-${a.EventTime}`,
-            });
-            n.onclick = () => {
-              window.focus();
-              n.close();
-            };
-          }
-        }
-        if (fresh.length > 0) {
-          lastSeenRef.current = Math.max(...fresh.map((a) => new Date(a.EventTime).getTime()));
-        }
-        setAlerts(data.alerts);
-      } catch {
-        // Transient network hiccup - just try again on the next tick.
-      }
-    }
-
-    poll();
-    const id = setInterval(poll, ALERTS_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+    const id = setInterval(pollAlerts, ALERTS_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [pollAlerts]);
 
   // Registers the push service worker on every dashboard page load - registration alone (no
   // permission prompt, no subscription) is inert, so this is safe to do unconditionally. The

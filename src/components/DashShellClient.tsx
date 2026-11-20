@@ -7,6 +7,7 @@ import FloatingChatWidget from "./chat/FloatingChatWidget";
 import { CommandPalette } from "./commandPalette/CommandPalette";
 import { ShortcutsOverlay } from "./commandPalette/ShortcutsOverlay";
 import RouteProgressBar from "./RouteProgressBar";
+import RealtimeEventsProvider from "./RealtimeEventsProvider";
 
 export default function DashShellClient({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function DashShellClient({ children }: { children: ReactNode }) {
   return (
     <MobileSidebarContext.Provider value={value}>
       <ToastProvider>
+        <RealtimeEventsProvider />
         <RouteProgressBar />
         <div className="dash-shell" data-mobile-sidebar-open={open}>
           {children}

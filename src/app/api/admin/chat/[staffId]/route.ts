@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
 import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
 import { logAdminAction } from "@/lib/adminAudit";
+import { publishRealtimeEvent } from "@/lib/realtime/eventBus";
 
 // Logical failures always respond 200 (via `ok: false`) rather than a real 4xx/5xx status —
 // confirmed live this session that this app's IIS front end replaces non-2xx response
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sta
     .query(
       "INSERT INTO ChatMessages (StaffId, SenderType, SenderName, Message, ReadByAdminAt) VALUES (@staffId, 'admin', @senderName, @message, SYSUTCDATETIME())"
     );
+  publishRealtimeEvent({ type: "chat-message", staffId });
 
   return NextResponse.json({ ok: true });
 }

@@ -6,6 +6,7 @@ import { computeRiskScore, explainRiskScore, buildEvidenceSummary } from "./risk
 import { sanitizeEvidence, sanitizeRequestPath } from "./redaction";
 import type { NormalizedSecurityEvent, Severity } from "./shared";
 import { dispatchAlertNotifications } from "./notificationChannels";
+import { publishRealtimeEvent } from "@/lib/realtime/eventBus";
 
 const NOTIFY_SEVERITIES: Severity[] = ["high", "critical"];
 
@@ -111,6 +112,8 @@ export async function processMatch(match: RuleMatch, event: NormalizedSecurityEv
   }
 
   await db.request().input("id", sql.Int, eventId).input("alertId", sql.Int, alertId).query(`UPDATE SecurityEvents SET AlertId = @alertId WHERE Id = @id`);
+
+  publishRealtimeEvent({ type: "alert" });
 
   const { subject, body } = buildAlertNotificationText(alertId, match, event, risk.score);
 

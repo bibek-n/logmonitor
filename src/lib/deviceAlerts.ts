@@ -1,4 +1,5 @@
 import { getDb, sql } from "./db";
+import { publishRealtimeEvent } from "./realtime/eventBus";
 
 // Avoids duplicate spam: only inserts a new DeviceAlerts row if there isn't already an
 // unresolved alert of the same type for this device. Called inline from the metrics and
@@ -20,6 +21,7 @@ export async function raiseAlertIfNew(deviceId: string, alertType: string, sever
     .input("severity", sql.VarChar, severity)
     .input("message", sql.NVarChar, message)
     .query("INSERT INTO DeviceAlerts (DeviceId, AlertType, Severity, Message) VALUES (@deviceId, @alertType, @severity, @message)");
+  publishRealtimeEvent({ type: "alert" });
 }
 
 // For discrete one-off events (a USB device was just plugged in or removed) rather than
@@ -39,6 +41,7 @@ export async function raisePointInTimeAlert(deviceId: string, alertType: string,
     .query(
       "INSERT INTO DeviceAlerts (DeviceId, AlertType, Severity, Message, ResolvedAt) VALUES (@deviceId, @alertType, @severity, @message, SYSUTCDATETIME())"
     );
+  publishRealtimeEvent({ type: "alert" });
 }
 
 // Marks any unresolved alert of this type for the device as resolved, once the

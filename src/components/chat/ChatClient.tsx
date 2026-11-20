@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import { Search, Send, Trash2, Bell, Headset, X } from "lucide-react";
+import { useRealtimeStore } from "@/lib/realtimeStore";
 
 export interface StaffChatSummary {
   Id: number;
@@ -107,19 +108,30 @@ export default function ChatClient({ initialStaff, allStaff }: { initialStaff: S
     }
   }
 
+  const chatNudge = useRealtimeStore((s) => s.chatNudge);
+
+  const refreshSelectedThread = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      const res = await fetch(`/api/admin/chat/${selectedId}`);
+      const data = await res.json();
+      if (res.ok && data.ok) setMessages(data.messages);
+    } catch {
+      // transient poll failure — try again next tick
+    }
+  }, [selectedId]);
+
+  // Re-fetches immediately whenever RealtimeEventsProvider's SSE stream signals a new chat
+  // message - the interval below is only a fallback for a dropped/reconnecting stream.
+  useEffect(() => {
+    if (selectedId) refreshSelectedThread();
+  }, [selectedId, chatNudge, refreshSelectedThread]);
+
   useEffect(() => {
     if (!selectedId) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/admin/chat/${selectedId}`);
-        const data = await res.json();
-        if (res.ok && data.ok) setMessages(data.messages);
-      } catch {
-        // transient poll failure — try again next tick
-      }
-    }, POLL_MS);
+    const interval = setInterval(refreshSelectedThread, POLL_MS);
     return () => clearInterval(interval);
-  }, [selectedId]);
+  }, [selectedId, refreshSelectedThread]);
 
   // Same fix as the employee-side chat: only auto-scroll when the last message is
   // genuinely new (not just a same-content poll refresh), and only when already near the

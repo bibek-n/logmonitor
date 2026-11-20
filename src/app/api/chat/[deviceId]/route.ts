@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
 import { resolveDeviceChat } from "@/lib/employeeChatAuth";
+import { publishRealtimeEvent } from "@/lib/realtime/eventBus";
 
 // Public route — no NextAuth session (the employee has no dashboard login). Authorization
 // is the high-entropy ChatToken generated at enrollment (agentAuth.ts's generateChatToken)
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ dev
     .query(
       "INSERT INTO ChatMessages (StaffId, DeviceId, SenderType, SenderName, Message, ReadByEmployeeAt) VALUES (@staffId, @deviceId, 'employee', @senderName, @message, SYSUTCDATETIME())"
     );
+  publishRealtimeEvent({ type: "chat-message", staffId: device.StaffId });
 
   return NextResponse.json({ ok: true });
 }

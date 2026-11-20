@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, X, Send, ExternalLink } from "lucide-react";
+import { useRealtimeStore } from "@/lib/realtimeStore";
 
 interface ChatMessage {
   Id: number;
@@ -12,7 +13,11 @@ interface ChatMessage {
   CreatedAt: string;
 }
 
-const POLL_MS = 5000;
+// Fallback cadences only now - RealtimeEventsProvider's SSE push delivers new messages
+// instantly in the common case (see chatNudge below); these just catch whatever a
+// dropped/reconnecting SSE connection might miss in between.
+const UNREAD_POLL_MS = 45000;
+const POLL_MS = 15000;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -58,69 +63,81 @@ export default function FloatingChatWidget() {
     }
   }
 
+  const chatNudge = useRealtimeStore((s) => s.chatNudge);
+
   // Global watch for new messages - auto-opens the box on the newest arrival when the
   // widget is closed. If it's already open on a different conversation, it deliberately
   // does NOT yank focus away - the badge count and sidebar's own red indicator still
   // reflect that something else needs attention.
-  useEffect(() => {
-    let cancelled = false;
+  const pollUnread = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/chat/unread");
+      if (!res.ok) return;
+      const data: { ok: boolean; count: number; messages: { Id: number; StaffId: number; StaffName: string }[] } = await res.json();
+      if (!data.ok) return;
+      setUnreadCount(data.count);
 
-    async function poll() {
-      try {
-        const res = await fetch("/api/admin/chat/unread");
-        if (!res.ok) return;
-        const data: { ok: boolean; count: number; messages: { Id: number; StaffId: number; StaffName: string }[] } = await res.json();
-        if (cancelled || !data.ok) return;
-        setUnreadCount(data.count);
-
-        if (!seededRef.current) {
-          seededRef.current = true;
-          if (data.messages.length > 0) lastSeenIdRef.current = Math.max(...data.messages.map((m) => m.Id));
-          return;
-        }
-
-        const fresh = data.messages.filter((m) => m.Id > lastSeenIdRef.current).sort((a, b) => a.Id - b.Id);
-        if (fresh.length === 0) return;
-        lastSeenIdRef.current = Math.max(...fresh.map((m) => m.Id));
-
-        const latest = fresh[fresh.length - 1];
-        if (!panelOpenRef.current) {
-          openThread(latest.StaffId, latest.StaffName);
-        } else if (openStaffIdRef.current === latest.StaffId) {
-          fetch(`/api/admin/chat/${latest.StaffId}`)
-            .then((r) => r.json())
-            .then((d) => {
-              if (!cancelled && d.ok) setMessages(d.messages);
-            })
-            .catch(() => {});
-        }
-      } catch {
-        // transient network hiccup - just try again on the next tick
+      if (!seededRef.current) {
+        seededRef.current = true;
+        if (data.messages.length > 0) lastSeenIdRef.current = Math.max(...data.messages.map((m) => m.Id));
+        return;
       }
-    }
 
-    poll();
-    const id = setInterval(poll, 6000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+      const fresh = data.messages.filter((m) => m.Id > lastSeenIdRef.current).sort((a, b) => a.Id - b.Id);
+      if (fresh.length === 0) return;
+      lastSeenIdRef.current = Math.max(...fresh.map((m) => m.Id));
+
+      const latest = fresh[fresh.length - 1];
+      if (!panelOpenRef.current) {
+        openThread(latest.StaffId, latest.StaffName);
+      } else if (openStaffIdRef.current === latest.StaffId) {
+        fetch(`/api/admin/chat/${latest.StaffId}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.ok) setMessages(d.messages);
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // transient network hiccup - just try again on the next tick
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Runs on mount and again immediately on every SSE-signaled chat message - the interval
+  // below (now much longer) is only a fallback for a dropped/reconnecting SSE stream.
+  useEffect(() => {
+    pollUnread();
+  }, [pollUnread, chatNudge]);
+
+  useEffect(() => {
+    const id = setInterval(pollUnread, UNREAD_POLL_MS);
+    return () => clearInterval(id);
+  }, [pollUnread]);
+
   // Keeps the open thread live while the panel is showing (mirrors ChatClient's own poll).
+  // Also re-fetches immediately on a chat nudge while this exact thread is open, so a reply
+  // the admin is actively looking at appears instantly rather than up to POLL_MS late.
+  const refreshOpenThread = useCallback(async () => {
+    if (!panelOpenRef.current || !openStaffIdRef.current) return;
+    try {
+      const res = await fetch(`/api/admin/chat/${openStaffIdRef.current}`);
+      const data = await res.json();
+      if (res.ok && data.ok) setMessages(data.messages);
+    } catch {
+      // transient
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && staffId) refreshOpenThread();
+  }, [open, staffId, chatNudge, refreshOpenThread]);
+
   useEffect(() => {
     if (!open || !staffId) return;
-    const id = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/admin/chat/${staffId}`);
-        const data = await res.json();
-        if (res.ok && data.ok) setMessages(data.messages);
-      } catch {
-        // transient
-      }
-    }, POLL_MS);
+    const id = setInterval(refreshOpenThread, POLL_MS);
     return () => clearInterval(id);
-  }, [open, staffId]);
+  }, [open, staffId, refreshOpenThread]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
