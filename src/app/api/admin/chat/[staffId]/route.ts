@@ -3,6 +3,7 @@ import { getDb, sql } from "@/lib/db";
 import { requireAdmin, isAdminSession } from "@/lib/requireAdmin";
 import { logAdminAction } from "@/lib/adminAudit";
 import { publishRealtimeEvent } from "@/lib/realtime/eventBus";
+import { raiseChatSendFailureAlert } from "@/lib/deviceAlerts";
 
 // Logical failures always respond 200 (via `ok: false`) rather than a real 4xx/5xx status —
 // confirmed live this session that this app's IIS front end replaces non-2xx response
@@ -58,16 +59,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sta
 
   const db = await getDb();
   const staffResult = await db.request().input("id", sql.Int, staffId).query<{ Id: number }>("SELECT Id FROM Staff WHERE Id = @id");
-  if (!staffResult.recordset[0]) return NextResponse.json({ ok: false, error: "Staff not found" });
+  if (!staffResult.recordset[0]) {
+    await raiseChatSendFailureAlert(staffId, "Staff not found");
+    return NextResponse.json({ ok: false, error: "Staff not found" });
+  }
 
-  await db
-    .request()
-    .input("staffId", sql.Int, staffId)
-    .input("senderName", sql.NVarChar, admin.username)
-    .input("message", sql.NVarChar, message)
-    .query(
-      "INSERT INTO ChatMessages (StaffId, SenderType, SenderName, Message, ReadByAdminAt) VALUES (@staffId, 'admin', @senderName, @message, SYSUTCDATETIME())"
-    );
+  try {
+    await db
+      .request()
+      .input("staffId", sql.Int, staffId)
+      .input("senderName", sql.NVarChar, admin.username)
+      .input("message", sql.NVarChar, message)
+      .query(
+        "INSERT INTO ChatMessages (StaffId, SenderType, SenderName, Message, ReadByAdminAt) VALUES (@staffId, 'admin', @senderName, @message, SYSUTCDATETIME())"
+      );
+  } catch (err) {
+    await raiseChatSendFailureAlert(staffId, err instanceof Error ? err.message : "Database error");
+    return NextResponse.json({ ok: false, error: "Failed to send message" });
+  }
   publishRealtimeEvent({ type: "chat-message", staffId });
 
   return NextResponse.json({ ok: true });

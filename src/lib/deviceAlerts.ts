@@ -44,6 +44,27 @@ export async function raisePointInTimeAlert(deviceId: string, alertType: string,
   publishRealtimeEvent({ type: "alert" });
 }
 
+// Best-effort alert for an admin chat message that genuinely failed to send (DB error,
+// staff row vanished mid-request) - not for ordinary input validation (empty/too-long
+// message), which the client already guards against. Looks up the staff member's agent
+// device, since DeviceAlerts rows only surface in the bell when they join to a real
+// Devices row; if the staff member has no agent device, the alert is skipped rather than
+// written invisibly. Never throws - alerting must not break the chat response itself.
+export async function raiseChatSendFailureAlert(staffId: number, reason: string) {
+  try {
+    const db = await getDb();
+    const dev = await db
+      .request()
+      .input("staffId", sql.Int, staffId)
+      .query<{ DeviceId: string }>("SELECT TOP 1 DeviceId FROM Devices WHERE StaffId = @staffId");
+    const deviceId = dev.recordset[0]?.DeviceId;
+    if (!deviceId) return;
+    await raisePointInTimeAlert(deviceId, "chat_send_failed", "warning", `Admin chat message failed to send: ${reason}`);
+  } catch {
+    /* alerting is best-effort */
+  }
+}
+
 // Marks any unresolved alert of this type for the device as resolved, once the
 // underlying condition clears (e.g. CPU usage drops back below the threshold).
 export async function resolveAlert(deviceId: string, alertType: string) {
