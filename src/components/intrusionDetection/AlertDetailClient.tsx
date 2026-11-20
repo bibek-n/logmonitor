@@ -35,7 +35,15 @@ interface AlertDetail {
   AssignedToUsername: string | null;
   AcknowledgedAt: string | null;
   AcknowledgedByUsername: string | null;
+  SuppressedUntil: string | null;
 }
+
+const SNOOZE_PRESETS: { label: string; minutes: number }[] = [
+  { label: "1 hour", minutes: 60 },
+  { label: "4 hours", minutes: 240 },
+  { label: "1 day", minutes: 1440 },
+  { label: "1 week", minutes: 10080 },
+];
 
 interface UserOption {
   Id: number;
@@ -178,6 +186,20 @@ export default function AlertDetailClient({ alertId }: { alertId: number }) {
     setBusy(true);
     try {
       await fetch(`/api/admin/intrusion-detection/alerts/${alertId}/acknowledge`, { method: "POST" });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function snooze(minutes: number) {
+    setBusy(true);
+    try {
+      await fetch(`/api/admin/intrusion-detection/alerts/${alertId}/snooze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ minutes }),
+      });
       await load();
     } finally {
       setBusy(false);
@@ -331,6 +353,29 @@ export default function AlertDetailClient({ alertId }: { alertId: number }) {
               <button className="submit" disabled={busy} onClick={acknowledge} style={{ width: "auto", marginTop: "0.5rem", padding: "0.35rem 0.8rem", fontSize: "0.8rem" }}>
                 Acknowledge
               </button>
+            )}
+          </div>
+
+          <div className="dash-panel">
+            <h3 style={{ fontSize: "0.9rem", marginTop: 0 }}>Snooze</h3>
+            {alert.Status === "Suppressed" && alert.SuppressedUntil ? (
+              <p style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>
+                Snoozed until {new Date(alert.SuppressedUntil).toLocaleString()}. Changing the status below wakes it up early.
+              </p>
+            ) : (
+              <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                {SNOOZE_PRESETS.map((p) => (
+                  <button
+                    key={p.minutes}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => snooze(p.minutes)}
+                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireSecurityRole, isSecuritySession } from "@/lib/intrusionDetection/requireSecurityRole";
 import { SEVERITY_ORDER, type DashboardStats, type Severity } from "@/lib/intrusionDetection/shared";
+import { reactivateExpiredSnoozes } from "@/lib/intrusionDetection/snooze";
 
 export async function GET() {
   const session = await requireSecurityRole("viewer");
   if (!isSecuritySession(session)) return session;
+
+  await reactivateExpiredSnoozes();
 
   const db = await getDb();
 

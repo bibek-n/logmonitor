@@ -28,11 +28,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const oldStatus = current.recordset[0].Status;
 
+  // Changing away from Suppressed clears SuppressedUntil - otherwise a manual status change
+  // off of a snooze would leave a stale timestamp sitting on a non-Suppressed alert (harmless
+  // since nothing reads it once Status isn't Suppressed, but confusing to find later).
   await db
     .request()
     .input("id", sql.Int, alertId)
     .input("status", sql.VarChar, newStatus)
-    .query(`UPDATE SecurityAlerts SET Status = @status, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id`);
+    .query(
+      newStatus === "Suppressed"
+        ? `UPDATE SecurityAlerts SET Status = @status, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id`
+        : `UPDATE SecurityAlerts SET Status = @status, SuppressedUntil = NULL, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id`
+    );
 
   await db
     .request()

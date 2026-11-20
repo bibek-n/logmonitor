@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sql } from "@/lib/db";
 import { requireSecurityRole, isSecuritySession } from "@/lib/intrusionDetection/requireSecurityRole";
+import { reactivateExpiredSnoozes } from "@/lib/intrusionDetection/snooze";
 
 const PAGE_SIZE_DEFAULT = 25;
 const PAGE_SIZE_MAX = 200;
@@ -8,6 +9,8 @@ const PAGE_SIZE_MAX = 200;
 export async function GET(req: NextRequest) {
   const session = await requireSecurityRole("viewer");
   if (!isSecuritySession(session)) return session;
+
+  await reactivateExpiredSnoozes();
 
   const sp = req.nextUrl.searchParams;
   const page = Math.max(1, Number(sp.get("page")) || 1);
@@ -71,6 +74,7 @@ export async function GET(req: NextRequest) {
     SELECT a.Id, a.RuleId, r.Name AS RuleName, a.ProtectedApplicationId, pa.Name AS ProtectedApplicationName, a.Category, a.Severity, a.Confidence, a.RiskScore,
       a.SourceIp, a.DestinationHost, a.RequestMethod, a.RequestPath, a.ResponseStatus, a.UserAgent, a.UserAccount,
       a.Status, a.OccurrenceCount, a.AssignedToUserId, au.Username AS AssignedToUsername,
+      CONVERT(VARCHAR(19), a.SuppressedUntil, 126) AS SuppressedUntil,
       CONVERT(VARCHAR(19), a.FirstSeenAt, 126) AS FirstSeenAt, CONVERT(VARCHAR(19), a.LastSeenAt, 126) AS LastSeenAt,
       CONVERT(VARCHAR(19), a.CreatedAt, 126) AS CreatedAt
     FROM SecurityAlerts a

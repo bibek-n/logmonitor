@@ -3,6 +3,7 @@ import { getIpToStaffNameMap, getIpToStaffNameMapViaRouter, NON_STAFF_INFRASTRUC
 import { getComponentCounts, computeSecurityScore } from "@/lib/securityCenter/securityScore";
 import { getDashboardStats as getItAssetDashboardStats } from "@/lib/itAssetLogsheet/repository";
 import { getDashboardStats as getBrowserActivityDashboardStats } from "@/lib/browserActivity/repository";
+import { reactivateExpiredSnoozes } from "@/lib/intrusionDetection/snooze";
 
 // New real-data-only Overview widgets, one query function per widget - every one of these
 // hits a table that already exists and is populated by an existing feature module (see the
@@ -23,6 +24,7 @@ export interface QuickStats {
 }
 
 export async function getQuickStats(): Promise<QuickStats> {
+  await reactivateExpiredSnoozes();
   const db = await getDb();
   const [result, bySeverityResult] = await Promise.all([
     db.query<{
@@ -111,6 +113,7 @@ export interface SecurityCenterSummary {
 }
 
 export async function getSecurityCenterSummary(): Promise<SecurityCenterSummary> {
+  await reactivateExpiredSnoozes();
   const db = await getDb();
   const counts = await getComponentCounts();
   const { overallScore } = computeSecurityScore(counts);

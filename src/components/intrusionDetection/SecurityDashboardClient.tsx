@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { SEVERITY_ORDER, type DashboardStats, type Severity } from "@/lib/intrusionDetection/shared";
 
 const SEVERITY_ORDER_DESC = [...SEVERITY_ORDER].reverse();
@@ -88,6 +89,7 @@ interface AlertRow {
   LastSeenAt: string;
   AssignedToUserId: number | null;
   AssignedToUsername: string | null;
+  SuppressedUntil: string | null;
 }
 
 interface UserOption {
@@ -174,6 +176,14 @@ const TABS = ["Alerts", "Events", "Rules", "Websites", "Website Report", "Allowl
 type Tab = (typeof TABS)[number];
 
 export default function SecurityDashboardClient() {
+  return (
+    <ToastProvider>
+      <SecurityDashboardInner />
+    </ToastProvider>
+  );
+}
+
+function SecurityDashboardInner() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("Alerts");
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -331,6 +341,11 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState<"resolve" | null>(null);
+  const [bulkSnoozeMinutes, setBulkSnoozeMinutes] = useState("60");
+  const [bulkAssignUserId, setBulkAssignUserId] = useState("");
   const [filters, setFilters] = useState({
     severity: initialSeverity ?? "",
     status: "",
@@ -342,6 +357,7 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
   });
   const apps = useProtectedApplications();
   const users = useSecurityUsers();
+  const toast = useToast();
 
   const load = useCallback(async (p: number, f: typeof filters) => {
     setLoading(true);
@@ -361,6 +377,7 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
   useEffect(() => {
     load(1, filters);
     setPage(1);
+    setSelected(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
@@ -375,6 +392,41 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
       await load(page, filters);
     } finally {
       setAssigning(null);
+    }
+  }
+
+  function toggleSelected(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.Id))));
+  }
+
+  async function runBulk(body: Record<string, unknown>) {
+    setBulkBusy(true);
+    try {
+      const res = await fetch(`/api/admin/intrusion-detection/alerts/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), ...body }),
+      });
+      const data = await res.json();
+      setSelected(new Set());
+      setBulkConfirm(null);
+      if (!res.ok || !data.ok) {
+        toast.show({ type: "error", message: data.error ?? "Bulk action failed." });
+      } else {
+        toast.show({ type: "success", message: `${data.affected} of ${data.requested} alert(s) updated.` });
+      }
+      await load(page, filters);
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -419,6 +471,75 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
         </select>
       </div>
 
+      {selected.size > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            flexWrap: "wrap",
+            padding: "0.5rem 0.75rem",
+            marginBottom: "0.75rem",
+            borderRadius: 8,
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <strong style={{ fontSize: "0.82rem" }}>{selected.size} selected</strong>
+          <button type="button" disabled={bulkBusy} onClick={() => runBulk({ action: "acknowledge" })} style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}>
+            Acknowledge
+          </button>
+
+          <select value={bulkAssignUserId} onChange={(e) => setBulkAssignUserId(e.target.value)} style={{ ...inputStyle, padding: "0.25rem 0.4rem", fontSize: "0.78rem" }}>
+            <option value="">Assign to...</option>
+            <option value="unassign">Unassign</option>
+            {users.map((u) => (
+              <option key={u.Id} value={u.Id}>
+                {u.Username}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={bulkBusy || !bulkAssignUserId}
+            onClick={() => runBulk({ action: "assign", userId: bulkAssignUserId === "unassign" ? null : Number(bulkAssignUserId) })}
+            style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}
+          >
+            Apply
+          </button>
+
+          <select value={bulkSnoozeMinutes} onChange={(e) => setBulkSnoozeMinutes(e.target.value)} style={{ ...inputStyle, padding: "0.25rem 0.4rem", fontSize: "0.78rem" }}>
+            <option value="60">Snooze 1h</option>
+            <option value="240">Snooze 4h</option>
+            <option value="1440">Snooze 1d</option>
+            <option value="10080">Snooze 1wk</option>
+          </select>
+          <button type="button" disabled={bulkBusy} onClick={() => runBulk({ action: "snooze", minutes: Number(bulkSnoozeMinutes) })} style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}>
+            Apply
+          </button>
+
+          {bulkConfirm === "resolve" ? (
+            <>
+              <span style={{ fontSize: "0.78rem", color: "var(--danger)" }}>Resolve {selected.size} alert(s)?</span>
+              <button type="button" disabled={bulkBusy} onClick={() => runBulk({ action: "resolve" })} style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--danger)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}>
+                Confirm
+              </button>
+              <button type="button" onClick={() => setBulkConfirm(null)} style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button type="button" disabled={bulkBusy} onClick={() => setBulkConfirm("resolve")} style={{ padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--plane)", color: "var(--ink)", cursor: "pointer" }}>
+              Resolve (Close)
+            </button>
+          )}
+
+          <button type="button" onClick={() => setSelected(new Set())} style={{ marginLeft: "auto", padding: "0.3rem 0.6rem", fontSize: "0.78rem", borderRadius: 6, border: "none", background: "none", color: "var(--ink-muted)", cursor: "pointer" }}>
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: "var(--ink-muted)" }}>Loading...</p>
       ) : rows.length === 0 ? (
@@ -428,6 +549,9 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.83rem" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "0.4rem" }}>
+                  <input type="checkbox" checked={selected.size > 0 && selected.size === rows.length} onChange={toggleSelectAllVisible} />
+                </th>
                 <th style={{ padding: "0.4rem" }}>Severity</th>
                 <th style={{ padding: "0.4rem" }}>Rule</th>
                 <th style={{ padding: "0.4rem" }}>Protected App</th>
@@ -445,6 +569,9 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
               {rows.map((a) => (
                 <tr key={a.Id} style={{ borderBottom: "1px solid var(--grid)" }}>
                   <td style={{ padding: "0.4rem" }}>
+                    <input type="checkbox" checked={selected.has(a.Id)} onChange={() => toggleSelected(a.Id)} />
+                  </td>
+                  <td style={{ padding: "0.4rem" }}>
                     <Badge tone={severityColor(a.Severity)}>{a.Severity}</Badge>
                   </td>
                   <td style={{ padding: "0.4rem" }}>
@@ -457,7 +584,12 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
                   <td style={{ padding: "0.4rem" }}>{a.RiskScore}</td>
                   <td style={{ padding: "0.4rem" }}>{a.SourceIp ?? "-"}</td>
                   <td style={{ padding: "0.4rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.RequestPath ?? "-"}</td>
-                  <td style={{ padding: "0.4rem" }}>{a.Status}</td>
+                  <td style={{ padding: "0.4rem" }}>
+                    {a.Status}
+                    {a.Status === "Suppressed" && a.SuppressedUntil && (
+                      <div style={{ fontSize: "0.72rem", color: "var(--ink-muted)", whiteSpace: "nowrap" }}>until {new Date(a.SuppressedUntil).toLocaleString()}</div>
+                    )}
+                  </td>
                   <td style={{ padding: "0.4rem" }}>
                     <select
                       value={a.AssignedToUserId ?? ""}
@@ -486,6 +618,7 @@ function AlertsTab({ initialProtectedApplicationId, initialSeverity }: { initial
         totalPages={totalPages}
         onChange={(p) => {
           setPage(p);
+          setSelected(new Set());
           load(p, filters);
         }}
       />
