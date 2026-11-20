@@ -45,6 +45,7 @@ export default function SidebarShell({
   securityUpdatesAccess = false,
   serverRoomAccess = false,
   knowledgeBaseAccess = false,
+  opsIncidentsAccess = false,
   securityAuditsAccess = false,
   databaseAnalyzerAccess = false,
   offboardingAccess = false,
@@ -68,6 +69,7 @@ export default function SidebarShell({
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
   knowledgeBaseAccess?: boolean;
+  opsIncidentsAccess?: boolean;
   securityAuditsAccess?: boolean;
   databaseAnalyzerAccess?: boolean;
   offboardingAccess?: boolean;
@@ -187,6 +189,7 @@ export default function SidebarShell({
         securityUpdatesAccess={securityUpdatesAccess}
         serverRoomAccess={serverRoomAccess}
         knowledgeBaseAccess={knowledgeBaseAccess}
+        opsIncidentsAccess={opsIncidentsAccess}
         securityAuditsAccess={securityAuditsAccess}
         databaseAnalyzerAccess={databaseAnalyzerAccess}
         offboardingAccess={offboardingAccess}

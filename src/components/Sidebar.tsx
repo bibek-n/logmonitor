@@ -30,6 +30,7 @@ interface SidebarProps {
   securityUpdatesAccess?: boolean;
   serverRoomAccess?: boolean;
   knowledgeBaseAccess?: boolean;
+  opsIncidentsAccess?: boolean;
   securityAuditsAccess?: boolean;
   databaseAnalyzerAccess?: boolean;
   offboardingAccess?: boolean;
@@ -62,6 +63,7 @@ const ACCESS_BY_CATEGORY_KEY: Record<string, keyof Omit<SidebarProps, "collapsed
   [GATED_CATEGORY_KEYS.securityUpdates]: "securityUpdatesAccess",
   [GATED_CATEGORY_KEYS.serverRoom]: "serverRoomAccess",
   [GATED_CATEGORY_KEYS.knowledgeBase]: "knowledgeBaseAccess",
+  [GATED_CATEGORY_KEYS.opsIncidents]: "opsIncidentsAccess",
   [GATED_CATEGORY_KEYS.databaseAnalyzer]: "databaseAnalyzerAccess",
   [GATED_CATEGORY_KEYS.offboarding]: "offboardingAccess",
 };
@@ -90,6 +92,7 @@ export default function Sidebar({
   securityUpdatesAccess = false,
   serverRoomAccess = false,
   knowledgeBaseAccess = false,
+  opsIncidentsAccess = false,
   securityAuditsAccess = false,
   databaseAnalyzerAccess = false,
   offboardingAccess = false,
@@ -97,7 +100,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, securityAuditsAccess, databaseAnalyzerAccess, offboardingAccess };
+  const access: Record<string, boolean> = { qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, opsIncidentsAccess, securityAuditsAccess, databaseAnalyzerAccess, offboardingAccess };
 
   // Every subgroup is visible to every authenticated user except the ones gated by a
   // permission key (GATED_GROUP_KEYS) - resolved server-side in DashboardLayout and threaded
@@ -138,7 +141,7 @@ export default function Sidebar({
         }))
         .filter((category) => category.items.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, databaseAnalyzerAccess, offboardingAccess, menuAccess]
+    [qaAccess, codeQualityAccess, laravelSecurityAccess, mailSecurityAccess, monitoringAccess, automationAccess, remoteAccessAccess, itAssetLogsheetAccess, browserActivityAccess, webAccessControlAccess, wifiAccessControlAccess, appActivityAccess, wazuhOfficeAccess, wafAccess, securityUpdatesAccess, serverRoomAccess, knowledgeBaseAccess, opsIncidentsAccess, databaseAnalyzerAccess, offboardingAccess, menuAccess]
   );
 
   function isActive(href: string) {

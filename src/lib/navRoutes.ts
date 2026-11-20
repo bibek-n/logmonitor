@@ -233,6 +233,11 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [link("/dashboard/knowledge-base", "documents", "Documents", FileText)],
   },
   {
+    key: "opsIncidents",
+    label: "Incidents",
+    items: [link("/dashboard/incidents", "incidents", "Incidents", Siren)],
+  },
+  {
     key: "wazuhOffice",
     label: "Wazuh Office",
     items: [
@@ -588,6 +593,7 @@ export const GATED_CATEGORY_KEYS = {
   securityUpdates: "su_view",
   serverRoom: "sr_view",
   knowledgeBase: "kb_view",
+  opsIncidents: "oi_view",
   databaseAnalyzer: "dba_view",
   offboarding: "off_view",
 } as const;
@@ -601,6 +607,7 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   securityUpdates: Download,
   serverRoom: Server,
   knowledgeBase: BookOpen,
+  opsIncidents: Siren,
   networkManagement: Network,
   remoteAccess: Terminal,
   itAssetLogsheet: Boxes,

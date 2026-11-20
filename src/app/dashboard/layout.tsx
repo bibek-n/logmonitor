@@ -21,6 +21,7 @@ import { getWafSession } from "@/lib/requireWafPermission";
 import { getSecurityUpdatesSession } from "@/lib/requireSecurityUpdatesPermission";
 import { getServerRoomSession } from "@/lib/requireServerRoomPermission";
 import { getKnowledgeBaseSession } from "@/lib/requireKnowledgeBasePermission";
+import { getOpsIncidentsSession } from "@/lib/requireOpsIncidentsPermission";
 import { getWebsiteSecuritySession } from "@/lib/requireWebsiteSecurityPermission";
 import { getWordpressScanSession } from "@/lib/requireWordpressScanPermission";
 import { getDbAnalyzerSession } from "@/lib/requireDbAnalyzerPermission";
@@ -78,6 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const securityUpdatesAccess = await getSecurityUpdatesSession("su_view");
   const serverRoomAccess = await getServerRoomSession("sr_view");
   const knowledgeBaseAccess = await getKnowledgeBaseSession("kb_view");
+  const opsIncidentsAccess = await getOpsIncidentsSession("oi_view");
   const databaseAnalyzerAccess = await getDbAnalyzerSession("dba_view");
   const offboardingAccess = await getOffboardingSession("off_view");
   // Bundles two independently-permissioned modules under one sidebar subgroup - see
@@ -119,6 +121,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           securityUpdatesAccess={securityUpdatesAccess !== null}
           serverRoomAccess={serverRoomAccess !== null}
           knowledgeBaseAccess={knowledgeBaseAccess !== null}
+          opsIncidentsAccess={opsIncidentsAccess !== null}
           securityAuditsAccess={securityAuditsAccess}
           databaseAnalyzerAccess={databaseAnalyzerAccess !== null}
           offboardingAccess={offboardingAccess !== null}
