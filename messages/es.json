@@ -749,6 +749,12 @@
           "documents": "Documentos"
         }
       },
+      "opsIncidents": {
+        "label": "Incidentes",
+        "entries": {
+          "incidents": "Incidentes"
+        }
+      },
       "wazuhOffice": {
         "label": "Wazuh Office",
         "entries": {

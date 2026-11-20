@@ -749,6 +749,12 @@
           "documents": "कागजातहरू"
         }
       },
+      "opsIncidents": {
+        "label": "घटनाहरू",
+        "entries": {
+          "incidents": "घटनाहरू"
+        }
+      },
       "wazuhOffice": {
         "label": "Wazuh Office",
         "entries": {
