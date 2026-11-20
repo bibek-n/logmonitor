@@ -1562,6 +1562,221 @@ function NotificationChannelsTab() {
           </tbody>
         </table>
       )}
+      <EscalationSettingsPanel channels={channels} />
+    </div>
+  );
+}
+
+interface NotificationSettingsState {
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  quietHoursTimezone: string;
+  quietHoursAllowCritical: boolean;
+  escalationEnabled: boolean;
+  digestEnabled: boolean;
+  digestHour: number;
+  digestChannelId: number | null;
+  lastDigestSentAt: string | null;
+}
+
+interface EscalationStepState {
+  id: number;
+  stepOrder: number;
+  delayMinutes: number;
+  channelIds: number[];
+}
+
+// Escalation chain + quiet hours + morning digest, all driven off one global settings row -
+// alerts aren't grouped under a parent entity the way website-monitoring incidents are grouped
+// under a Monitor, so there's a single policy for the whole Security Center rather than one per
+// rule/category. Requires a scheduled task on the server running `npm run scan:security-notifications`
+// every few minutes - this panel only edits configuration, it never fires anything itself.
+function EscalationSettingsPanel({ channels }: { channels: NotificationChannelRow[] }) {
+  const [settings, setSettings] = useState<NotificationSettingsState | null>(null);
+  const [steps, setSteps] = useState<EscalationStepState[]>([]);
+  const [newDelay, setNewDelay] = useState("30");
+  const [newChannelIds, setNewChannelIds] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/admin/intrusion-detection/notification-settings")
+      .then((r) => r.json())
+      .then((d) => d.ok && setSettings(d.data));
+    fetch("/api/admin/intrusion-detection/escalation-steps")
+      .then((r) => r.json())
+      .then((d) => d.ok && setSteps(d.data));
+  }, []);
+
+  useEffect(() => load(), [load]);
+
+  async function patchSettings(patch: Record<string, unknown>) {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/intrusion-detection/notification-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (data.ok) setSettings(data.data);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addStep() {
+    const delayMinutes = Number(newDelay);
+    if (!Number.isInteger(delayMinutes) || delayMinutes <= 0 || newChannelIds.length === 0) return;
+    await fetch("/api/admin/intrusion-detection/escalation-steps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepOrder: steps.length + 1, delayMinutes, channelIds: newChannelIds }),
+    });
+    setNewDelay("30");
+    setNewChannelIds([]);
+    load();
+  }
+
+  async function removeStep(id: number) {
+    await fetch(`/api/admin/intrusion-detection/escalation-steps/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  if (!settings) return null;
+
+  return (
+    <div style={{ marginTop: "1.5rem", display: "grid", gap: "1rem" }}>
+      <div>
+        <h3 style={{ fontSize: "0.9rem", marginBottom: "0.4rem" }}>Quiet Hours</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+          Non-critical alerts raised during this window are held back and rolled into the morning digest instead of
+          notifying immediately. Critical alerts still page through unless unchecked below.
+        </p>
+        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem" }}>
+            <input type="checkbox" disabled={saving} checked={settings.quietHoursEnabled} onChange={(e) => patchSettings({ quietHoursEnabled: e.target.checked })} />
+            Enabled
+          </label>
+          <input
+            type="time"
+            disabled={saving || !settings.quietHoursEnabled}
+            value={settings.quietHoursStart ?? ""}
+            onChange={(e) => patchSettings({ quietHoursStart: e.target.value })}
+            style={inputStyle}
+          />
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>to</span>
+          <input
+            type="time"
+            disabled={saving || !settings.quietHoursEnabled}
+            value={settings.quietHoursEnd ?? ""}
+            onChange={(e) => patchSettings({ quietHoursEnd: e.target.value })}
+            style={inputStyle}
+          />
+          <input
+            placeholder="Timezone (e.g. Asia/Kathmandu)"
+            disabled={saving || !settings.quietHoursEnabled}
+            value={settings.quietHoursTimezone}
+            onChange={(e) => setSettings((s) => (s ? { ...s, quietHoursTimezone: e.target.value } : s))}
+            onBlur={(e) => patchSettings({ quietHoursTimezone: e.target.value })}
+            style={{ ...inputStyle, minWidth: 180 }}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem" }}>
+            <input
+              type="checkbox"
+              disabled={saving || !settings.quietHoursEnabled}
+              checked={settings.quietHoursAllowCritical}
+              onChange={(e) => patchSettings({ quietHoursAllowCritical: e.target.checked })}
+            />
+            Still page for critical
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: "0.9rem", marginBottom: "0.4rem" }}>Escalation Chain</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+          While an alert stays open and unacknowledged, each step below fires once, in order, after its own delay
+          (measured from when the alert was first created). Requires a scheduled task running{" "}
+          <code>npm run scan:security-notifications</code> every few minutes.
+        </p>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem", marginBottom: "0.5rem" }}>
+          <input type="checkbox" disabled={saving} checked={settings.escalationEnabled} onChange={(e) => patchSettings({ escalationEnabled: e.target.checked })} />
+          Enabled
+        </label>
+
+        {steps.length > 0 && (
+          <div style={{ display: "grid", gap: "0.4rem", marginBottom: "0.6rem" }}>
+            {steps.map((s) => (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.82rem", padding: "0.4rem 0.6rem", border: "1px solid var(--border)", borderRadius: 8 }}>
+                <strong>Step {s.stepOrder}</strong>
+                <span>+{s.delayMinutes}m -&gt;</span>
+                <span style={{ color: "var(--ink-muted)" }}>
+                  {s.channelIds.map((id) => channels.find((c) => c.id === id)?.name ?? `#${id}`).join(", ") || "no channels"}
+                </span>
+                <button type="button" onClick={() => removeStep(s.id)} style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "0.8rem" }}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>After</span>
+          <input type="number" min={1} value={newDelay} onChange={(e) => setNewDelay(e.target.value)} style={{ ...inputStyle, width: 70 }} />
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>minutes, notify:</span>
+          {channels.map((c) => (
+            <label key={c.id} style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.8rem" }}>
+              <input
+                type="checkbox"
+                checked={newChannelIds.includes(c.id)}
+                onChange={(e) => setNewChannelIds((prev) => (e.target.checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)))}
+              />
+              {c.name}
+            </label>
+          ))}
+          <button type="button" className="submit" onClick={addStep} style={{ width: "auto", marginTop: 0, padding: "0.35rem 0.8rem", fontSize: "0.8rem" }}>
+            Add Step
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: "0.9rem", marginBottom: "0.4rem" }}>Morning Digest</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>Everything quiet hours held back since the last digest, summarized and sent once a day.</p>
+        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem" }}>
+            <input type="checkbox" disabled={saving} checked={settings.digestEnabled} onChange={(e) => patchSettings({ digestEnabled: e.target.checked })} />
+            Enabled
+          </label>
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>at</span>
+          <select disabled={saving || !settings.digestEnabled} value={settings.digestHour} onChange={(e) => patchSettings({ digestHour: Number(e.target.value) })} style={inputStyle}>
+            {Array.from({ length: 24 }, (_, h) => (
+              <option key={h} value={h}>
+                {String(h).padStart(2, "0")}:00
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>via</span>
+          <select
+            disabled={saving || !settings.digestEnabled}
+            value={settings.digestChannelId ?? ""}
+            onChange={(e) => patchSettings({ digestChannelId: e.target.value ? Number(e.target.value) : null })}
+            style={inputStyle}
+          >
+            <option value="">Select a channel...</option>
+            {channels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {settings.lastDigestSentAt && (
+            <span style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Last sent {new Date(settings.lastDigestSentAt).toLocaleString()}</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
