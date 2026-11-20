@@ -6,10 +6,32 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+interface FailingEntity {
+  id: string;
+  name: string;
+  detail: string;
+}
+
+interface CategoryScore {
+  key: string;
+  label: string;
+  weight: number;
+  rawScore: number;
+  points: number;
+  summary: string;
+  failingEntities: FailingEntity[];
+}
+
+interface Recommendation {
+  action: string;
+  pointGain: number;
+}
+
 interface Overview {
   overallScore: number;
   riskLevel: string;
-  componentScores: Record<string, number>;
+  categories: CategoryScore[];
+  scoreRecommendations: Recommendation[];
   scoreTrend: { snapshotAt: string; overallScore: number }[];
   assetCounts: { websites: number; servers: number; workstations: number };
   vulnerabilityCountsBySeverity: Record<string, number>;
@@ -62,16 +84,17 @@ function severityCard(label: string, counts: Record<string, number>) {
 
 export function SecurityDashboardClient() {
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [trendDays, setTrendDays] = useState<7 | 30 | 90>(7);
 
-  const load = useCallback(async () => {
-    const res = await fetch("/api/admin/security-center/overview");
+  const load = useCallback(async (days: 7 | 30 | 90) => {
+    const res = await fetch(`/api/admin/security-center/overview?trendDays=${days}`);
     const data = await res.json();
     if (res.ok && data.ok) setOverview(data.data);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(trendDays);
+  }, [load, trendDays]);
 
   if (!overview) return <p style={{ color: "var(--ink-muted)" }}>Loading...</p>;
 
@@ -87,6 +110,9 @@ export function SecurityDashboardClient() {
             <span style={{ fontSize: "2rem", fontWeight: 700 }}>{overview.overallScore}</span>
             <Badge tone={riskTone(overview.riskLevel)}>{overview.riskLevel} Risk</Badge>
           </div>
+          <a href="#score-breakdown" style={{ fontSize: "0.78rem", color: "var(--accent)" }}>
+            See breakdown
+          </a>
         </Card>
         <Card>
           <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)", marginBottom: "0.3rem" }}>Assets Protected</div>
@@ -119,7 +145,29 @@ export function SecurityDashboardClient() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
         <Card>
-          <h3 style={{ marginTop: 0, fontSize: "0.95rem" }}>Security Score Trend</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ marginTop: 0, fontSize: "0.95rem" }}>Security Score Trend</h3>
+            <div style={{ display: "flex", gap: "0.3rem" }}>
+              {([7, 30, 90] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setTrendDays(d)}
+                  style={{
+                    padding: "0.2rem 0.5rem",
+                    fontSize: "0.75rem",
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: trendDays === d ? "var(--primary)" : "var(--plane)",
+                    color: trendDays === d ? "#fff" : "var(--ink)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+          </div>
           {trendData.length === 0 ? (
             <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>No trend history yet — snapshots accumulate hourly going forward.</p>
           ) : (
@@ -160,6 +208,55 @@ export function SecurityDashboardClient() {
               View DDoS Detection
             </Link>
           </p>
+        </Card>
+      </div>
+
+      <div id="score-breakdown" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+        <Card>
+          <h3 style={{ marginTop: 0, fontSize: "0.95rem" }}>Security Score Breakdown</h3>
+          <div style={{ display: "grid", gap: "0.6rem" }}>
+            {overview.categories.map((c) => (
+              <div key={c.key} style={{ borderBottom: "1px solid var(--grid)", paddingBottom: "0.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <strong style={{ fontSize: "0.85rem" }}>{c.label}</strong>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>
+                    {c.points} / {c.weight} pts
+                  </span>
+                </div>
+                <p style={{ margin: "0.2rem 0", fontSize: "0.78rem", color: "var(--ink-muted)" }}>{c.summary}</p>
+                {c.failingEntities.length > 0 && (
+                  <details>
+                    <summary style={{ fontSize: "0.76rem", color: "var(--accent)", cursor: "pointer" }}>
+                      {c.failingEntities.length} item(s) causing this
+                    </summary>
+                    <ul style={{ margin: "0.3rem 0 0", paddingLeft: "1.1rem", fontSize: "0.76rem" }}>
+                      {c.failingEntities.slice(0, 20).map((f) => (
+                        <li key={f.id}>
+                          <strong>{f.name}</strong> — {f.detail}
+                        </li>
+                      ))}
+                      {c.failingEntities.length > 20 && <li>...and {c.failingEntities.length - 20} more.</li>}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 style={{ marginTop: 0, fontSize: "0.95rem" }}>Score Recommendations</h3>
+          {overview.scoreRecommendations.length === 0 ? (
+            <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem" }}>Every scored category is at full points right now.</p>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: "1.2rem", fontSize: "0.85rem" }}>
+              {overview.scoreRecommendations.map((r, i) => (
+                <li key={i} style={{ marginBottom: "0.4rem" }}>
+                  {r.action} <Badge tone="warning">+{r.pointGain} pts</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
 

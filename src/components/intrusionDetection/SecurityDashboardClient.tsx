@@ -1578,6 +1578,8 @@ interface NotificationSettingsState {
   digestHour: number;
   digestChannelId: number | null;
   lastDigestSentAt: string | null;
+  scoreDropThreshold: number;
+  lastScoreDropAlertAt: string | null;
 }
 
 interface EscalationStepState {
@@ -1774,6 +1776,30 @@ function EscalationSettingsPanel({ channels }: { channels: NotificationChannelRo
           </select>
           {settings.lastDigestSentAt && (
             <span style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Last sent {new Date(settings.lastDigestSentAt).toLocaleString()}</span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: "0.9rem", marginBottom: "0.4rem" }}>Security Score Drop Alert</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: "0.78rem", marginTop: 0 }}>
+          Notifies every enabled channel above once per 24 hours when the Security Center score falls by at least this many points
+          compared to a day ago (see the Security Center dashboard's score breakdown).
+        </p>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>Threshold:</span>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={settings.scoreDropThreshold}
+            onChange={(e) => setSettings((s) => (s ? { ...s, scoreDropThreshold: Number(e.target.value) } : s))}
+            onBlur={(e) => patchSettings({ scoreDropThreshold: Number(e.target.value) })}
+            style={{ ...inputStyle, width: 70 }}
+          />
+          <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>point(s)</span>
+          {settings.lastScoreDropAlertAt && (
+            <span style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}>Last alerted {new Date(settings.lastScoreDropAlertAt).toLocaleString()}</span>
           )}
         </div>
       </div>

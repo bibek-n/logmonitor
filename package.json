@@ -115,6 +115,7 @@
     "scan:remote-access-connection-check": "tsx scripts/run-remote-access-connection-check.ts",
     "scan:remote-access-credential-rotation-check": "tsx scripts/run-remote-access-credential-rotation-check.ts",
     "scan:security-notifications": "tsx scripts/run-security-notifications-scheduler.ts",
+    "scan:security-center-snapshot": "tsx scripts/run-security-center-snapshot.ts",
     "backup:database": "tsx scripts/run-scheduled-database-backup.ts"
   },
   "dependencies": {

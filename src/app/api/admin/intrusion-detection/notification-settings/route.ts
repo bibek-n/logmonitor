@@ -40,6 +40,11 @@ export async function PATCH(req: NextRequest) {
     patch.digestHour = h;
   }
   if ("digestChannelId" in body) patch.digestChannelId = body.digestChannelId === null ? null : Number(body.digestChannelId);
+  if ("scoreDropThreshold" in body) {
+    const t = Number(body.scoreDropThreshold);
+    if (!Number.isInteger(t) || t <= 0 || t > 100) return NextResponse.json({ ok: false, error: "scoreDropThreshold must be 1-100." }, { status: 400 });
+    patch.scoreDropThreshold = t;
+  }
 
   await updateNotificationSettings(patch);
   await logAdminAction({ admin: session, section: "intrusion-detection", action: "notification_settings_update", details: JSON.stringify(patch), req });

@@ -192,6 +192,8 @@ interface NotificationSettingsRow {
   DigestHour: number;
   DigestChannelId: number | null;
   LastDigestSentAt: string | null;
+  ScoreDropThreshold: number;
+  LastScoreDropAlertAt: string | null;
 }
 
 // Exactly one row ever exists (seeded by the migration) - every caller just reads/writes it.
@@ -212,6 +214,8 @@ export interface NotificationSettings {
   digestHour: number;
   digestChannelId: number | null;
   lastDigestSentAt: string | null;
+  scoreDropThreshold: number;
+  lastScoreDropAlertAt: string | null;
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
@@ -227,6 +231,8 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     digestHour: r.DigestHour,
     digestChannelId: r.DigestChannelId,
     lastDigestSentAt: r.LastDigestSentAt,
+    scoreDropThreshold: r.ScoreDropThreshold,
+    lastScoreDropAlertAt: r.LastScoreDropAlertAt,
   };
 }
 
@@ -240,6 +246,7 @@ export async function updateNotificationSettings(patch: Partial<{
   digestEnabled: boolean;
   digestHour: number;
   digestChannelId: number | null;
+  scoreDropThreshold: number;
 }>): Promise<void> {
   const db = await getDb();
   const row = await getSettingsRow();
@@ -280,6 +287,10 @@ export async function updateNotificationSettings(patch: Partial<{
   if (patch.digestChannelId !== undefined) {
     sets.push("DigestChannelId = @digestChannelId");
     req.input("digestChannelId", sql.Int, patch.digestChannelId);
+  }
+  if (patch.scoreDropThreshold !== undefined) {
+    sets.push("ScoreDropThreshold = @scoreDropThreshold");
+    req.input("scoreDropThreshold", sql.Int, patch.scoreDropThreshold);
   }
   if (sets.length === 1) return;
   await req.query(`UPDATE SecurityNotificationSettings SET ${sets.join(", ")} WHERE Id = @id`);
@@ -529,4 +540,28 @@ export async function testChannel(id: number): Promise<ChannelSendResult> {
   const config = decryptConfig(row.EncryptedConfig);
   if (!config) return { success: false, error: "Channel has no valid configuration." };
   return sendToChannel(row.ChannelType as ChannelType, config, "Intrusion Detection - Test Notification", "This is a test notification from the Intrusion Detection module's Notifications settings. If you received this, the channel is configured correctly.");
+}
+
+// Sends a one-off subject/body message to every enabled channel, regardless of MinSeverity -
+// for notifications that aren't tied to a specific alert's severity (e.g. the Security Center
+// score-drop check in src/lib/securityCenter/scoreDropAlert.ts). Logged the same way as any
+// other delivery, with AlertId left null.
+export async function fanOutNotification(subject: string, body: string): Promise<void> {
+  const channels = await listChannels();
+  const db = await getDb();
+  for (const channel of channels.filter((c) => c.enabled)) {
+    const raw = await db.request().input("id", sql.Int, channel.id).query<ChannelDbRow>("SELECT * FROM SecurityNotificationChannels WHERE Id = @id");
+    const config = decryptConfig(raw.recordset[0]?.EncryptedConfig ?? null);
+    if (!config) {
+      await recordDelivery(null, channel.id, channel.channelType, { success: false, error: "Channel has no valid configuration." });
+      continue;
+    }
+    const result = await sendToChannel(channel.channelType, config, subject, body);
+    await recordDelivery(null, channel.id, channel.channelType, result);
+  }
+}
+
+export async function recordScoreDropAlertSent(): Promise<void> {
+  const db = await getDb();
+  await db.query("UPDATE SecurityNotificationSettings SET LastScoreDropAlertAt = SYSUTCDATETIME()");
 }

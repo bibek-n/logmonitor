@@ -1,5 +1,5 @@
 import { getDb } from "../db";
-import { computeSecurityScore, getComponentCounts, riskLevelForScore } from "./securityScore";
+import { computeWeightedSecurityScore, getComponentCounts, type CategoryScore, type Recommendation } from "./securityScore";
 import { listScoreSnapshots } from "./repository";
 
 export interface RecentSecurityEvent {
@@ -13,7 +13,8 @@ export interface RecentSecurityEvent {
 export interface SecurityCenterOverview {
   overallScore: number;
   riskLevel: string;
-  componentScores: Record<string, number>;
+  categories: CategoryScore[];
+  scoreRecommendations: Recommendation[];
   scoreTrend: { snapshotAt: Date; overallScore: number }[];
   assetCounts: { websites: number; servers: number; workstations: number };
   vulnerabilityCountsBySeverity: Record<string, number>;
@@ -29,12 +30,12 @@ export interface SecurityCenterOverview {
 const SSL_EXPIRY_WARNING_DAYS = 30;
 const RECENT_EVENTS_LIMIT = 20;
 
-export async function getSecurityCenterOverview(): Promise<SecurityCenterOverview> {
+export async function getSecurityCenterOverview(trendDays: 7 | 30 | 90 = 7): Promise<SecurityCenterOverview> {
   const db = await getDb();
 
   const counts = await getComponentCounts();
-  const { overallScore, componentScores } = computeSecurityScore(counts);
-  const scoreTrend = await listScoreSnapshots(168); // up to 7 days of hourly snapshots
+  const { overallScore, riskLevel, categories, recommendations } = await computeWeightedSecurityScore();
+  const scoreTrend = await listScoreSnapshots(trendDays * 24); // hourly snapshots
 
   const assetResult = await db.query<{ Websites: number; Servers: number; Workstations: number }>(`
     SELECT
@@ -129,8 +130,9 @@ export async function getSecurityCenterOverview(): Promise<SecurityCenterOvervie
 
   return {
     overallScore,
-    riskLevel: riskLevelForScore(overallScore),
-    componentScores,
+    riskLevel,
+    categories,
+    scoreRecommendations: recommendations,
     scoreTrend,
     assetCounts: { websites: assets.Websites, servers: assets.Servers, workstations: assets.Workstations },
     vulnerabilityCountsBySeverity: counts.vulnerabilities,

@@ -1,6 +1,6 @@
 import { getDb, sql } from "@/lib/db";
 import { getIpToStaffNameMap, getIpToStaffNameMapViaRouter, NON_STAFF_INFRASTRUCTURE_IPS } from "@/lib/topConsumers";
-import { getComponentCounts, computeSecurityScore } from "@/lib/securityCenter/securityScore";
+import { computeWeightedSecurityScore, getComponentCounts } from "@/lib/securityCenter/securityScore";
 import { getDashboardStats as getItAssetDashboardStats } from "@/lib/itAssetLogsheet/repository";
 import { getDashboardStats as getBrowserActivityDashboardStats } from "@/lib/browserActivity/repository";
 import { reactivateExpiredSnoozes } from "@/lib/intrusionDetection/snooze";
@@ -115,8 +115,8 @@ export interface SecurityCenterSummary {
 export async function getSecurityCenterSummary(): Promise<SecurityCenterSummary> {
   await reactivateExpiredSnoozes();
   const db = await getDb();
+  const { overallScore } = await computeWeightedSecurityScore();
   const counts = await getComponentCounts();
-  const { overallScore } = computeSecurityScore(counts);
 
   const result = await db.query<{
     CriticalAlerts: number;
