@@ -7,6 +7,7 @@ import { checkMultiRegion, RegionCheckOutcome } from "../src/lib/websiteApiMonit
 import { evaluateCheckResult, MonitorRuntimeState } from "../src/lib/websiteApiMonitoring/monitorState";
 import { openIncidentIfNeeded, resolveIncidentIfOpen } from "../src/lib/websiteApiMonitoring/incidentService";
 import { evaluateSslExpiry } from "../src/lib/websiteApiMonitoring/sslEvaluator";
+import { lookupDomainExpiry } from "../src/lib/websiteApiMonitoring/domainExpiry";
 import { buildAlertMessage, sendMonitoringAlert } from "../src/lib/websiteApiMonitoring/notifications";
 import { pruneOldResults } from "../src/lib/websiteApiMonitoring/retention";
 import { getActiveMaintenanceMonitorIds, syncMaintenanceStatuses } from "../src/lib/websiteApiMonitoring/maintenanceWindows";
@@ -150,6 +151,77 @@ async function processMonitor(monitor: Awaited<ReturnType<typeof listDueWebsiteM
       const eventType = sslDecision.isExpired ? "SslExpired" : "SslExpiring";
       const msg = buildAlertMessage(eventType, monitor.name, monitor.config.url, `${daysRemaining} day(s) remaining.`);
       await sendMonitoringAlert({ eventType, alertPolicyId: monitor.alertPolicyId, monitorAlertEmail: monitor.config.alertEmail, monitorId: monitor.id, incidentId: null, subject: msg.subject, body: msg.body });
+    }
+  }
+
+  // Domain (registration) expiry - a real WHOIS lookup, so this runs at most once every 24h per
+  // monitor (LastCheckedAt gate below), never on every single check interval the way the SSL
+  // check above does. Same crossing-dedup via evaluateSslExpiry() - the function is generic
+  // over "days remaining" and doesn't actually know or care that it's TLS-specific.
+  const domainDue = await db
+    .request()
+    .input("monitorId", sql.Int, monitor.id)
+    .query<{ LastCheckedAt: string | null }>("SELECT CONVERT(VARCHAR(33), LastCheckedAt, 126) AS LastCheckedAt FROM DomainExpiryRecords WHERE MonitorId = @monitorId");
+  const domainLastCheckedAt = domainDue.recordset[0]?.LastCheckedAt ?? null;
+  if (!domainLastCheckedAt || Date.now() - new Date(domainLastCheckedAt).getTime() > 24 * 60 * 60 * 1000) {
+    const domainLookup = await lookupDomainExpiry(monitor.config.url);
+    if (domainLookup?.expiresAt) {
+      const existingDomain = await db
+        .request()
+        .input("monitorId", sql.Int, monitor.id)
+        .query<{ ExpiresAt: string | null; LastAlertThresholdDays: number | null }>(
+          "SELECT CONVERT(VARCHAR(33), ExpiresAt, 126) AS ExpiresAt, LastAlertThresholdDays FROM DomainExpiryRecords WHERE MonitorId = @monitorId"
+        );
+      const priorDomain = existingDomain.recordset[0];
+      const isNewExpiryDate = !priorDomain?.ExpiresAt || new Date(priorDomain.ExpiresAt).getTime() !== domainLookup.expiresAt.getTime();
+      const lastAlertedDomainThreshold = isNewExpiryDate ? null : priorDomain!.LastAlertThresholdDays;
+
+      await db
+        .request()
+        .input("monitorId", sql.Int, monitor.id)
+        .input("domain", sql.NVarChar, domainLookup.domain)
+        .input("expiresAt", sql.DateTime2, domainLookup.expiresAt)
+        .query(`
+          MERGE DomainExpiryRecords AS target
+          USING (SELECT @monitorId AS MonitorId) AS src ON target.MonitorId = src.MonitorId
+          WHEN MATCHED THEN UPDATE SET Domain=@domain, ExpiresAt=@expiresAt, LastCheckedAt=SYSUTCDATETIME()
+          WHEN NOT MATCHED THEN INSERT (MonitorId, Domain, ExpiresAt, LastCheckedAt) VALUES (@monitorId, @domain, @expiresAt, SYSUTCDATETIME());
+        `);
+
+      const domainDaysRemaining = Math.floor((domainLookup.expiresAt.getTime() - Date.now()) / 86400000);
+      const domainDecision = evaluateSslExpiry(domainDaysRemaining, lastAlertedDomainThreshold);
+      if (domainDecision.shouldAlert) {
+        await db
+          .request()
+          .input("monitorId", sql.Int, monitor.id)
+          .input("threshold", sql.Int, domainDecision.crossedThresholdDays)
+          .query("UPDATE DomainExpiryRecords SET LastAlertThresholdDays = @threshold WHERE MonitorId = @monitorId");
+
+        const domainEventType = domainDecision.isExpired ? "DomainExpired" : "DomainExpiring";
+        const domainMsg = buildAlertMessage(domainEventType, monitor.name, monitor.config.url, `${domainDaysRemaining} day(s) remaining.`);
+        await sendMonitoringAlert({
+          eventType: domainEventType,
+          alertPolicyId: monitor.alertPolicyId,
+          monitorAlertEmail: monitor.config.alertEmail,
+          monitorId: monitor.id,
+          incidentId: null,
+          subject: domainMsg.subject,
+          body: domainMsg.body,
+        });
+      }
+    } else {
+      // Lookup failed or the registrar's WHOIS response had no recognizable expiry field -
+      // still stamp LastCheckedAt so a domain that can never be parsed doesn't get retried
+      // every single scan pass forever; it'll be tried again in 24h like everything else.
+      await db
+        .request()
+        .input("monitorId", sql.Int, monitor.id)
+        .query(`
+          MERGE DomainExpiryRecords AS target
+          USING (SELECT @monitorId AS MonitorId) AS src ON target.MonitorId = src.MonitorId
+          WHEN MATCHED THEN UPDATE SET LastCheckedAt=SYSUTCDATETIME()
+          WHEN NOT MATCHED THEN INSERT (MonitorId, LastCheckedAt) VALUES (@monitorId, SYSUTCDATETIME());
+        `);
     }
   }
 

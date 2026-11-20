@@ -17,15 +17,38 @@ const inputStyle = {
 // --- On-demand export ---
 
 function ExportPanel() {
+  const [days, setDays] = useState<7 | 30 | 90>(7);
   function download(format: "csv" | "excel" | "pdf") {
-    window.open(`/api/admin/monitoring/reports/export?format=${format}`, "_blank");
+    window.open(`/api/admin/monitoring/reports/export?format=${format}&days=${days}`, "_blank");
   }
   return (
     <Card style={{ marginBottom: "1rem" }}>
       <h2 style={{ fontSize: "1rem", marginTop: 0 }}>Export Current Status</h2>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.82rem", marginTop: 0 }}>
-        Downloads a snapshot of every website and API monitor - status, 7-day uptime, last response time, and open incidents.
+        Downloads a snapshot of every website and API monitor - status, uptime over the selected window, last response
+        time, and open incidents.
       </p>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
+        <span style={{ fontSize: "0.82rem", color: "var(--ink-muted)" }}>Uptime window:</span>
+        {([7, 30, 90] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setDays(d)}
+            style={{
+              padding: "0.25rem 0.6rem",
+              fontSize: "0.78rem",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: days === d ? "var(--primary)" : "var(--surface)",
+              color: days === d ? "#fff" : "var(--ink)",
+              cursor: "pointer",
+            }}
+          >
+            {d === 30 ? "Monthly" : `${d}d`}
+          </button>
+        ))}
+      </div>
       <div style={{ display: "flex", gap: "0.5rem" }}>
         <Button variant="secondary" onClick={() => download("csv")}>
           Download CSV

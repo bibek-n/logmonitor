@@ -18,11 +18,12 @@ export function buildMonitorReportEmail(rows: WebsiteMonitorReportRow[], generat
     return { subject, body: `Website Monitor Report\nGenerated: ${generatedAt.toUTCString()}\n\nNo website monitors are configured yet.` };
   }
 
+  const uptimeWindowDays = rows[0]?.uptimeWindowDays ?? 7;
   const columns = [
     { header: "Name", width: 28, get: (r: WebsiteMonitorReportRow) => r.name },
     { header: "URL", width: 40, get: (r: WebsiteMonitorReportRow) => r.url },
     { header: "Status", width: 10, get: (r: WebsiteMonitorReportRow) => r.status },
-    { header: "Uptime 7d", width: 10, get: (r: WebsiteMonitorReportRow) => (r.uptimePercent7d === null ? "-" : `${r.uptimePercent7d.toFixed(2)}%`) },
+    { header: `Uptime ${uptimeWindowDays}d`, width: 10, get: (r: WebsiteMonitorReportRow) => (r.uptimePercent === null ? "-" : `${r.uptimePercent.toFixed(2)}%`) },
     { header: "Last Resp.", width: 11, get: (r: WebsiteMonitorReportRow) => (r.lastResponseMs === null ? "-" : `${r.lastResponseMs} ms`) },
     { header: "Last Checked (UTC)", width: 20, get: (r: WebsiteMonitorReportRow) => (r.lastCheckedAt ? r.lastCheckedAt.replace("T", " ").slice(0, 19) : "-") },
     { header: "Open Inc.", width: 9, get: (r: WebsiteMonitorReportRow) => String(r.openIncidents) },

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from "recharts";
 import { useDisplaySettings } from "@/lib/useDisplaySettings";
 import { formatDateTime } from "@/lib/dateFormat";
 
@@ -58,7 +59,16 @@ interface Metrics {
   p90Ms: number | null;
   p95Ms: number | null;
   p99Ms: number | null;
+  series: { bucket: string; avgMs: number | null }[];
+  latestErrorCode: string | null;
+  latestErrorMessage: string | null;
 }
+
+const ERROR_CODE_LABELS: Record<string, string> = {
+  WAF_CHALLENGE: "WAF / anti-bot challenge detected",
+  CONTENT_CHECK_FAILED: "Content check failed",
+  UNEXPECTED_STATUS: "Unexpected HTTP status",
+};
 
 interface HistoryRow {
   Id: number;
@@ -173,6 +183,12 @@ export function MonitorDetailClient({ monitorId }: { monitorId: number }) {
           <div style={panelStyle}>
             <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Status</div>
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{monitor.status}</div>
+            {(monitor.status === "Down" || monitor.status === "Degraded" || monitor.status === "Pending") && metrics?.latestErrorMessage && (
+              <div style={{ fontSize: "0.78rem", color: "var(--danger)", marginTop: "0.25rem", maxWidth: 220 }}>
+                {metrics.latestErrorCode && ERROR_CODE_LABELS[metrics.latestErrorCode] ? `${ERROR_CODE_LABELS[metrics.latestErrorCode]}: ` : ""}
+                {metrics.latestErrorMessage}
+              </div>
+            )}
           </div>
           <div style={panelStyle}>
             <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)" }}>Uptime (7d)</div>
@@ -268,7 +284,24 @@ export function MonitorDetailClient({ monitorId }: { monitorId: number }) {
               </div>
             </div>
           )}
-          <p style={{ color: "var(--ink-muted)", fontSize: "0.8rem", marginTop: "0.75rem" }}>Trend charts arrive in a later phase — percentiles above cover the last 7 days.</p>
+          {metrics && metrics.series.length > 0 && (
+            <div style={{ height: 240, marginTop: "1rem" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={metrics.series.map((s) => ({ Time: new Date(`${s.bucket}:00:00Z`).toLocaleString(), AvgMs: s.avgMs != null ? Math.round(s.avgMs) : null }))}
+                  margin={{ top: 8, right: 12, bottom: 0, left: -12 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="Time" tick={{ fontSize: 10 }} stroke="var(--ink-muted)" minTickGap={30} />
+                  <YAxis tick={{ fontSize: 11 }} stroke="var(--ink-muted)" />
+                  <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", fontSize: "0.78rem" }} />
+                  {monitor && <ReferenceLine y={monitor.config.responseTimeWarningMs} stroke="var(--warning)" strokeDasharray="4 4" label={{ value: "Warning", fontSize: 10, fill: "var(--warning)" }} />}
+                  {monitor && <ReferenceLine y={monitor.config.responseTimeCriticalMs} stroke="var(--danger)" strokeDasharray="4 4" label={{ value: "Critical", fontSize: 10, fill: "var(--danger)" }} />}
+                  <Line type="monotone" dataKey="AvgMs" name="Avg response (ms)" stroke="var(--primary)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 

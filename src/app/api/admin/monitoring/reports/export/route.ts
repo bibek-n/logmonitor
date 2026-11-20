@@ -14,8 +14,10 @@ export async function GET(req: NextRequest) {
   if (!["csv", "pdf", "excel"].includes(format)) {
     return NextResponse.json({ ok: false, error: "format must be csv, pdf, or excel" }, { status: 400 });
   }
+  const daysParam = Number(req.nextUrl.searchParams.get("days"));
+  const days = daysParam === 30 || daysParam === 90 ? daysParam : 7;
 
-  const [websiteRows, apiRows] = await Promise.all([listWebsiteMonitorsForReport(), listApiMonitorsForReport()]);
+  const [websiteRows, apiRows] = await Promise.all([listWebsiteMonitorsForReport(days), listApiMonitorsForReport(days)]);
   const rows = [...websiteRows, ...apiRows];
   const generatedAt = new Date();
   const filenameBase = `monitoring-report-${generatedAt.toISOString().slice(0, 10)}`;

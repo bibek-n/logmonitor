@@ -199,28 +199,34 @@ export interface WebsiteMonitorReportRow {
   status: MonitorStatus;
   lastCheckedAt: string | null;
   lastResponseMs: number | null;
-  uptimePercent7d: number | null;
+  uptimePercent: number | null;
+  uptimeWindowDays: number;
   openIncidents: number;
 }
 
-// One row per Website monitor for the "Email Report" feature - last response time and 7-day
-// uptime% come from MonitorResults (not part of JOIN_SELECT/WebsiteMonitorRow above, which is
-// config-focused), each computed with an OUTER APPLY so a monitor with zero results yet still
-// gets a row (nulls) rather than being dropped by an inner join.
-export async function listWebsiteMonitorsForReport(): Promise<WebsiteMonitorReportRow[]> {
+// One row per Website monitor for the "Email Report"/export features - last response time and
+// uptime% over the requested window come from MonitorResults (not part of JOIN_SELECT/
+// WebsiteMonitorRow above, which is config-focused), each computed with an OUTER APPLY so a
+// monitor with zero results yet still gets a row (nulls) rather than being dropped by an inner
+// join. `days` defaults to 7 (the original fixed window) - 30 covers the spec's "monthly"
+// uptime report, 90 matches the trend-range convention used elsewhere in this app.
+export async function listWebsiteMonitorsForReport(days: number = 7): Promise<WebsiteMonitorReportRow[]> {
   const db = await getDb();
-  const result = await db.query<{
-    Id: number;
-    Name: string;
-    Url: string;
-    Environment: string | null;
-    Status: MonitorStatus;
-    LastCheckedAt: string | null;
-    LastResponseMs: number | null;
-    UptimeTotal: number;
-    UptimeSuccessful: number;
-    OpenIncidents: number;
-  }>(`
+  const result = await db
+    .request()
+    .input("days", sql.Int, days)
+    .query<{
+      Id: number;
+      Name: string;
+      Url: string;
+      Environment: string | null;
+      Status: MonitorStatus;
+      LastCheckedAt: string | null;
+      LastResponseMs: number | null;
+      UptimeTotal: number;
+      UptimeSuccessful: number;
+      OpenIncidents: number;
+    }>(`
     SELECT
       m.Id, m.Name, w.Url, m.Environment, m.Status,
       CONVERT(VARCHAR(33), m.LastCheckedAt, 126) AS LastCheckedAt,
@@ -235,7 +241,7 @@ export async function listWebsiteMonitorsForReport(): Promise<WebsiteMonitorRepo
     ) latest
     OUTER APPLY (
       SELECT COUNT(*) AS Total, SUM(CASE WHEN r2.Success = 1 THEN 1 ELSE 0 END) AS Successful
-      FROM MonitorResults r2 WHERE r2.MonitorId = m.Id AND r2.CheckedAt >= DATEADD(DAY, -7, SYSUTCDATETIME())
+      FROM MonitorResults r2 WHERE r2.MonitorId = m.Id AND r2.CheckedAt >= DATEADD(DAY, -@days, SYSUTCDATETIME())
     ) uptime
     OUTER APPLY (
       SELECT COUNT(*) AS OpenCount FROM Incidents i WHERE i.MonitorId = m.Id AND i.Status = 'Open'
@@ -252,7 +258,8 @@ export async function listWebsiteMonitorsForReport(): Promise<WebsiteMonitorRepo
     status: r.Status,
     lastCheckedAt: r.LastCheckedAt,
     lastResponseMs: r.LastResponseMs,
-    uptimePercent7d: r.UptimeTotal > 0 ? (r.UptimeSuccessful / r.UptimeTotal) * 100 : null,
+    uptimePercent: r.UptimeTotal > 0 ? (r.UptimeSuccessful / r.UptimeTotal) * 100 : null,
+    uptimeWindowDays: days,
     openIncidents: r.OpenIncidents,
   }));
 }
@@ -260,20 +267,23 @@ export async function listWebsiteMonitorsForReport(): Promise<WebsiteMonitorRepo
 // API-monitor equivalent of listWebsiteMonitorsForReport() above - same shape (deliberately
 // reuses WebsiteMonitorReportRow rather than a parallel ApiMonitorReportRow type, since Phase 4
 // reporting treats both monitor types identically: one combined report, not two separate ones).
-export async function listApiMonitorsForReport(): Promise<WebsiteMonitorReportRow[]> {
+export async function listApiMonitorsForReport(days: number = 7): Promise<WebsiteMonitorReportRow[]> {
   const db = await getDb();
-  const result = await db.query<{
-    Id: number;
-    Name: string;
-    Url: string;
-    Environment: string | null;
-    Status: MonitorStatus;
-    LastCheckedAt: string | null;
-    LastResponseMs: number | null;
-    UptimeTotal: number;
-    UptimeSuccessful: number;
-    OpenIncidents: number;
-  }>(`
+  const result = await db
+    .request()
+    .input("days", sql.Int, days)
+    .query<{
+      Id: number;
+      Name: string;
+      Url: string;
+      Environment: string | null;
+      Status: MonitorStatus;
+      LastCheckedAt: string | null;
+      LastResponseMs: number | null;
+      UptimeTotal: number;
+      UptimeSuccessful: number;
+      OpenIncidents: number;
+    }>(`
     SELECT
       m.Id, m.Name, a.Url, m.Environment, m.Status,
       CONVERT(VARCHAR(33), m.LastCheckedAt, 126) AS LastCheckedAt,
@@ -288,7 +298,7 @@ export async function listApiMonitorsForReport(): Promise<WebsiteMonitorReportRo
     ) latest
     OUTER APPLY (
       SELECT COUNT(*) AS Total, SUM(CASE WHEN r2.Success = 1 THEN 1 ELSE 0 END) AS Successful
-      FROM MonitorResults r2 WHERE r2.MonitorId = m.Id AND r2.CheckedAt >= DATEADD(DAY, -7, SYSUTCDATETIME())
+      FROM MonitorResults r2 WHERE r2.MonitorId = m.Id AND r2.CheckedAt >= DATEADD(DAY, -@days, SYSUTCDATETIME())
     ) uptime
     OUTER APPLY (
       SELECT COUNT(*) AS OpenCount FROM Incidents i WHERE i.MonitorId = m.Id AND i.Status = 'Open'
@@ -305,7 +315,8 @@ export async function listApiMonitorsForReport(): Promise<WebsiteMonitorReportRo
     status: r.Status,
     lastCheckedAt: r.LastCheckedAt,
     lastResponseMs: r.LastResponseMs,
-    uptimePercent7d: r.UptimeTotal > 0 ? (r.UptimeSuccessful / r.UptimeTotal) * 100 : null,
+    uptimePercent: r.UptimeTotal > 0 ? (r.UptimeSuccessful / r.UptimeTotal) * 100 : null,
+    uptimeWindowDays: days,
     openIncidents: r.OpenIncidents,
   }));
 }

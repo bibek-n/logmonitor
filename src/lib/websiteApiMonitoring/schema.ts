@@ -196,6 +196,7 @@ export const sendMonitorReportSchema = z
   .object({
     contactIds: z.array(z.number().int().positive()).max(50).default([]),
     emails: z.array(z.string().trim().email()).max(50).default([]),
+    days: z.union([z.literal(7), z.literal(30), z.literal(90)]).default(7),
   })
   .refine((v) => v.contactIds.length + v.emails.length > 0, {
     message: "Select at least one alert contact or enter at least one email address.",

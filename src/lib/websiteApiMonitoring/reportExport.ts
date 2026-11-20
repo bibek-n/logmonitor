@@ -2,16 +2,23 @@ import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import type { WebsiteMonitorReportRow } from "./repository";
 
-const COLUMNS = [
-  { header: "Name", key: "name", width: 26 },
-  { header: "URL", key: "url", width: 38 },
-  { header: "Status", key: "status", width: 10 },
-  { header: "Uptime (7d)", key: "uptime", width: 12 },
-  { header: "Last Response", key: "lastResponse", width: 14 },
-  { header: "Open Incidents", key: "openIncidents", width: 14 },
-] as const;
+type ColumnKey = "name" | "url" | "status" | "uptime" | "lastResponse" | "openIncidents";
 
-function cellValue(r: WebsiteMonitorReportRow, key: (typeof COLUMNS)[number]["key"]): string {
+// Uptime window is dynamic (7/30/90 days - see repository.ts's listWebsiteMonitorsForReport),
+// so the header reflects whichever window the caller actually requested rather than a fixed
+// "(7d)" label; every row in one report shares the same window, so the first row's is enough.
+function getColumns(days: number): { header: string; key: ColumnKey; width: number }[] {
+  return [
+    { header: "Name", key: "name", width: 26 },
+    { header: "URL", key: "url", width: 38 },
+    { header: "Status", key: "status", width: 10 },
+    { header: `Uptime (${days}d)`, key: "uptime", width: 12 },
+    { header: "Last Response", key: "lastResponse", width: 14 },
+    { header: "Open Incidents", key: "openIncidents", width: 14 },
+  ];
+}
+
+function cellValue(r: WebsiteMonitorReportRow, key: ColumnKey): string {
   switch (key) {
     case "name":
       return r.name;
@@ -20,7 +27,7 @@ function cellValue(r: WebsiteMonitorReportRow, key: (typeof COLUMNS)[number]["ke
     case "status":
       return r.status;
     case "uptime":
-      return r.uptimePercent7d === null ? "-" : `${r.uptimePercent7d.toFixed(2)}%`;
+      return r.uptimePercent === null ? "-" : `${r.uptimePercent.toFixed(2)}%`;
     case "lastResponse":
       return r.lastResponseMs === null ? "-" : `${r.lastResponseMs} ms`;
     case "openIncidents":
@@ -37,18 +44,20 @@ function csvEscape(value: string): string {
 }
 
 export function buildReportCsv(rows: WebsiteMonitorReportRow[]): string {
-  const header = COLUMNS.map((c) => csvEscape(c.header)).join(",");
-  const lines = rows.map((r) => COLUMNS.map((c) => csvEscape(cellValue(r, c.key))).join(","));
+  const columns = getColumns(rows[0]?.uptimeWindowDays ?? 7);
+  const header = columns.map((c) => csvEscape(c.header)).join(",");
+  const lines = rows.map((r) => columns.map((c) => csvEscape(cellValue(r, c.key))).join(","));
   return [header, ...lines].join("\r\n");
 }
 
 export async function buildReportExcel(rows: WebsiteMonitorReportRow[]): Promise<Buffer> {
+  const columns = getColumns(rows[0]?.uptimeWindowDays ?? 7);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Monitors");
-  sheet.columns = COLUMNS.map((c) => ({ header: c.header, key: c.key, width: c.width }));
+  sheet.columns = columns.map((c) => ({ header: c.header, key: c.key, width: c.width }));
   sheet.getRow(1).font = { bold: true };
   for (const r of rows) {
-    sheet.addRow(Object.fromEntries(COLUMNS.map((c) => [c.key, cellValue(r, c.key)])));
+    sheet.addRow(Object.fromEntries(columns.map((c) => [c.key, cellValue(r, c.key)])));
   }
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
@@ -88,8 +97,9 @@ export async function buildReportPdf(rows: WebsiteMonitorReportRow[], generatedA
     }
   }
 
+  const columns = getColumns(rows[0]?.uptimeWindowDays ?? 7);
   let y = doc.y;
-  drawRow(COLUMNS.map((c) => c.header), y, true);
+  drawRow(columns.map((c) => c.header), y, true);
   y += rowHeight;
   doc.moveTo(startX, y - 4).lineTo(startX + usableWidth, y - 4).strokeColor("#ccc").stroke();
 
@@ -97,10 +107,10 @@ export async function buildReportPdf(rows: WebsiteMonitorReportRow[], generatedA
     if (y > doc.page.height - doc.page.margins.bottom - rowHeight) {
       doc.addPage();
       y = doc.page.margins.top;
-      drawRow(COLUMNS.map((c) => c.header), y, true);
+      drawRow(columns.map((c) => c.header), y, true);
       y += rowHeight;
     }
-    drawRow(COLUMNS.map((c) => cellValue(r, c.key)), y, false);
+    drawRow(columns.map((c) => cellValue(r, c.key)), y, false);
     y += rowHeight;
   }
 

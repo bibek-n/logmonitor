@@ -11,7 +11,8 @@ function row(overrides: Partial<WebsiteMonitorReportRow>): WebsiteMonitorReportR
     status: "Up",
     lastCheckedAt: "2026-01-01T00:00:00Z",
     lastResponseMs: 120,
-    uptimePercent7d: 99.99,
+    uptimePercent: 99.99,
+    uptimeWindowDays: 7,
     openIncidents: 0,
     ...overrides,
   };
@@ -28,7 +29,7 @@ describe("buildReportCsv", () => {
   });
 
   it("renders null uptime/response as a dash", () => {
-    const csv = buildReportCsv([row({ uptimePercent7d: null, lastResponseMs: null })]);
+    const csv = buildReportCsv([row({ uptimePercent: null, lastResponseMs: null })]);
     expect(csv).toContain("-,-,0");
   });
 

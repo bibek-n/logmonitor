@@ -48,7 +48,12 @@ async function processReport(report: DueReportRow): Promise<void> {
     return;
   }
 
-  const [websiteRows, apiRows] = await Promise.all([listWebsiteMonitorsForReport(), listApiMonitorsForReport()]);
+  // Uptime window matches the report's own cadence - a Monthly report showing the same 7-day
+  // figure as a Daily/Weekly one was the actual "no monthly uptime option" gap; Daily/Weekly
+  // both keep the original 7-day rolling window (a literal 1-day figure is too noisy to be
+  // useful on its own and nobody asked to change that half).
+  const uptimeWindowDays = report.Frequency === "Monthly" ? 30 : 7;
+  const [websiteRows, apiRows] = await Promise.all([listWebsiteMonitorsForReport(uptimeWindowDays), listApiMonitorsForReport(uptimeWindowDays)]);
   let rows = [...websiteRows, ...apiRows];
 
   if (report.MonitorScope === "Selected") {

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message ?? "Invalid report request" }, { status: 400 });
   }
-  const { contactIds, emails } = parsed.data;
+  const { contactIds, emails, days } = parsed.data;
 
   const db = await getDb();
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "None of the selected recipients could be resolved to an active email address." }, { status: 400 });
   }
 
-  const rows = await listWebsiteMonitorsForReport();
+  const rows = await listWebsiteMonitorsForReport(days);
   const generatedAt = new Date();
   const { subject, body: emailBody } = buildMonitorReportEmail(rows, generatedAt);
 

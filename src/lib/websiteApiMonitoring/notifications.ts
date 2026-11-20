@@ -10,6 +10,8 @@ export type MonitoringEventType =
   | "WebsiteDegraded"
   | "SslExpiring"
   | "SslExpired"
+  | "DomainExpiring"
+  | "DomainExpired"
   | "ApiDown"
   | "ApiRecovered"
   | "ApiDegraded"
@@ -262,6 +264,10 @@ export function buildAlertMessage(eventType: MonitoringEventType, monitorName: s
       return { subject: `[SSL EXPIRING] ${monitorName}`, body: `The SSL certificate for ${monitorName} (${url}) is expiring soon.\n\n${reason ?? ""}` };
     case "SslExpired":
       return { subject: `[SSL EXPIRED] ${monitorName}`, body: `The SSL certificate for ${monitorName} (${url}) has expired.\n\n${reason ?? ""}` };
+    case "DomainExpiring":
+      return { subject: `[DOMAIN EXPIRING] ${monitorName}`, body: `The registration for ${monitorName}'s domain (${url}) is expiring soon.\n\n${reason ?? ""}` };
+    case "DomainExpired":
+      return { subject: `[DOMAIN EXPIRED] ${monitorName}`, body: `The registration for ${monitorName}'s domain (${url}) has expired.\n\n${reason ?? ""}` };
     case "ApiDown":
       return {
         subject: `[DOWN] ${monitorName}`,

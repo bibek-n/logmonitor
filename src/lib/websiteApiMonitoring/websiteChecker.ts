@@ -215,8 +215,25 @@ export async function checkWebsite(config: WebsiteMonitorConfig, limits: Monitor
         contentCheck = checkEmptyBody(hop.bodyExcerpt) ?? checkContent(hop.bodyExcerpt, config);
       }
 
-      const success = statusMatches && (contentCheck === null || contentCheck.passed);
+      const contentCheckFailed = contentCheck !== null && !contentCheck.passed;
+      const success = statusMatches && !contentCheckFailed;
       const wafChallengeDetected = detectWafChallenge(hop.statusCode, hop.bodyExcerpt, hop.headers);
+
+      // Distinct error codes per failure mode (previously a content-check failure with a
+      // matching HTTP status left errorCode null and success:false with no reason at all,
+      // unless check-host.net's multi-region vote happened to be available that run - see
+      // scripts/run-website-api-monitoring-scan.ts's determineEffectiveResult, which only set
+      // CONTENT_CHECK_FAILED in its own fallback path) - this is what let a WAF-challenge or
+      // empty-body response surface in the dashboard as a bare "Down"/"Pending" with no
+      // indication of *why*, the exact complaint this fixes.
+      const errorCode = wafChallengeDetected ? "WAF_CHALLENGE" : !statusMatches ? "UNEXPECTED_STATUS" : contentCheckFailed ? "CONTENT_CHECK_FAILED" : null;
+      const errorMessage = wafChallengeDetected
+        ? "Response looks like a WAF/anti-bot challenge page, not the site's real content."
+        : !statusMatches
+          ? `Expected HTTP ${config.expectedStatusCode}, got ${hop.statusCode}.`
+          : contentCheckFailed
+            ? (contentCheck?.reason ?? "Content check failed.")
+            : null;
 
       return {
         success: success && !wafChallengeDetected,
@@ -231,12 +248,8 @@ export async function checkWebsite(config: WebsiteMonitorConfig, limits: Monitor
         finalUrl: currentUrl,
         contentCheck,
         ssl: hop.ssl,
-        errorCode: wafChallengeDetected ? "WAF_CHALLENGE" : statusMatches ? null : "UNEXPECTED_STATUS",
-        errorMessage: wafChallengeDetected
-          ? "Response looks like a WAF/anti-bot challenge page, not the site's real content."
-          : statusMatches
-            ? null
-            : `Expected HTTP ${config.expectedStatusCode}, got ${hop.statusCode}.`,
+        errorCode,
+        errorMessage,
         wafChallengeDetected,
       };
     }

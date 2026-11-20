@@ -51,6 +51,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const row = result.recordset[0];
   const uptimePercent = row.TotalChecks > 0 ? (row.SuccessfulChecks / row.TotalChecks) * 100 : null;
 
+  // Not window-restricted - the latest check's reason regardless of the uptime window picked
+  // above. Surfaces WAF-challenge/empty-body/content-check failures by name on the Overview
+  // tab instead of a bare Down/Pending status with no explanation (see websiteChecker.ts's
+  // errorCode fix for why these were often blank before).
+  const latestResult = await db
+    .request()
+    .input("id", sql.Int, Number(id))
+    .query<{ ErrorCode: string | null; ErrorMessage: string | null }>(
+      "SELECT TOP 1 ErrorCode, ErrorMessage FROM MonitorResults WHERE MonitorId = @id ORDER BY CheckedAt DESC"
+    );
+  const latest = latestResult.recordset[0];
+
+  // Response-time chart data: hourly buckets keep a 7-day window to ~168 points and a 90-day
+  // window to ~2160 - fine for a line chart, and matches the hourly-bucket convention already
+  // used elsewhere in this app (e.g. the Security Center score trend).
+  const seriesResult = await db
+    .request()
+    .input("id", sql.Int, Number(id))
+    .input("days", sql.Int, days)
+    .query<{ Bucket: string; AvgMs: number | null }>(`
+      SELECT CONVERT(VARCHAR(13), CheckedAt, 126) AS Bucket, AVG(CAST(TotalMs AS FLOAT)) AS AvgMs
+      FROM MonitorResults
+      WHERE MonitorId = @id AND CheckedAt >= DATEADD(DAY, -@days, SYSUTCDATETIME()) AND TotalMs IS NOT NULL
+      GROUP BY CONVERT(VARCHAR(13), CheckedAt, 126)
+      ORDER BY Bucket ASC
+    `);
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -66,6 +93,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       p90Ms: row.P90,
       p95Ms: row.P95,
       p99Ms: row.P99,
+      series: seriesResult.recordset.map((r) => ({ bucket: r.Bucket, avgMs: r.AvgMs })),
+      latestErrorCode: latest?.ErrorCode ?? null,
+      latestErrorMessage: latest?.ErrorMessage ?? null,
     },
   });
 }
