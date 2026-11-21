@@ -133,9 +133,9 @@ ONLY use data returned by the tools - never invent log lines or error messages. 
 Group repeated/similar messages together with a count rather than listing every duplicate individually. Call out anything that looks like a genuine problem (errors, failed connections, permission issues, crashes) distinctly from routine/informational entries.
 If the device name is ambiguous or not found, ask the user to confirm the exact device name rather than guessing.`,
     exampleQuestions: [
-      "Any errors in the LogMonitor server's logs today?",
-      "Summarize recent PHP errors on the Laravel-Dev server.",
-      "Check the Windows event log on tulips.tulipstechnologies.com for anything unusual this week.",
+      "Any errors in the main server's logs today?",
+      "Summarize recent PHP errors on your web application server.",
+      "Check the Windows event log on your domain controller for anything unusual this week.",
     ],
     toolNames: ["get_server_logs", "get_offline_devices", "get_disk_health_issues"],
   }),
@@ -149,9 +149,9 @@ Given a website or device name, use the provided tools to pull its current confi
 ONLY use data returned by the tools - never invent configuration values or issues not present in the tool output.
 Give a short prioritized list of concrete recommendations (most important first), each tied to a specific finding from the tools - not generic security advice. If everything checked looks fine, say so plainly rather than inventing a recommendation to fill space.`,
     exampleQuestions: [
-      "Review the security configuration of tulipshrm.com.",
-      "Is the LogMonitor server's endpoint security posture OK?",
-      "What ports are exposed on the Laravel-Dev server, and is that a problem?",
+      "Review the security configuration of your main website.",
+      "Is the primary server's endpoint security posture OK?",
+      "What ports are exposed on your web application server, and is that a problem?",
     ],
     toolNames: [
       "get_security_header_issues",

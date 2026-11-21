@@ -36,8 +36,24 @@ export async function handleAiModuleAsk(req: NextRequest, moduleKey: string) {
 
   const db = await getDb();
 
+  // Every module's systemPrompt names this app by its default product name ("Tulips Unified
+  // Admin Center") - substituted here with the actual configured CompanyName (Settings >
+  // Company Profile) so a white-labeled deployment's AI modules introduce themselves correctly,
+  // rather than touching all 6 systemPrompt definitions individually. Falls back to leaving the
+  // default name in place on any read failure or if it's never been configured.
+  let systemPrompt = module.systemPrompt;
   try {
-    const { answer, toolsUsed } = await runAiModuleChat(module.systemPrompt, question, module.toolDefinitions, module.toolHandlers);
+    const companyResult = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    const companyName = companyResult.recordset[0]?.CompanyName;
+    if (companyName && companyName !== "Tulips Unified Admin Center") {
+      systemPrompt = systemPrompt.replaceAll("Tulips Unified Admin Center", companyName);
+    }
+  } catch {
+    // Keep the default name in the prompt.
+  }
+
+  try {
+    const { answer, toolsUsed } = await runAiModuleChat(systemPrompt, question, module.toolDefinitions, module.toolHandlers);
 
     await db
       .request()

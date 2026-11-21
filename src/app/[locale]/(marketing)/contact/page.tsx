@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { MKT } from "@/lib/marketingTheme";
-import { CONTACT_INFO } from "@/lib/websiteContent";
+import { getContactInfo } from "@/lib/websiteContent";
 import { ContactForm } from "@/components/marketing/ContactForm";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
@@ -13,6 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default async function ContactPage() {
   const t = await getTranslations("contact");
+  const contact = await getContactInfo();
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "3rem 1.25rem" }}>
@@ -23,39 +24,47 @@ export default async function ContactPage() {
 
       <div className="grid gap-8" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.2fr)" }}>
         <div className="flex flex-col gap-5">
-          <div className="flex items-start gap-3">
-            <MapPin size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("addressLabel")}</div>
-              <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{CONTACT_INFO.address}</div>
+          {contact.address && (
+            <div className="flex items-start gap-3">
+              <MapPin size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("addressLabel")}</div>
+                <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{contact.address}</div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Phone size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("phoneLabel")}</div>
-              <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{CONTACT_INFO.phone}</div>
+          )}
+          {contact.phone && (
+            <div className="flex items-start gap-3">
+              <Phone size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("phoneLabel")}</div>
+                <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{contact.phone}</div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Mail size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("emailLabel")}</div>
-              <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{CONTACT_INFO.email}</div>
+          )}
+          {contact.email && (
+            <div className="flex items-start gap-3">
+              <Mail size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("emailLabel")}</div>
+                <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{contact.email}</div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Clock size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("hoursLabel")}</div>
-              <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{CONTACT_INFO.hours}</div>
+          )}
+          {contact.hours && (
+            <div className="flex items-start gap-3">
+              <Clock size={20} style={{ color: MKT.primary, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 600, color: MKT.ink, fontSize: "0.92rem" }}>{t("hoursLabel")}</div>
+                <div style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>{contact.hours}</div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {CONTACT_INFO.mapEmbedUrl ? (
+          {contact.mapEmbedUrl ? (
             <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${MKT.border}` }}>
               <iframe
-                src={CONTACT_INFO.mapEmbedUrl}
+                src={contact.mapEmbedUrl}
                 width="100%"
                 height="240"
                 style={{ border: 0, display: "block" }}

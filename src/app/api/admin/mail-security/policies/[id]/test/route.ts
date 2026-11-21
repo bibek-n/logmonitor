@@ -135,6 +135,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const template = templateResult.recordset[0];
 
     if (template) {
+      // Was hardcoded to this app's own vendor support address - now reads the configured
+      // Contact Email (Settings > Company Profile), same source as every other "who to contact"
+      // template variable added this session, falling back to a generic placeholder only if
+      // that's never been set.
+      let supportEmail = "support@example.com";
+      try {
+        const contactResult = await db.query<{ ContactEmail: string | null }>`SELECT ContactEmail FROM CompanySettings WHERE Id = 1`;
+        supportEmail = contactResult.recordset[0]?.ContactEmail || supportEmail;
+      } catch {
+        // Keep the generic placeholder.
+      }
+
       const vars: TemplateVars = {
         sender: message.sender,
         recipient: message.recipients.join(", "),
@@ -145,7 +157,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         block_reason: decision.reason,
         incident_id: incidentRow.IncidentId,
         timestamp: new Date().toISOString(),
-        support_email: "support@websearchpro.net",
+        support_email: supportEmail,
       };
       renderedPreview = { subject: renderTemplate(template.Subject, vars), body: renderTemplate(template.Body, vars) };
 

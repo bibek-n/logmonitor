@@ -231,7 +231,7 @@ function SettingsInner() {
       </Card>
 
       <Card style={{ marginBottom: "1rem" }}>
-        <h3 style={{ marginTop: 0, fontSize: "1rem" }}>Teamwork (teamwork.websearchpro.net)</h3>
+        <h3 style={{ marginTop: 0, fontSize: "1rem" }}>Teamwork</h3>
         <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", marginTop: 0 }}>
           Matches employees by email automatically, same as AgentQA. Built from a single example call rather than a
           full API doc. No harmless test call here (every call disables or re-enables a real account), so this

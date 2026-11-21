@@ -360,7 +360,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
       link("/dashboard/remote-access/scripts", "scriptsAndCommands", "Scripts & Commands", Code2),
       link("/dashboard/remote-access/logs", "connectionLogs", "Connection Logs", ScrollText),
       link("/dashboard/remote-access/settings", "settings", "Settings", Settings),
-      link("https://remote.tulipshrm.com/", "tulipsHrmRemote", "TulipsHrm-Remote", Cloud),
     ],
   },
   {

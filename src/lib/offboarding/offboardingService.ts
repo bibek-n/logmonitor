@@ -172,7 +172,7 @@ async function runTeamworkStep(action: OffboardingActionRow, email: string | nul
       action.id,
       "teamwork",
       "Success",
-      `Disabled sign-in for ${effectiveEmail} on teamwork.websearchpro.net. This is reversible in principle, but no restore/re-enable endpoint was documented for this API - re-enabling currently needs a manual step on Teamwork's side.`
+      `Disabled sign-in for ${effectiveEmail} on Teamwork. This is reversible in principle, but no restore/re-enable endpoint was documented for this API - re-enabling currently needs a manual step on Teamwork's side.`
     );
     return "Success";
   } catch (err) {

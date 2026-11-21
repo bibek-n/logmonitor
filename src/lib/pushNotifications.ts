@@ -33,6 +33,22 @@ export async function getVapidPublicKey(): Promise<string | null> {
   return keys?.publicKey ?? null;
 }
 
+// The WebPush protocol requires a "subject" (a mailto: or https: contact) so a push service can
+// reach the sender if something's wrong with how it's sending notifications - it's metadata read
+// by push services, not an address real users ever see. Was hardcoded to this deployment's own
+// admin address; now reads the configured Contact Email (Settings > Company Profile), falling
+// back to a syntactically-valid but clearly generic placeholder only if that's never been set.
+async function getVapidSubject(): Promise<string> {
+  try {
+    const db = await getDb();
+    const result = await db.query<{ ContactEmail: string | null }>`SELECT ContactEmail FROM CompanySettings WHERE Id = 1`;
+    const email = result.recordset[0]?.ContactEmail;
+    return email ? `mailto:${email}` : "mailto:admin@example.com";
+  } catch {
+    return "mailto:admin@example.com";
+  }
+}
+
 export interface PushSubscriptionInput {
   endpoint: string;
   keys: { p256dh: string; auth: string };
@@ -67,7 +83,7 @@ export async function sendPushNotification(subject: string, body: string): Promi
   const keys = await getVapidKeys();
   if (!keys) return;
 
-  webpush.setVapidDetails("mailto:admin@tulipshrm.com", keys.publicKey, keys.privateKey);
+  webpush.setVapidDetails(await getVapidSubject(), keys.publicKey, keys.privateKey);
 
   const db = await getDb();
   const result = await db.query<{ Id: number; Endpoint: string; P256dh: string; Auth: string }>(

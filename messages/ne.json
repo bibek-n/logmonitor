@@ -544,8 +544,7 @@
           "portForwarding": "पोर्ट फर्वार्डिंग",
           "scriptsAndCommands": "स्क्रिप्ट र कमाण्डहरू",
           "connectionLogs": "जडान लगहरू",
-          "settings": "सेटिङहरू",
-          "tulipsHrmRemote": "TulipsHrm-Remote"
+          "settings": "सेटिङहरू"
         },
         "groups": {}
       },

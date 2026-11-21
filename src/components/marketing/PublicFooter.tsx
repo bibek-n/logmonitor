@@ -1,23 +1,26 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { FOOTER_LINKS, CONTACT_INFO } from "@/lib/websiteContent";
+import { FOOTER_LINKS, getContactInfo } from "@/lib/websiteContent";
 import { MKT } from "@/lib/marketingTheme";
 import { getDb } from "@/lib/db";
 import { TulipsLogo } from "@/components/branding/TulipsLogo";
 
-async function getFooterText(): Promise<string | null> {
+async function getFooterSettings(): Promise<{ footerText: string | null; companyName: string | null; logoPath: string | null }> {
   try {
     const db = await getDb();
-    const result = await db.query<{ FooterText: string | null }>`SELECT FooterText FROM CompanySettings WHERE Id = 1`;
-    return result.recordset[0]?.FooterText ?? null;
+    const result = await db.query<{ FooterText: string | null; CompanyName: string | null; LogoPath: string | null }>`
+      SELECT FooterText, CompanyName, LogoPath FROM CompanySettings WHERE Id = 1
+    `;
+    const row = result.recordset[0];
+    return { footerText: row?.FooterText ?? null, companyName: row?.CompanyName ?? null, logoPath: row?.LogoPath ?? null };
   } catch {
-    return null;
+    return { footerText: null, companyName: null, logoPath: null };
   }
 }
 
 export async function PublicFooter() {
   const year = new Date().getUTCFullYear();
-  const footerText = await getFooterText();
+  const [{ footerText, companyName, logoPath }, contact] = await Promise.all([getFooterSettings(), getContactInfo()]);
   const t = await getTranslations("nav");
   const tf = await getTranslations("footer");
 
@@ -34,7 +37,7 @@ export async function PublicFooter() {
       >
         <div>
           <div style={{ marginBottom: "0.9rem" }}>
-            <TulipsLogo height={26} padded />
+            <TulipsLogo height={26} padded src={logoPath} alt={companyName} />
           </div>
           <p style={{ fontSize: "0.85rem", lineHeight: 1.6, color: MKT.inkMuted }}>{tf("tagline")}</p>
         </div>
@@ -64,9 +67,9 @@ export async function PublicFooter() {
         <div>
           <h3 style={{ color: MKT.ink, fontSize: "0.9rem", marginBottom: "0.75rem" }}>{tf("contactTitle")}</h3>
           <div className="flex flex-col gap-2" style={{ fontSize: "0.85rem", color: MKT.inkMuted }}>
-            <span>{CONTACT_INFO.address}</span>
-            <span>{CONTACT_INFO.phone}</span>
-            <span>{CONTACT_INFO.email}</span>
+            {contact.address && <span>{contact.address}</span>}
+            {contact.phone && <span>{contact.phone}</span>}
+            {contact.email && <span>{contact.email}</span>}
           </div>
         </div>
       </div>

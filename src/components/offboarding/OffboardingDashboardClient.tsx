@@ -220,7 +220,7 @@ function MappingModal({ employee, onClose, onSaved }: { employee: Employee; onCl
           </label>
           <input value={teamworkEmail} onChange={(e) => setTeamworkEmail(e.target.value)} placeholder="Leave blank to match by Office Email" style={inputStyle} />
           <p style={{ fontSize: "0.72rem", color: "var(--ink-muted)", marginTop: "0.25rem" }}>
-            Leave blank to use Office Email above - only set this if their teamwork.websearchpro.net login uses a
+            Leave blank to use Office Email above - only set this if their Teamwork login uses a
             different email.
           </p>
         </div>
@@ -382,7 +382,7 @@ function ConfirmModal({
           Teamwork:{" "}
           {employee.teamworkEmail || employee.email ? (
             <>
-              disable sign-in for <strong>{employee.teamworkEmail ?? employee.email}</strong> on teamwork.websearchpro.net
+              disable sign-in for <strong>{employee.teamworkEmail ?? employee.email}</strong> on Teamwork
             </>
           ) : (
             <em>no email or Teamwork override - will be skipped</em>

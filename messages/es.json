@@ -544,8 +544,7 @@
           "portForwarding": "Reenvío de Puertos",
           "scriptsAndCommands": "Scripts y Comandos",
           "connectionLogs": "Registro de Conexiones",
-          "settings": "Configuración",
-          "tulipsHrmRemote": "TulipsHrm-Remote"
+          "settings": "Configuración"
         },
         "groups": {}
       },

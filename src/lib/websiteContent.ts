@@ -67,15 +67,57 @@ export const WHY_CHOOSE_US_ICONS: Record<(typeof WHY_CHOOSE_US_KEYS)[number], st
 
 export const ABOUT_US_MISSION_POINT_KEYS = ["0", "1", "2", "3", "4"] as const;
 
-export const CONTACT_INFO = {
-  address: "Tulips Technologies Pvt. Ltd., New Baneshwor, Kathmandu, Nepal",
-  phone: "+977 01 4795677",
-  email: "info@tulipstechnologies.com",
-  hours: "Sun - Fri: 9:00 AM - 6:00 PM (Closed Saturday)",
-  // Official Google Business listing embed for Tulips Technologies Pvt. Ltd. (Place ID-based).
-  mapEmbedUrl:
-    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2755.476653339221!2d85.3342483!3d27.6895386!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39eb1995fda20031%3A0x3b4b0ee03aafcc6!2sTulips%20Technologies%20Pvt.%20Ltd.!5e1!3m2!1sen!2snp!4v1784010125486!5m2!1sen!2snp" as string | null,
-};
+export interface ContactInfo {
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  hours: string | null;
+  // Not sourced from CompanySettings - a Google Maps embed URL is tied to one specific
+  // physical address (originally baked in here as Tulips Technologies' own Place ID), and
+  // there's no per-deployment field for a company's own embed yet. Always null until one
+  // exists, rather than leaking a different company's own office onto someone else's page.
+  mapEmbedUrl: string | null;
+}
+
+// Was a hardcoded constant (Tulips Technologies' own address/phone/email, plus a Google Maps
+// embed of their specific office) - this is this app's own public marketing site, so a company
+// running their own deployment needs this to describe THEM, not whichever company the code was
+// originally written for. Reads the same CompanySettings fields Settings > Company Profile
+// already captures; any address/phone/email left unset on a fresh deployment is simply omitted
+// by the pages that render this, never defaulted back to Tulips' own values. Mirrors the
+// try/catch pattern PublicFooter.tsx already uses for FooterText.
+export async function getContactInfo(): Promise<ContactInfo> {
+  try {
+    const { getDb } = await import("@/lib/db");
+    const db = await getDb();
+    const result = await db.query<{
+      AddressLine1: string | null;
+      AddressLine2: string | null;
+      City: string | null;
+      State: string | null;
+      PostalCode: string | null;
+      Country: string | null;
+      ContactEmail: string | null;
+      ContactPhone: string | null;
+    }>`
+      SELECT AddressLine1, AddressLine2, City, State, PostalCode, Country, ContactEmail, ContactPhone
+      FROM CompanySettings WHERE Id = 1
+    `;
+    const row = result.recordset[0];
+    const addressParts = [row?.AddressLine1, row?.AddressLine2, row?.City, row?.State, row?.PostalCode, row?.Country].filter(
+      (p): p is string => !!p
+    );
+    return {
+      address: addressParts.length > 0 ? addressParts.join(", ") : null,
+      phone: row?.ContactPhone ?? null,
+      email: row?.ContactEmail ?? null,
+      hours: null,
+      mapEmbedUrl: null,
+    };
+  } catch {
+    return { address: null, phone: null, email: null, hours: null, mapEmbedUrl: null };
+  }
+}
 
 export const FOOTER_LINKS = {
   quickLinks: [

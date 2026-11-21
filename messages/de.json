@@ -544,8 +544,7 @@
           "portForwarding": "Portweiterleitung",
           "scriptsAndCommands": "Skripte & Befehle",
           "connectionLogs": "Verbindungsprotokoll",
-          "settings": "Einstellungen",
-          "tulipsHrmRemote": "TulipsHrm-Remote"
+          "settings": "Einstellungen"
         },
         "groups": {}
       },

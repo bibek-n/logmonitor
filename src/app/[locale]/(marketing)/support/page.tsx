@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { BookOpen, HelpCircle, FileText, Mail, Ticket } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { MKT } from "@/lib/marketingTheme";
-import { CONTACT_INFO, SUPPORT_GUIDE_KEYS, SUPPORT_FAQ_KEYS } from "@/lib/websiteContent";
+import { getContactInfo, SUPPORT_GUIDE_KEYS, SUPPORT_FAQ_KEYS } from "@/lib/websiteContent";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -28,6 +28,7 @@ export default async function SupportPage() {
   const t = await getTranslations("support");
   const tFaqs = await getTranslations("support.faqs");
   const tGuides = await getTranslations("support.guides");
+  const contact = await getContactInfo();
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "3rem 1.25rem" }}>
@@ -64,12 +65,14 @@ export default async function SupportPage() {
         ))}
       </div>
 
-      <div className="flex items-center gap-2" style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>
-        <Mail size={16} /> {t("stillNeedHelp")}{" "}
-        <a href={`mailto:${CONTACT_INFO.email}`} style={{ color: MKT.primary }}>
-          {CONTACT_INFO.email}
-        </a>
-      </div>
+      {contact.email && (
+        <div className="flex items-center gap-2" style={{ color: MKT.inkMuted, fontSize: "0.9rem" }}>
+          <Mail size={16} /> {t("stillNeedHelp")}{" "}
+          <a href={`mailto:${contact.email}`} style={{ color: MKT.primary }}>
+            {contact.email}
+          </a>
+        </div>
+      )}
     </div>
   );
 }

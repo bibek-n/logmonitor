@@ -58,13 +58,16 @@ export function renderTemplate(body: string, vars: Record<string, string>): stri
   return body.replace(/{{\s*(\w+)\s*}}/g, (_match, key) => vars[key] ?? "");
 }
 
+// NEXTAUTH_URL is already a required env var for any NextAuth deployment - the fallback below is
+// only reached if that's somehow unset, so it's a generic placeholder rather than a hardcoded
+// domain specific to one deployment.
 export function getDashboardUrl(): string {
-  const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "https://logs.tulipshrm.com:4433";
+  const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "http://localhost:3000";
   return `${base}/dashboard`;
 }
 
 export function getPasswordResetUrl(token: string): string {
-  const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "https://logs.tulipshrm.com:4433";
+  const base = process.env.NEXTAUTH_URL?.replace(/\/+$/, "") || "http://localhost:3000";
   return `${base}/reset-password?token=${encodeURIComponent(token)}`;
 }
 

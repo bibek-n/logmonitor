@@ -4,10 +4,27 @@ import { getDb, sql } from "./db";
 // RP ID is the bare domain (no scheme/port) the passkey is bound to; origin is the exact
 // scheme+host+port the browser sees. Both must match reality in production or every
 // ceremony will fail verification. Overridable via env for local/dev testing against a
-// different host.
+// different host - WEBAUTHN_RP_ID/WEBAUTHN_ORIGIN take priority if set; otherwise derived from
+// NEXTAUTH_URL (which every deployment already must configure correctly for auth callbacks to
+// work at all), never a hardcoded domain specific to one deployment. Final fallback is
+// localhost rather than any real domain, so a deployment that forgot to set either env var
+// fails obviously in production instead of silently working against the wrong host.
 export const RP_NAME = "LogMonitor";
-export const RP_ID = process.env.WEBAUTHN_RP_ID || "logs.tulipshrm.com";
-export const ORIGIN = process.env.WEBAUTHN_ORIGIN || "https://logs.tulipshrm.com:4433";
+const nextAuthOrigin = (() => {
+  try {
+    return process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).origin : null;
+  } catch {
+    return null;
+  }
+})();
+export const ORIGIN = process.env.WEBAUTHN_ORIGIN || nextAuthOrigin || "http://localhost:3000";
+export const RP_ID = process.env.WEBAUTHN_RP_ID || (() => {
+  try {
+    return new URL(ORIGIN).hostname;
+  } catch {
+    return "localhost";
+  }
+})();
 
 export const PASSKEY_CHALLENGE_COOKIE = "passkey_challenge";
 
