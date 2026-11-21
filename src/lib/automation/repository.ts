@@ -150,8 +150,9 @@ export async function listEligibleDevices(): Promise<AutomationDeviceSummary[]> 
     DeviceType: string;
     OS: string;
     LastHeartbeat: Date | null;
+    AgentVersion: string | null;
   }>(`
-    SELECT DeviceId, DeviceName, Hostname, DeviceType, OS, LastHeartbeat FROM Devices
+    SELECT DeviceId, DeviceName, Hostname, DeviceType, OS, LastHeartbeat, AgentVersion FROM Devices
     WHERE DeviceType IN ('Server', 'Workstation')
     ORDER BY DeviceName ASC, Hostname ASC
   `);
@@ -161,6 +162,7 @@ export async function listEligibleDevices(): Promise<AutomationDeviceSummary[]> 
     hostname: r.Hostname,
     deviceType: r.DeviceType,
     os: r.OS,
+    agentVersion: r.AgentVersion,
     lastHeartbeat: r.LastHeartbeat,
   }));
 }

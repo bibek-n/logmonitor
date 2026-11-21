@@ -21,6 +21,7 @@ export interface AutomationDeviceSummary {
   deviceType: string;
   os: string;
   lastHeartbeat: Date | null;
+  agentVersion: string | null;
 }
 
 export interface AutomationJobTarget {
