@@ -452,7 +452,8 @@
               "routerHealth": "राउटर स्वास्थ्य",
               "routerWeb": "राउटर वेब कनेक्शन",
               "employeeWebActivity": "कर्मचारी वेब गतिविधि",
-              "mobileDevices": "मोबाइल डिवाइस"
+              "mobileDevices": "मोबाइल डिवाइस",
+              "unknownDevices": "अज्ञात डिवाइस"
             }
           },
           "sophosFirewall": {

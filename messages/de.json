@@ -452,7 +452,8 @@
               "routerHealth": "Router-Zustand",
               "routerWeb": "Router-Webverbindungen",
               "employeeWebActivity": "Mitarbeiter-Webaktivität",
-              "mobileDevices": "Mobilgeräte"
+              "mobileDevices": "Mobilgeräte",
+              "unknownDevices": "Unbekannte Geräte"
             }
           },
           "sophosFirewall": {

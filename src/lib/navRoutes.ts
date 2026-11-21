@@ -284,6 +284,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         link("/dashboard/router-web", "routerWeb", "Router Web Connections", Globe),
         link("/dashboard/staff/web-activity", "employeeWebActivity", "Employee Web Activity", Activity),
         link("/dashboard/mobile-devices", "mobileDevices", "Mobile Devices", Smartphone),
+        link("/dashboard/unknown-devices", "unknownDevices", "Unknown Devices", HelpCircle),
       ]),
       // A separate physical device from the Mikrotik router above (a Ruijie AP bridged into
       // its LAN) - kept as its own group rather than nested under mikrotikRouter since it's a
