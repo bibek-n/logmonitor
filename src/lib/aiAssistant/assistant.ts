@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { TOOL_DEFINITIONS, TOOL_HANDLERS, type ToolResult } from "./tools";
+import { getDb } from "@/lib/db";
 
 // GitHub Models (https://github.com/marketplace/models) exposes an OpenAI-compatible
 // chat.completions API, authenticated with a GitHub personal access token rather than an
@@ -48,8 +49,19 @@ export async function askAiAssistant(question: string): Promise<AssistantRespons
 
   const client = new OpenAI({ baseURL: GITHUB_MODELS_BASE_URL, apiKey: GITHUB_TOKEN });
   const toolsUsed: ToolResult[] = [];
+  let systemPrompt = SYSTEM_PROMPT;
+  try {
+    const db = await getDb();
+    const companyResult = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    const companyName = companyResult.recordset[0]?.CompanyName;
+    if (companyName && companyName !== "Tulips Unified Admin Center") {
+      systemPrompt = systemPrompt.replaceAll("Tulips Unified Admin Center", companyName);
+    }
+  } catch {
+    // Keep the default name in the prompt.
+  }
   const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     { role: "user", content: question },
   ];
 

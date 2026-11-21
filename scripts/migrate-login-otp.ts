@@ -14,7 +14,7 @@ const POLICY_TEXT = `A reminder of our dashboard usage policy:
 - Report any suspicious account activity to your administrator immediately.
 - Data accessed through this dashboard is confidential — do not export or share it outside authorized use.`;
 
-const LOGIN_OTP_CODE_BODY = `Your Tulips Unified Admin Center login code is: {{code}}
+const LOGIN_OTP_CODE_BODY = `Your {{companyName}} login code is: {{code}}
 
 This code expires in {{expiryMinutes}} minutes. If you didn't try to sign in, you can ignore this email.
 
@@ -24,7 +24,7 @@ ${POLICY_TEXT}`;
 
 const LOGIN_SUCCESS_BODY = `Hi {{name}},
 
-You successfully signed in to Tulips Unified Admin Center on {{date}} from IP {{ip}}.
+You successfully signed in to {{companyName}} on {{date}} from IP {{ip}}.
 
 Dashboard: {{dashboardUrl}}
 
@@ -45,7 +45,7 @@ async function main() {
   if (!existingKeys.has("login_otp_code")) {
     await db
       .request()
-      .input("subject", "Your Tulips Unified Admin Center login code")
+      .input("subject", "Your {{companyName}} login code")
       .input("body", LOGIN_OTP_CODE_BODY)
       .query("INSERT INTO NotificationTemplates ([Key], Subject, Body, IsSystem) VALUES ('login_otp_code', @subject, @body, 1)");
     console.log("Seeded NotificationTemplates row: login_otp_code");
@@ -54,11 +54,22 @@ async function main() {
   if (!existingKeys.has("login_success")) {
     await db
       .request()
-      .input("subject", "Login Successful — Tulips Unified Admin Center")
+      .input("subject", "Login Successful — {{companyName}}")
       .input("body", LOGIN_SUCCESS_BODY)
       .query("INSERT INTO NotificationTemplates ([Key], Subject, Body, IsSystem) VALUES ('login_success', @subject, @body, 1)");
     console.log("Seeded NotificationTemplates row: login_success");
   }
+
+  // Retrofit rows seeded by an earlier version of this script, which hardcoded "Tulips Unified
+  // Admin Center" literally instead of the {{companyName}} token above - idempotent (a no-op
+  // once converted), so safe to run on every deploy same as the rest of this migration.
+  await db.request().query(`
+    UPDATE NotificationTemplates SET
+      Subject = REPLACE(Subject, 'Tulips Unified Admin Center', '{{companyName}}'),
+      Body = REPLACE(Body, 'Tulips Unified Admin Center', '{{companyName}}')
+    WHERE [Key] IN ('login_otp_code', 'login_success')
+      AND (Subject LIKE '%Tulips Unified Admin Center%' OR Body LIKE '%Tulips Unified Admin Center%')
+  `);
 
   console.log("Login OTP columns and notification templates ready.");
   process.exit(0);

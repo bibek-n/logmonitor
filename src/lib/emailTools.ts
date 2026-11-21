@@ -1,6 +1,17 @@
 import dns from "dns";
 import net from "net";
 import tls from "tls";
+import { getDb } from "./db";
+
+async function getCompanyNameForEmailTest(): Promise<string> {
+  try {
+    const db = await getDb();
+    const result = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    return result.recordset[0]?.CompanyName || "LogMonitor";
+  } catch {
+    return "LogMonitor";
+  }
+}
 
 const dnsPromises = dns.promises;
 
@@ -293,13 +304,14 @@ export async function emailDeliveryTest(opts: DeliveryTestOptions): Promise<stri
     steps.push(`DATA: ${dataResp.trim()}`);
     if (replyCode(dataResp) !== 354) throw new Error(`DATA command rejected: ${dataResp.trim()}`);
 
+    const companyName = await getCompanyNameForEmailTest();
     const message = [
       `From: ${from}`,
       `To: ${to}`,
-      "Subject: Test Email Delivery — Tulips Unified Admin Center",
+      `Subject: Test Email Delivery — ${companyName}`,
       `Date: ${new Date().toUTCString()}`,
       "",
-      `This is a test email sent from the Tulips Unified Admin Center's Email Delivery Test tool at ${new Date().toISOString()}.`,
+      `This is a test email sent from the ${companyName}'s Email Delivery Test tool at ${new Date().toISOString()}.`,
     ].join("\r\n");
 
     const finalResp = await sendCmd(socket, dotStuff(message) + "\r\n.\r\n");

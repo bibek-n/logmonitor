@@ -33,6 +33,14 @@ export default async function EndpointAgentsPage() {
     ORDER BY d.Hostname
   `);
 
+  let companyName = "Tulips Unified Admin Center";
+  try {
+    const companyResult = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    companyName = companyResult.recordset[0]?.CompanyName || companyName;
+  } catch {
+    // Keep the default name.
+  }
+
   const devices: DeviceRow[] = result.recordset.map((r) => ({
     deviceId: r.DeviceId,
     hostname: r.Hostname,
@@ -45,7 +53,7 @@ export default async function EndpointAgentsPage() {
     <div>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>Endpoint Agents</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
-        Devices enrolled with the Tulips Unified Admin Center endpoint agent.
+        Devices enrolled with the {companyName} endpoint agent.
       </p>
       <DeviceGrid devices={devices} />
     </div>

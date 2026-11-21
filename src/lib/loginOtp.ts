@@ -17,8 +17,8 @@ const POLICY_TEXT = `A reminder of our dashboard usage policy:
 // admin deletes the template. Real editing happens via Company Settings > Notifications.
 const FALLBACK_TEMPLATES: Record<string, { subject: string; body: string }> = {
   login_otp_code: {
-    subject: "Your Tulips Unified Admin Center login code",
-    body: `Your Tulips Unified Admin Center login code is: {{code}}
+    subject: "Your {{companyName}} login code",
+    body: `Your {{companyName}} login code is: {{code}}
 
 This code expires in {{expiryMinutes}} minutes. If you didn't try to sign in, you can ignore this email.
 
@@ -27,10 +27,10 @@ Dashboard: {{dashboardUrl}}
 ${POLICY_TEXT}`,
   },
   login_success: {
-    subject: "Login Successful — Tulips Unified Admin Center",
+    subject: "Login Successful — {{companyName}}",
     body: `Hi {{name}},
 
-You successfully signed in to Tulips Unified Admin Center on {{date}} from IP {{ip}}.
+You successfully signed in to {{companyName}} on {{date}} from IP {{ip}}.
 
 Dashboard: {{dashboardUrl}}
 
@@ -39,8 +39,8 @@ ${POLICY_TEXT}
 If this wasn't you, contact your administrator right away.`,
   },
   password_reset: {
-    subject: "Reset your Tulips Unified Admin Center password",
-    body: `We received a request to reset the password for your Tulips Unified Admin Center account ({{username}}).
+    subject: "Reset your {{companyName}} password",
+    body: `We received a request to reset the password for your {{companyName}} account ({{username}}).
 
 Reset your password: {{resetUrl}}
 
@@ -49,6 +49,20 @@ This link expires in {{expiryMinutes}} minutes and can only be used once. If you
 ${POLICY_TEXT}`,
   },
 };
+
+// Default product name shown in templates when CompanySettings.CompanyName is unset -
+// deliberately the app's own generic product name, not a specific deployment's company.
+const DEFAULT_COMPANY_NAME = "Tulips Unified Admin Center";
+
+async function getCompanyNameForTemplate(): Promise<string> {
+  try {
+    const db = await getDb();
+    const result = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    return result.recordset[0]?.CompanyName || DEFAULT_COMPANY_NAME;
+  } catch {
+    return DEFAULT_COMPANY_NAME;
+  }
+}
 
 export function generateOtpCode(): string {
   return String(crypto.randomInt(100000, 1000000));
@@ -88,7 +102,12 @@ async function getTemplate(key: string): Promise<{ subject: string; body: string
 
 export async function sendOtpCodeEmail(to: string, code: string): Promise<void> {
   const template = await getTemplate("login_otp_code");
-  const vars = { code, expiryMinutes: String(OTP_EXPIRY_MINUTES), dashboardUrl: getDashboardUrl() };
+  const vars = {
+    code,
+    expiryMinutes: String(OTP_EXPIRY_MINUTES),
+    dashboardUrl: getDashboardUrl(),
+    companyName: await getCompanyNameForTemplate(),
+  };
   await sendNotificationEmail({
     to,
     subject: renderTemplate(template.subject, vars),
@@ -98,7 +117,7 @@ export async function sendOtpCodeEmail(to: string, code: string): Promise<void> 
 
 export async function sendLoginSuccessEmail(to: string, vars: { name: string; date: string; ip: string }): Promise<void> {
   const template = await getTemplate("login_success");
-  const allVars = { ...vars, dashboardUrl: getDashboardUrl() };
+  const allVars = { ...vars, dashboardUrl: getDashboardUrl(), companyName: await getCompanyNameForTemplate() };
   await sendNotificationEmail({
     to,
     subject: renderTemplate(template.subject, allVars),
@@ -108,7 +127,12 @@ export async function sendLoginSuccessEmail(to: string, vars: { name: string; da
 
 export async function sendPasswordResetEmail(to: string, username: string, resetUrl: string): Promise<void> {
   const template = await getTemplate("password_reset");
-  const vars = { username, resetUrl, expiryMinutes: String(PASSWORD_RESET_TOKEN_TTL_MINUTES) };
+  const vars = {
+    username,
+    resetUrl,
+    expiryMinutes: String(PASSWORD_RESET_TOKEN_TTL_MINUTES),
+    companyName: await getCompanyNameForTemplate(),
+  };
   await sendNotificationEmail({
     to,
     subject: renderTemplate(template.subject, vars),
