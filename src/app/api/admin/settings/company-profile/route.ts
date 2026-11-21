@@ -8,6 +8,8 @@ export interface CompanyProfileData {
   LogoPath: string | null;
   WebsiteUrl: string | null;
   PublicUrl: string | null;
+  FirewallSelfIps: string | null;
+  RankingExcludedInfraIps: string | null;
   Industry: string | null;
   CompanySize: string | null;
   AddressLine1: string | null;
@@ -26,7 +28,8 @@ export async function GET() {
 
   const db = await getDb();
   const result = await db.query<CompanyProfileData>`
-    SELECT CompanyName, LogoPath, WebsiteUrl, PublicUrl, Industry, CompanySize, AddressLine1, AddressLine2,
+    SELECT CompanyName, LogoPath, WebsiteUrl, PublicUrl, FirewallSelfIps, RankingExcludedInfraIps,
+      Industry, CompanySize, AddressLine1, AddressLine2,
       City, State, PostalCode, Country, ContactEmail, ContactPhone
     FROM CompanySettings WHERE Id = 1
   `;
@@ -51,6 +54,8 @@ export async function PATCH(req: NextRequest) {
     .input("companyName", sql.NVarChar, str(body.companyName))
     .input("websiteUrl", sql.NVarChar, str(body.websiteUrl))
     .input("publicUrl", sql.NVarChar, url(body.publicUrl))
+    .input("firewallSelfIps", sql.NVarChar, str(body.firewallSelfIps))
+    .input("rankingExcludedInfraIps", sql.NVarChar, str(body.rankingExcludedInfraIps))
     .input("industry", sql.NVarChar, str(body.industry))
     .input("companySize", sql.NVarChar, str(body.companySize))
     .input("addressLine1", sql.NVarChar, str(body.addressLine1))
@@ -64,7 +69,9 @@ export async function PATCH(req: NextRequest) {
     .input("updatedByUserId", sql.Int, admin.userId)
     .query(`
       UPDATE CompanySettings SET
-        CompanyName = @companyName, WebsiteUrl = @websiteUrl, PublicUrl = @publicUrl, Industry = @industry, CompanySize = @companySize,
+        CompanyName = @companyName, WebsiteUrl = @websiteUrl, PublicUrl = @publicUrl,
+        FirewallSelfIps = @firewallSelfIps, RankingExcludedInfraIps = @rankingExcludedInfraIps,
+        Industry = @industry, CompanySize = @companySize,
         AddressLine1 = @addressLine1, AddressLine2 = @addressLine2, City = @city, State = @state,
         PostalCode = @postalCode, Country = @country, ContactEmail = @contactEmail, ContactPhone = @contactPhone,
         UpdatedAt = SYSUTCDATETIME(), UpdatedByUserId = @updatedByUserId

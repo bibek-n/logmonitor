@@ -137,7 +137,7 @@ export default async function RouterHealthPage() {
     <div>
       <h1>Router Health</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-        MikroTik 10.20.20.2 &middot; {latest?.BoardName ?? "unknown board"} &middot; RouterOS {latest?.Version ?? "-"}
+        MikroTik Router &middot; {latest?.BoardName ?? "unknown board"} &middot; RouterOS {latest?.Version ?? "-"}
       </p>
 
       {!latest ? (

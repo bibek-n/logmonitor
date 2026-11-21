@@ -1,5 +1,5 @@
 import { getDb, sql } from "@/lib/db";
-import { getIpToStaffNameMap, getIpToStaffNameMapViaRouter, NON_STAFF_INFRASTRUCTURE_IPS } from "@/lib/topConsumers";
+import { getIpToStaffNameMap, getIpToStaffNameMapViaRouter, getNetworkExclusions, ipInClause } from "@/lib/topConsumers";
 import { computeWeightedSecurityScore, getComponentCounts } from "@/lib/securityCenter/securityScore";
 import { getDashboardStats as getItAssetDashboardStats } from "@/lib/itAssetLogsheet/repository";
 import { getDashboardStats as getBrowserActivityDashboardStats } from "@/lib/browserActivity/repository";
@@ -513,7 +513,8 @@ const WIFI_LIKE_OS = ["Android", "macOS", "Linux/macOS/Mobile"];
 export async function getWifiUsers(limit = 200): Promise<WifiUser[]> {
   const db = await getDb();
   const osList = WIFI_LIKE_OS.map((os) => `'${os}'`).join(", ");
-  const excludedIpList = NON_STAFF_INFRASTRUCTURE_IPS.map((ip) => `'${ip}'`).join(", ");
+  const { nonStaffInfrastructureIps } = await getNetworkExclusions();
+  const excludedIpList = ipInClause(nonStaffInfrastructureIps);
   const [result, sophosNameByIp, routerNameByIp] = await Promise.all([
     db.query<{ Mac: string; IpAddress: string; Source: "MikroTik" | "Sophos" }>(`
       WITH combined AS (

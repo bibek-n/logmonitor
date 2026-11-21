@@ -21,7 +21,7 @@ import { WifiUsersCard } from "@/components/dashboard/WifiUsersCard";
 import { CameraRotationCard } from "@/components/dashboard/CameraRotationCard";
 import { OfflineWebsitesCard } from "@/components/dashboard/OfflineWebsitesCard";
 import { ActiveDirectoryStatusCard } from "@/components/dashboard/ActiveDirectoryStatusCard";
-import { getTopIps, getTopRouterClients, getTopBandwidthStaff, getTopVisited, NON_STAFF_INFRASTRUCTURE_IPS } from "@/lib/topConsumers";
+import { getTopIps, getTopRouterClients, getTopBandwidthStaff, getTopVisited, getNetworkExclusions, ipInClause } from "@/lib/topConsumers";
 import { Cpu, MemoryStick, HardDrive, Globe, Wifi, Laptop, Router } from "lucide-react";
 import { DashboardGridClient } from "@/components/dashboard/DashboardGridClient";
 import {
@@ -107,18 +107,16 @@ const BANDWIDTH_RANGES: { key: BandwidthRange; hours: number }[] = [
   { key: "30D", hours: 24 * 30 },
 ];
 
-// Infrastructure IPs that generate their own heavy WebFilterLogs traffic and would otherwise
-// dominate "Top Active Devices" forever - not an employee's device, so excluded from that
-// widget. Shared with topConsumers.ts's Top IPs widget (NON_STAFF_INFRASTRUCTURE_IPS) rather
-// than kept as a separate local list, after the two drifted out of sync once already (this
-// list was missing the VPN concentrator, MikroTik management IPs, and the two Ruijie network
-// appliances that topConsumers.ts had already learned to exclude).
-const TOP_DEVICES_EXCLUDED_IPS = NON_STAFF_INFRASTRUCTURE_IPS;
-
 export default async function DashboardHome() {
   const t = await getTranslations("dashboardHome");
   const db = await getDb();
   const admin = await getAdminSession();
+  // Infrastructure IPs (admin-configured, Settings > Company Profile) that generate their own
+  // heavy WebFilterLogs traffic and would otherwise dominate "Top Active Devices" forever - not
+  // an employee's device, so excluded from that widget. Shared with topConsumers.ts's Top IPs
+  // widget (getNetworkExclusions) rather than kept as a separate local list, after the two
+  // drifted out of sync once already when this was a hardcoded literal list.
+  const { nonStaffInfrastructureIps: topDevicesExcludedIps } = await getNetworkExclusions();
 
   // Everything the page needs — 13 DB queries, staff status, conflicts, alerts, and all 6
   // external lookups (weather x3, IP, traffic-by-country, threats) — runs in ONE parallel
@@ -239,13 +237,13 @@ export default async function DashboardHome() {
     db.query<{ Earliest: string | null }>(`SELECT MIN(ReceivedAt) AS Earliest FROM SystemHealthLogs`),
     // 4h rolling window (not 24h) so a device that's actually gone quiet drops out of the
     // list within a few hours instead of lingering on yesterday's activity all day. Infra
-    // IPs (see TOP_DEVICES_EXCLUDED_IPS) are excluded so the firewall's own traffic doesn't
+    // IPs (topDevicesExcludedIps above) are excluded so the firewall's own traffic doesn't
     // permanently occupy the list.
     db.query<{ SrcIp: string; EventCount: number }>(`
       SELECT TOP 10 SrcIp, COUNT(*) AS EventCount
       FROM WebFilterLogs
       WHERE ReceivedAt >= DATEADD(HOUR, -4, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
-        AND SrcIp NOT IN (${TOP_DEVICES_EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+        AND SrcIp NOT IN (${ipInClause(topDevicesExcludedIps)})
       GROUP BY SrcIp
       ORDER BY COUNT(*) DESC
     `),

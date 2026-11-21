@@ -27,11 +27,20 @@ export default async function RouterWebIndexPage() {
 
   const hosts = result.recordset;
 
+  // Same reasoning as router-clients/page.tsx: derived from the actual data rather than a
+  // hardcoded subnet, so this reads correctly for any company's own MikroTik network.
+  const subnetCounts = new Map<string, number>();
+  for (const h of hosts) {
+    const prefix = h.SrcIp.split(".").slice(0, 3).join(".");
+    subnetCounts.set(prefix, (subnetCounts.get(prefix) ?? 0) + 1);
+  }
+  const commonSubnet = [...subnetCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
   return (
     <div>
       <h1>Router Web Connections — Internal IPs</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-        MikroTik 10.20.20.2 &middot; 192.168.20.0/24 client network
+        MikroTik Router{commonSubnet ? ` · ${commonSubnet}.0/24 client network` : ""}
       </p>
 
       <div className="dash-panel">

@@ -40,6 +40,7 @@
     "migrate:website": "tsx scripts/migrate-website.ts",
     "migrate:company-settings": "tsx scripts/migrate-company-settings.ts",
     "migrate:company-settings-publicurl": "tsx scripts/migrate-company-settings-publicurl.ts",
+    "migrate:company-settings-network-exclusions": "tsx scripts/migrate-company-settings-network-exclusions.ts",
     "migrate:org-structure": "tsx scripts/migrate-org-structure.ts",
     "migrate:users-access": "tsx scripts/migrate-users-access.ts",
     "migrate:smtp-settings": "tsx scripts/migrate-smtp-settings.ts",

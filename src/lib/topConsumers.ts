@@ -1,40 +1,52 @@
 import { getDb, sql } from "./db";
 
-// Same firewall-self-traffic exclusion as the Overview page's Top 10 Most Active Devices
-// (src/app/dashboard/page.tsx's TOP_DEVICES_EXCLUDED_IPS) - kept as a separate constant here
-// rather than importing from a page module, but must stay in sync if that list changes.
-const EXCLUDED_IPS = ["192.168.1.7"];
+// Admin-configured, per-deployment infrastructure IPs (Settings > Company Profile) to exclude
+// from traffic rankings - the firewall's own address, the router's own management interfaces, a
+// VPN concentrator, extra AP/switch appliances, whatever a given company's own network happens
+// to have. NULL/unset (safe default - nothing excluded) rather than a hardcoded IP list, since a
+// list correct for one company's network is meaningless, or actively wrong (could hide a real
+// device), on someone else's. Stored as one comma/newline-separated string per field; only
+// well-formed IPv4-looking tokens are kept; filtered of anything else so this can never widen
+// into arbitrary SQL via the admin text field (these are interpolated directly into IN (...)
+// clauses below, same as the hardcoded literals this replaces).
+const IPV4_PATTERN = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+function parseIpList(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter((s) => IPV4_PATTERN.test(s));
+}
 
-// The MikroTik's own two interface addresses (confirmed live via "/ip address print":
-// 192.168.20.1 on internet_port/LAN, 10.20.20.2 on ether1/WAN) - a flow touching either one
-// is a client managing the router itself (Winbox/webfig/SSH) or the router's own outbound
-// traffic (NTP, firmware checks), not a client's real internet consumption, so these flows
-// are excluded from Top Router Clients entirely rather than counted toward whichever client
-// was on the other end.
-const ROUTER_MANAGEMENT_IPS = ["192.168.20.1", "10.20.20.2"];
+interface NetworkExclusions {
+  // Firewall/router self-traffic only - used alone for the total-bandwidth-estimate exclusion
+  // (that traffic is real and should still count toward a total, unlike the broader ranking set).
+  firewallSelfIps: string[];
+  // Union of firewallSelfIps plus every other non-staff infrastructure/aggregation-point IP, for
+  // any ranking meant to represent staff/client activity (Top IPs, Top Active Devices, Top
+  // Router Clients, etc.).
+  nonStaffInfrastructureIps: string[];
+}
 
-// 10.81.0.2 is a VPN concentrator address, not a single client - confirmed live via
-// WebFilterLogs.UserName carrying traffic from multiple distinct authenticated users ("sabin",
-// "tulipsvpn") behind this one SrcIp. Excluded from Top IPs specifically (not the shared
-// EXCLUDED_IPS list, since this traffic is real and should still count toward total bandwidth
-// figures) so a NAT'd multi-user gateway doesn't render as one deceptive "top consumer"
-// outranking every real staff IP; getTopUsers() already attributes this traffic correctly
-// per-authenticated-user via UserName.
-const VPN_GATEWAY_IPS = ["10.81.0.2"];
+export async function getNetworkExclusions(): Promise<NetworkExclusions> {
+  const db = await getDb();
+  const result = await db.query<{ FirewallSelfIps: string | null; RankingExcludedInfraIps: string | null }>`
+    SELECT FirewallSelfIps, RankingExcludedInfraIps FROM CompanySettings WHERE Id = 1
+  `;
+  const row = result.recordset[0];
+  const firewallSelfIps = parseIpList(row?.FirewallSelfIps ?? null);
+  const rankingExcludedIps = parseIpList(row?.RankingExcludedInfraIps ?? null);
+  return { firewallSelfIps, nonStaffInfrastructureIps: [...firewallSelfIps, ...rankingExcludedIps] };
+}
 
-// Ruijie network appliances (additional APs/switches), not staff devices - confirmed via their
-// near-exclusive traffic to macclog-as.rj.link (Ruijie's own cloud log-upload service), no
-// hostname, no RouterClients/Devices presence, and no authenticated WebFilterLogs.UserName ever
-// seen for either address. 192.168.20.85 is the Ruijie WiFi AP itself (see the reverse-engineered
-// AP admin API) - it shows up as a RouterClients "client" of its own management IP on the
-// MikroTik LAN segment, not a real connected device.
-const RUIJIE_APPLIANCE_IPS = ["192.168.1.60", "192.168.1.205", "192.168.20.85"];
-
-// Union of every known non-staff infrastructure/aggregation-point IP, for any ranking meant to
-// represent staff/client activity (Top IPs, Top Active Devices, etc.) - NOT used by the
-// total-bandwidth aggregates (EXCLUDED_IPS alone covers those), since this traffic is real and
-// should still count toward a total even though it isn't attributable to one person/device.
-export const NON_STAFF_INFRASTRUCTURE_IPS = [...EXCLUDED_IPS, ...ROUTER_MANAGEMENT_IPS, ...VPN_GATEWAY_IPS, ...RUIJIE_APPLIANCE_IPS];
+// SQL IN (...) clause body ("'a', 'b'") for a list already validated by parseIpList above - safe
+// to interpolate directly since every entry is guaranteed IPv4-shaped (no quotes/special chars
+// possible), same reasoning the hardcoded literals this replaces always relied on. Exported so
+// other callers of getNetworkExclusions() (e.g. the Overview page's Top Active Devices widget)
+// don't have to re-implement the same empty-list guard.
+export function ipInClause(ips: string[]): string {
+  return ips.length > 0 ? ips.map((ip) => `'${ip}'`).join(", ") : "''"; // never a bare empty IN ()
+}
 
 export interface TopIpRow {
   ip: string;
@@ -103,22 +115,20 @@ export async function getIpToStaffNameMap(): Promise<Map<string, string>> {
 
 export async function getTopIps(hours: number, limit: number): Promise<TopIpRow[]> {
   const db = await getDb();
-  const [result, nameByIp] = await Promise.all([
-    db
-      .request()
-      .input("hours", sql.Int, hours)
-      .query<{ SrcIp: string; TotalBytes: number; Requests: number }>(`
-        SELECT TOP ${limit} SrcIp,
-          SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes,
-          COUNT(*) AS Requests
-        FROM WebFilterLogs
-        WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
-          AND SrcIp NOT IN (${NON_STAFF_INFRASTRUCTURE_IPS.map((ip) => `'${ip}'`).join(", ")})
-        GROUP BY SrcIp
-        ORDER BY TotalBytes DESC
-      `),
-    getIpToStaffNameMap(),
-  ]);
+  const [{ nonStaffInfrastructureIps }, nameByIp] = await Promise.all([getNetworkExclusions(), getIpToStaffNameMap()]);
+  const result = await db
+    .request()
+    .input("hours", sql.Int, hours)
+    .query<{ SrcIp: string; TotalBytes: number; Requests: number }>(`
+      SELECT TOP ${limit} SrcIp,
+        SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes,
+        COUNT(*) AS Requests
+      FROM WebFilterLogs
+      WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
+        AND SrcIp NOT IN (${ipInClause(nonStaffInfrastructureIps)})
+      GROUP BY SrcIp
+      ORDER BY TotalBytes DESC
+    `);
   // mssql returns BIGINT columns (TotalBytes, from SUM over a BIGINT column) as a JS string,
   // not a number, to avoid silent precision loss above Number.MAX_SAFE_INTEGER - explicit
   // Number(...) here so callers get a real number rather than a string that happens to work by
@@ -171,6 +181,7 @@ async function getInterfaceBandwidthRate(): Promise<{ incomingBps: number; outgo
 
 async function getWebFilterBandwidthEstimate(): Promise<{ incomingBps: number; outgoingBps: number }> {
   const db = await getDb();
+  const { firewallSelfIps } = await getNetworkExclusions();
   const result = await db
     .request()
     .input("windowSeconds", sql.Int, WEBFILTER_FALLBACK_WINDOW_SECONDS)
@@ -178,7 +189,7 @@ async function getWebFilterBandwidthEstimate(): Promise<{ incomingBps: number; o
       SELECT SUM(ISNULL(BytesReceived, 0)) AS IncomingBytes, SUM(ISNULL(BytesSent, 0)) AS OutgoingBytes
       FROM WebFilterLogs
       WHERE ReceivedAt >= DATEADD(SECOND, -@windowSeconds, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
-        AND SrcIp NOT IN (${EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+        AND SrcIp NOT IN (${ipInClause(firewallSelfIps)})
     `);
   const row = result.recordset[0];
   const incomingBytes = Number(row?.IncomingBytes ?? 0);
@@ -387,12 +398,13 @@ async function getIpToRouterHostnameMap(): Promise<Map<string, string>> {
 // (the internet side of every flow) are never ranked here, only the LAN client each flow
 // touches - see RouterClientTraffic's migration comment for why this table exists at all
 // (MikroTik's DHCP lease list has no traffic-volume columns whatsoever). Flows touching
-// ROUTER_MANAGEMENT_IPS are excluded entirely (not counted toward the client on the other
-// end) - a client configuring the router isn't "consuming bandwidth" in the sense this
-// ranking is trying to measure.
+// configured infrastructure IPs (Settings > Company Profile) are excluded entirely (not counted
+// toward the client on the other end) - a client configuring the router isn't "consuming
+// bandwidth" in the sense this ranking is trying to measure.
 export async function getTopRouterClients(hours: number, limit: number): Promise<TopRouterClientRow[]> {
   const db = await getDb();
-  const managementIpList = ROUTER_MANAGEMENT_IPS.map((ip) => `'${ip}'`).join(", ");
+  const { nonStaffInfrastructureIps } = await getNetworkExclusions();
+  const managementIpList = ipInClause(nonStaffInfrastructureIps);
   const [result, staffNameByIp, hostnameByIp] = await Promise.all([
     db.request().input("hours", sql.Int, hours).query<{ ClientIp: string; TotalBytes: string; Flows: number }>(`
       ;WITH Attributed AS (
@@ -441,7 +453,8 @@ export interface TopBandwidthStaffRow {
 // excluded rather than shown as a bare IP, matching the "top bandwidth using staff" framing.
 export async function getTopBandwidthStaff(hours: number, limit: number): Promise<TopBandwidthStaffRow[]> {
   const db = await getDb();
-  const managementIpList = ROUTER_MANAGEMENT_IPS.map((ip) => `'${ip}'`).join(", ");
+  const { firewallSelfIps, nonStaffInfrastructureIps } = await getNetworkExclusions();
+  const managementIpList = ipInClause(nonStaffInfrastructureIps);
 
   const [sophosResult, routerResult, sophosNameByIp, routerNameByIp] = await Promise.all([
     db
@@ -451,7 +464,7 @@ export async function getTopBandwidthStaff(hours: number, limit: number): Promis
         SELECT SrcIp, SUM(ISNULL(BytesSent, 0) + ISNULL(BytesReceived, 0)) AS TotalBytes
         FROM WebFilterLogs
         WHERE ReceivedAt >= DATEADD(HOUR, -@hours, SYSUTCDATETIME()) AND SrcIp IS NOT NULL
-          AND SrcIp NOT IN (${EXCLUDED_IPS.map((ip) => `'${ip}'`).join(", ")})
+          AND SrcIp NOT IN (${ipInClause(firewallSelfIps)})
         GROUP BY SrcIp
       `),
     db

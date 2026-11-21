@@ -60,11 +60,22 @@ export default async function RouterClientsPage() {
     bandwidthPoints("internet_port"),
   ]);
 
+  // Derived from the actual lease data rather than a hardcoded subnet, so this reads correctly
+  // for any company's own MikroTik network, not just this one's 192.168.20.0/24 - just the most
+  // common /24 prefix among known clients, not a claim about the router's real DHCP scope.
+  const subnetCounts = new Map<string, number>();
+  for (const c of clients) {
+    const prefix = c.IpAddress.split(".").slice(0, 3).join(".");
+    subnetCounts.set(prefix, (subnetCounts.get(prefix) ?? 0) + 1);
+  }
+  const commonSubnet = [...subnetCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
   return (
     <div>
       <h1>Router Clients</h1>
       <p style={{ color: "var(--ink-muted)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-        MikroTik 10.20.20.2 &middot; DHCP leases on 192.168.20.0/24 &middot; {clients.length} known devices
+        MikroTik Router{commonSubnet ? ` · DHCP leases on ${commonSubnet}.0/24` : ""} &middot; {clients.length} known
+        devices
       </p>
 
       <div className="dash-panel">

@@ -61,6 +61,8 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
   const [form, setForm] = useState({
     companyName: initialData?.CompanyName ?? "",
     publicUrl: initialData?.PublicUrl ?? "",
+    firewallSelfIps: initialData?.FirewallSelfIps ?? "",
+    rankingExcludedInfraIps: initialData?.RankingExcludedInfraIps ?? "",
     websiteUrl: initialData?.WebsiteUrl ?? "",
     industry: initialData?.Industry ?? "",
     companySize: initialData?.CompanySize ?? "",
@@ -173,6 +175,8 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
     setForm({
       companyName: initialData?.CompanyName ?? "",
       publicUrl: initialData?.PublicUrl ?? "",
+      firewallSelfIps: initialData?.FirewallSelfIps ?? "",
+      rankingExcludedInfraIps: initialData?.RankingExcludedInfraIps ?? "",
       websiteUrl: initialData?.WebsiteUrl ?? "",
       industry: initialData?.Industry ?? "",
       companySize: initialData?.CompanySize ?? "",
@@ -329,6 +333,32 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
           <div id="field-contact-phone">
             <label style={labelStyle}>{t("contactPhoneLabel")}</label>
             <input style={fieldStyle} value={form.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} placeholder="+1 555 123 4567" />
+          </div>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: "0.88rem", margin: "0.5rem 0 0.75rem", color: "var(--ink)" }}>{t("networkExclusionsTitle")}</h3>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+            <div id="field-firewall-self-ips">
+              <label style={labelStyle}>{t("firewallSelfIpsLabel")}</label>
+              <input
+                style={fieldStyle}
+                value={form.firewallSelfIps}
+                onChange={(e) => set("firewallSelfIps", e.target.value)}
+                placeholder="192.168.1.1"
+              />
+              <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)", marginTop: "0.3rem" }}>{t("firewallSelfIpsHint")}</div>
+            </div>
+            <div id="field-ranking-excluded-ips">
+              <label style={labelStyle}>{t("rankingExcludedIpsLabel")}</label>
+              <input
+                style={fieldStyle}
+                value={form.rankingExcludedInfraIps}
+                onChange={(e) => set("rankingExcludedInfraIps", e.target.value)}
+                placeholder="192.168.1.2, 192.168.1.3"
+              />
+              <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)", marginTop: "0.3rem" }}>{t("rankingExcludedIpsHint")}</div>
+            </div>
           </div>
         </div>
       </Card>
