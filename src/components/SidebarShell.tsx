@@ -81,10 +81,25 @@ export default function SidebarShell({
   const isMobile = useIsMobile();
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [branding, setBranding] = useState<{ companyName: string | null; logoPath: string | null } | null>(null);
 
   useEffect(() => {
     setRailCollapsed(localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1");
     setHydrated(true);
+  }, []);
+
+  // A white-labeled deployment's own configured logo/name (Settings > Company Profile), shown
+  // here independent of the login page's own LoginBrandingEnabled toggle - once a company sets
+  // this, their own name/logo should always appear in their own already-authenticated sidebar,
+  // not just the public login screen. Best-effort: unset/failed fetch just keeps the Tulips
+  // default rendered below.
+  useEffect(() => {
+    fetch("/api/public/branding")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok && res.data?.logoPath) setBranding(res.data);
+      })
+      .catch(() => {});
   }, []);
 
   // Close the mobile off-canvas drawer whenever navigation completes, regardless of how
@@ -126,10 +141,18 @@ export default function SidebarShell({
         style={{ display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: collapsed ? "center" : "flex-start" }}
       >
         {collapsed ? (
-          <TulipsMark size={20} className="flex-shrink-0" />
+          branding?.logoPath ? (
+            <img
+              src={branding.logoPath}
+              alt={branding.companyName ?? "Company logo"}
+              style={{ height: 20, width: 20, objectFit: "contain", flexShrink: 0 }}
+            />
+          ) : (
+            <TulipsMark size={20} className="flex-shrink-0" />
+          )
         ) : (
           <span style={{ flex: 1, minWidth: 0 }}>
-            <TulipsLogo height={28} padded />
+            <TulipsLogo height={28} padded src={branding?.logoPath} alt={branding?.companyName} />
           </span>
         )}
         <button

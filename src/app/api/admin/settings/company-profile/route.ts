@@ -7,6 +7,7 @@ export interface CompanyProfileData {
   CompanyName: string | null;
   LogoPath: string | null;
   WebsiteUrl: string | null;
+  PublicUrl: string | null;
   Industry: string | null;
   CompanySize: string | null;
   AddressLine1: string | null;
@@ -25,7 +26,7 @@ export async function GET() {
 
   const db = await getDb();
   const result = await db.query<CompanyProfileData>`
-    SELECT CompanyName, LogoPath, WebsiteUrl, Industry, CompanySize, AddressLine1, AddressLine2,
+    SELECT CompanyName, LogoPath, WebsiteUrl, PublicUrl, Industry, CompanySize, AddressLine1, AddressLine2,
       City, State, PostalCode, Country, ContactEmail, ContactPhone
     FROM CompanySettings WHERE Id = 1
   `;
@@ -40,12 +41,16 @@ export async function PATCH(req: NextRequest) {
   if (!body) return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
 
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  // Strip a trailing slash so EnrollClient's `${publicUrl}/path` concatenation never produces
+  // a double slash, the same convention the app already uses for its own origin elsewhere.
+  const url = (v: unknown) => str(v)?.replace(/\/+$/, "") ?? null;
 
   const db = await getDb();
   await db
     .request()
     .input("companyName", sql.NVarChar, str(body.companyName))
     .input("websiteUrl", sql.NVarChar, str(body.websiteUrl))
+    .input("publicUrl", sql.NVarChar, url(body.publicUrl))
     .input("industry", sql.NVarChar, str(body.industry))
     .input("companySize", sql.NVarChar, str(body.companySize))
     .input("addressLine1", sql.NVarChar, str(body.addressLine1))
@@ -59,7 +64,7 @@ export async function PATCH(req: NextRequest) {
     .input("updatedByUserId", sql.Int, admin.userId)
     .query(`
       UPDATE CompanySettings SET
-        CompanyName = @companyName, WebsiteUrl = @websiteUrl, Industry = @industry, CompanySize = @companySize,
+        CompanyName = @companyName, WebsiteUrl = @websiteUrl, PublicUrl = @publicUrl, Industry = @industry, CompanySize = @companySize,
         AddressLine1 = @addressLine1, AddressLine2 = @addressLine2, City = @city, State = @state,
         PostalCode = @postalCode, Country = @country, ContactEmail = @contactEmail, ContactPhone = @contactPhone,
         UpdatedAt = SYSUTCDATETIME(), UpdatedByUserId = @updatedByUserId

@@ -59,10 +59,12 @@ function EnrollClientInner({
   existingTokens,
   staffOptions,
   downloadLinks,
+  configuredPublicUrl,
 }: {
   existingTokens: TokenRow[];
   staffOptions: StaffOption[];
   downloadLinks: AgentDownloadLinks;
+  configuredPublicUrl: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -125,10 +127,32 @@ function EnrollClientInner({
     }
   }
 
-  const serverUrl = typeof window !== "undefined" ? window.location.origin : "https://logs.tulipshrm.com:4433";
+  // Prefer the company's configured public URL (Settings > Company Profile) over whatever
+  // address happens to be in the admin's own browser right now - using window.location.origin
+  // unconditionally here is exactly what pointed most of this fleet at the internal office IP
+  // instead of the public domain. Only falls back to the current origin until that setting is
+  // filled in.
+  const serverUrl = configuredPublicUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const missingPublicUrl = !configuredPublicUrl;
 
   return (
     <div className="flex flex-col gap-4">
+      {missingPublicUrl && (
+        <Card
+          style={{
+            background: "color-mix(in srgb, var(--warning) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)",
+          }}
+        >
+          <p style={{ fontSize: "0.82rem", margin: 0 }}>
+            No public URL is configured yet, so install commands below use this page&apos;s own address (
+            <code>{serverUrl || "unknown"}</code>). If you&apos;re viewing this from an internal/office address, agents
+            installed now will stop heartbeating once that device leaves the office network. Set the real public URL
+            under <strong>Settings &rarr; Company Profile</strong> first.
+          </p>
+        </Card>
+      )}
+
       <Card className="flex flex-col gap-3">
         <div style={{ maxWidth: 360 }}>
           <label style={{ fontSize: "0.75rem", color: "var(--ink-muted)", display: "block", marginBottom: "0.25rem" }}>
@@ -270,7 +294,12 @@ function EnrollClientInner({
   );
 }
 
-export function EnrollClient(props: { existingTokens: TokenRow[]; staffOptions: StaffOption[]; downloadLinks: AgentDownloadLinks }) {
+export function EnrollClient(props: {
+  existingTokens: TokenRow[];
+  staffOptions: StaffOption[];
+  downloadLinks: AgentDownloadLinks;
+  configuredPublicUrl: string | null;
+}) {
   return (
     <ToastProvider>
       <EnrollClientInner {...props} />

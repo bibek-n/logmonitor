@@ -273,9 +273,27 @@ function LoginForm() {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const idleLogout = searchParams.get("reason") === "idle";
+  const [branding, setBranding] = useState<{
+    companyName: string | null;
+    logoPath: string | null;
+    loginBrandingEnabled: boolean;
+    loginTagline: string | null;
+  } | null>(null);
 
   useEffect(() => {
     setPasskeySupported(typeof window !== "undefined" && !!window.PublicKeyCredential);
+  }, []);
+
+  // Unauthenticated fetch of a white-labeled deployment's own configured logo/name (Settings >
+  // Company Profile) - best-effort: if it fails or the setting is off, the page just keeps
+  // showing the Tulips default logo/text already in the markup below.
+  useEffect(() => {
+    fetch("/api/public/branding")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok && res.data?.loginBrandingEnabled) setBranding(res.data);
+      })
+      .catch(() => {});
   }, []);
 
   async function handlePasskeySignIn() {
@@ -488,10 +506,14 @@ function LoginForm() {
           <TiltCard>
           <div className="flex flex-col items-center" style={{ marginBottom: "1.75rem" }}>
             <div style={{ marginBottom: "0.85rem" }}>
-              <TulipsLogo height={38} padded />
+              <TulipsLogo height={38} padded src={branding?.logoPath} alt={branding?.companyName} />
             </div>
-            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--lp-ink)" }}>{t("heading")}</h1>
-            <p style={{ fontSize: "0.85rem", color: "var(--lp-ink-muted)", margin: "0.35rem 0 0" }}>{t("brandSubtitle")}</p>
+            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--lp-ink)" }}>
+              {branding?.companyName || t("heading")}
+            </h1>
+            <p style={{ fontSize: "0.85rem", color: "var(--lp-ink-muted)", margin: "0.35rem 0 0" }}>
+              {branding?.loginTagline || t("brandSubtitle")}
+            </p>
           </div>
 
           <AnimatePresence>

@@ -36,7 +36,7 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
-export function AddServerForm() {
+export function AddServerForm({ configuredPublicUrl }: { configuredPublicUrl: string | null }) {
   const router = useRouter();
   const [form, setForm] = useState({
     deviceName: "",
@@ -80,7 +80,10 @@ export function AddServerForm() {
     }
   }
 
-  const serverUrl = typeof window !== "undefined" ? window.location.origin : "https://logs.tulipshrm.com:4433";
+  // Prefer the company's configured public URL (Settings > Company Profile) over whatever
+  // address happens to be in the admin's own browser right now - see EnrollClient.tsx for the
+  // identical bug this mirrors.
+  const serverUrl = configuredPublicUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
 
   if (result) {
     return (
@@ -90,6 +93,12 @@ export function AddServerForm() {
           Enrollment token (expires {new Date(result.expiresAt).toLocaleString()}). Run the matching command on the server —
           it will connect automatically and start discovering hardware and shipping logs.
         </p>
+        {!configuredPublicUrl && (
+          <p style={{ fontSize: "0.78rem", color: "var(--warning)", margin: 0 }}>
+            No public URL is configured yet (Settings &rarr; Company Profile) — this command uses the current page&apos;s
+            own address instead, which will stop working once this server is reached from outside that network.
+          </p>
+        )}
 
         {form.operatingSystem === "windows" ? (
           <>

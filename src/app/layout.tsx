@@ -5,21 +5,39 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { NO_FLASH_THEME_SCRIPT, DEFAULT_THEME, THEME_STORAGE_KEY, isValidTheme } from "@/lib/themes";
 import { routing } from "@/i18n/routing";
+import { getDb } from "@/lib/db";
 
 // Poppins is a static (non-variable) Google font, unlike Inter - next/font/google requires
 // an explicit weight list for it rather than inferring the full variable axis.
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
 
-export const metadata: Metadata = {
-  title: "Tulips Unified Admin Center",
-  description: "Monitor, secure, manage, and automate your IT infrastructure from one command center.",
-  manifest: "/manifest.json",
-  // This is an internal IT admin tool (plus its support/contact pages) - none of it should
-  // ever turn up in a search engine. Set at the root so every route inherits it (no page sets
-  // its own `robots`, so nothing overrides this); src/app/robots.ts backs it with an actual
-  // disallow-all robots.txt too, since some crawlers only honor one signal or the other.
-  robots: { index: false, follow: false, nocache: true },
-};
+const DEFAULT_TITLE = "Tulips Unified Admin Center";
+
+// A dynamic title (not a static `metadata` export) so a white-labeled deployment's configured
+// CompanyName shows up instead of this one's own name, hardcoded nowhere else in the layout
+// tree. Wrapped in try/catch since this runs on every single page load (root layout) - a
+// transient DB hiccup must fall back to the default title, never 500 the entire app.
+export async function generateMetadata(): Promise<Metadata> {
+  let title = DEFAULT_TITLE;
+  try {
+    const db = await getDb();
+    const result = await db.query<{ CompanyName: string | null }>`SELECT CompanyName FROM CompanySettings WHERE Id = 1`;
+    title = result.recordset[0]?.CompanyName || DEFAULT_TITLE;
+  } catch {
+    // Keep the fallback title.
+  }
+
+  return {
+    title,
+    description: "Monitor, secure, manage, and automate your IT infrastructure from one command center.",
+    manifest: "/manifest.json",
+    // This is an internal IT admin tool (plus its support/contact pages) - none of it should
+    // ever turn up in a search engine. Set at the root so every route inherits it (no page sets
+    // its own `robots`, so nothing overrides this); src/app/robots.ts backs it with an actual
+    // disallow-all robots.txt too, since some crawlers only honor one signal or the other.
+    robots: { index: false, follow: false, nocache: true },
+  };
+}
 
 export default async function RootLayout({
   children,

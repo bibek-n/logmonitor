@@ -54,6 +54,14 @@ export default async function EnrollPage() {
     linuxArm64: findReleaseAsset(release, "logmonitor-agent-linux-arm64")?.browser_download_url ?? null,
   };
 
+  // The configured public URL (Settings > Company Profile) is what every agent install should
+  // use, so it keeps heartbeating from anywhere - not just whatever address happens to be in
+  // the admin's own browser right now, which is exactly what pointed most of this fleet at the
+  // internal office IP in the first place. Falls back to the current page's own origin only
+  // until a company fills this setting in.
+  const publicUrlResult = await db.query<{ PublicUrl: string | null }>`SELECT PublicUrl FROM CompanySettings WHERE Id = 1`;
+  const configuredPublicUrl = publicUrlResult.recordset[0]?.PublicUrl ?? null;
+
   return (
     <div>
       <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>Enroll Device</h1>
@@ -78,7 +86,12 @@ export default async function EnrollPage() {
         default per device and must be explicitly enabled from that device&apos;s settings page.
       </div>
 
-      <EnrollClient existingTokens={result.recordset} staffOptions={staffOptions} downloadLinks={downloadLinks} />
+      <EnrollClient
+        existingTokens={result.recordset}
+        staffOptions={staffOptions}
+        downloadLinks={downloadLinks}
+        configuredPublicUrl={configuredPublicUrl}
+      />
     </div>
   );
 }

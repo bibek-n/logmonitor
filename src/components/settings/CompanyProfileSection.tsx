@@ -60,6 +60,7 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
   const sizeOptions = SIZE_OPTIONS_VALUES.map((v) => ({ label: t("employeesCount", { count: v }), value: v }));
   const [form, setForm] = useState({
     companyName: initialData?.CompanyName ?? "",
+    publicUrl: initialData?.PublicUrl ?? "",
     websiteUrl: initialData?.WebsiteUrl ?? "",
     industry: initialData?.Industry ?? "",
     companySize: initialData?.CompanySize ?? "",
@@ -125,6 +126,9 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
     if (form.websiteUrl && !/^https?:\/\//i.test(form.websiteUrl)) {
       next.websiteUrl = t("invalidUrlError");
     }
+    if (form.publicUrl && !/^https?:\/\//i.test(form.publicUrl)) {
+      next.publicUrl = t("invalidPublicUrlError");
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -168,6 +172,7 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
   function handleReset() {
     setForm({
       companyName: initialData?.CompanyName ?? "",
+      publicUrl: initialData?.PublicUrl ?? "",
       websiteUrl: initialData?.WebsiteUrl ?? "",
       industry: initialData?.Industry ?? "",
       companySize: initialData?.CompanySize ?? "",
@@ -194,6 +199,13 @@ export function CompanyProfileSection({ initialData }: { initialData: CompanyPro
         <div id="field-company-name">
           <label style={labelStyle}>{t("companyNameLabel")}</label>
           <input style={fieldStyle} value={form.companyName} onChange={(e) => set("companyName", e.target.value)} placeholder={t("companyNamePlaceholder")} />
+        </div>
+
+        <div id="field-public-url">
+          <label style={labelStyle}>{t("publicUrlLabel")}</label>
+          <input style={fieldStyle} value={form.publicUrl} onChange={(e) => set("publicUrl", e.target.value)} placeholder="https://logs.example.com" />
+          <div style={{ fontSize: "0.75rem", color: "var(--ink-muted)", marginTop: "0.3rem" }}>{t("publicUrlHint")}</div>
+          {errors.publicUrl && <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>{errors.publicUrl}</span>}
         </div>
 
         <div id="field-company-logo">

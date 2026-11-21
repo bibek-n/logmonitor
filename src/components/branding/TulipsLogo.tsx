@@ -12,15 +12,21 @@ export function TulipsLogo({
   height = 32,
   padded = false,
   style,
+  src,
+  alt,
 }: {
   height?: number;
   padded?: boolean;
   style?: CSSProperties;
+  // Overrides for a white-labeled deployment's own configured logo (CompanySettings.LogoPath)
+  // - omitted entirely, this renders exactly as before for Tulips' own install.
+  src?: string | null;
+  alt?: string | null;
 }) {
   const img = (
     <img
-      src="/branding/tulips-technologies-logo.png"
-      alt="Tulips Technologies"
+      src={src || "/branding/tulips-technologies-logo.png"}
+      alt={alt || "Tulips Technologies"}
       style={{ height, width: "auto", display: "block", ...style }}
     />
   );
