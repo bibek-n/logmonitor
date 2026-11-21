@@ -20,6 +20,7 @@ export interface AutomationDeviceSummary {
   hostname: string;
   deviceType: string;
   os: string;
+  lastHeartbeat: Date | null;
 }
 
 export interface AutomationJobTarget {

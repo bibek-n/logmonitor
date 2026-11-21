@@ -143,8 +143,15 @@ export async function deleteScript(id: number): Promise<void> {
 // Devices in the first place.
 export async function listEligibleDevices(): Promise<AutomationDeviceSummary[]> {
   const db = await getDb();
-  const result = await db.query<{ DeviceId: string; DeviceName: string | null; Hostname: string; DeviceType: string; OS: string }>(`
-    SELECT DeviceId, DeviceName, Hostname, DeviceType, OS FROM Devices
+  const result = await db.query<{
+    DeviceId: string;
+    DeviceName: string | null;
+    Hostname: string;
+    DeviceType: string;
+    OS: string;
+    LastHeartbeat: Date | null;
+  }>(`
+    SELECT DeviceId, DeviceName, Hostname, DeviceType, OS, LastHeartbeat FROM Devices
     WHERE DeviceType IN ('Server', 'Workstation')
     ORDER BY DeviceName ASC, Hostname ASC
   `);
@@ -154,6 +161,7 @@ export async function listEligibleDevices(): Promise<AutomationDeviceSummary[]> 
     hostname: r.Hostname,
     deviceType: r.DeviceType,
     os: r.OS,
+    lastHeartbeat: r.LastHeartbeat,
   }));
 }
 
