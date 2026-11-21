@@ -1,6 +1,24 @@
 import { getPublicStatus, type PublicMonitorStatus } from "@/lib/websiteApiMonitoring/publicStatus";
+import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+
+// Narrow SELECT, same as /api/public/branding - this page predates CompanySettings having a
+// CompanyName/LogoPath worth showing, so it shipped with zero company identity on a page that's
+// otherwise the single most customer-facing surface in the whole app. Best-effort: any read
+// failure just falls back to the generic "Service Status" title, never breaks the page.
+async function getStatusPageBranding(): Promise<{ companyName: string | null; logoPath: string | null }> {
+  try {
+    const db = await getDb();
+    const result = await db.query<{ CompanyName: string | null; LogoPath: string | null }>`
+      SELECT CompanyName, LogoPath FROM CompanySettings WHERE Id = 1
+    `;
+    const row = result.recordset[0];
+    return { companyName: row?.CompanyName ?? null, logoPath: row?.LogoPath ?? null };
+  } catch {
+    return { companyName: null, logoPath: null };
+  }
+}
 
 // Public, unauthenticated status page (see src/middleware.ts - only /dashboard/* and a short
 // list of API prefixes require auth, so a route outside both, same as /notification-popup and
@@ -34,7 +52,7 @@ function formatDuration(startedAt: string, resolvedAt: string | null): string {
 }
 
 export default async function PublicStatusPage() {
-  const data = await getPublicStatus();
+  const [data, branding] = await Promise.all([getPublicStatus(), getStatusPageBranding()]);
 
   const downCount = data.monitors.filter((m) => m.status === "Down").length;
   const degradedCount = data.monitors.filter((m) => m.status === "Degraded").length;
@@ -43,7 +61,13 @@ export default async function PublicStatusPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#f8f9fa", color: "#1a1a1a", padding: "2.5rem 1rem" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
-        <h1 style={{ fontSize: "1.6rem", marginBottom: "0.25rem" }}>Service Status</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.25rem" }}>
+          {branding.logoPath && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={branding.logoPath} alt={branding.companyName ?? "Company logo"} style={{ height: 28, width: "auto" }} />
+          )}
+          <h1 style={{ fontSize: "1.6rem", margin: 0 }}>{branding.companyName ? `${branding.companyName} Status` : "Service Status"}</h1>
+        </div>
         <p style={{ color: "#666", fontSize: "0.85rem", marginTop: 0, marginBottom: "1.5rem" }}>
           Last updated {new Date(data.generatedAt).toLocaleString()}
         </p>
