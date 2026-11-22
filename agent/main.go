@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 )
@@ -62,7 +63,14 @@ func main() {
 		}
 	case "run":
 		if err := RunService(); err != nil {
+			// Also through log.Printf, not just stderr: setupFileLogging (the first thing
+			// RunService does) redirects log output to agent.log, but under the Windows
+			// Service Control Manager there's no console, so a bare os.Stderr write here is
+			// exactly as invisible as every other pre-fix error was - this was the one error
+			// path setupFileLogging's io.MultiWriter redirect didn't actually cover, since it
+			// only retargets the log package, not raw fmt.Fprintln(os.Stderr, ...) calls.
 			fmt.Fprintln(os.Stderr, "run failed:", err)
+			log.Printf("run failed: %v", err)
 			os.Exit(1)
 		}
 	case "tray":
