@@ -3,6 +3,7 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -10,6 +11,41 @@ import (
 
 	"github.com/kardianos/service"
 )
+
+// setupFileLogging makes log.Printf output durable. Running under the Windows Service
+// Control Manager, this process has no console - anything written to os.Stderr (the
+// log package's default) simply vanishes, and nothing is ever written to the Windows
+// Event Log either. That turned a real crash loop (the service panicking and being
+// silently restarted by the SCM's configured recovery actions - see
+// configureRestartOnFailure below) into something with zero diagnostics anywhere:
+// Get-WinEvent showed nothing, because there was nothing to show. Mirrors/precedes the
+// ProgramData location SaveConfig already uses. Best-effort: if the file can't be
+// opened (e.g. permissions), falls back to stderr-only rather than failing startup
+// over a logging problem.
+func setupFileLogging() {
+	dir := filepath.Dir(ConfigPath())
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		log.Printf("could not create log directory %s (logging to stderr only): %v", dir, err)
+		return
+	}
+	path := filepath.Join(dir, "agent.log")
+
+	// Simple one-shot rotation rather than a full rolling scheme - this only needs to
+	// survive long enough to diagnose a crash loop, not serve as a general-purpose log
+	// archive. 10MB is generous for a once-per-heartbeat log line plus occasional panics.
+	if info, err := os.Stat(path); err == nil && info.Size() > 10*1024*1024 {
+		_ = os.Rename(path, path+".old")
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		log.Printf("could not open log file %s (logging to stderr only): %v", path, err)
+		return
+	}
+	// Keep stderr too - console/foreground runs (agent.exe run from an interactive
+	// prompt) still see output live, same as before this change.
+	log.SetOutput(io.MultiWriter(os.Stderr, f))
+}
 
 // configureRestartOnFailure tells the Windows Service Control Manager to relaunch this
 // service automatically whenever it exits non-zero — which is exactly how update.go
@@ -61,6 +97,7 @@ func (p *program) Stop(s service.Service) error {
 // invoked directly in a console (not via SCM), kardianos/service falls back to running
 // in the foreground until interrupted — useful for testing without installing the service.
 func RunService() error {
+	setupFileLogging()
 	s, err := service.New(&program{}, svcConfig)
 	if err != nil {
 		return err
