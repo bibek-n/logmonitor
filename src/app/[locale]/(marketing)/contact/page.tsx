@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { MKT } from "@/lib/marketingTheme";
-import { getContactInfo } from "@/lib/websiteContent";
+import { getContactInfo } from "@/lib/websiteContactInfo";
 import { ContactForm } from "@/components/marketing/ContactForm";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {

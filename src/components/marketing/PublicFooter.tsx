@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { FOOTER_LINKS, getContactInfo } from "@/lib/websiteContent";
+import { FOOTER_LINKS } from "@/lib/websiteContent";
+import { getContactInfo } from "@/lib/websiteContactInfo";
 import { MKT } from "@/lib/marketingTheme";
 import { getDb } from "@/lib/db";
 import { TulipsLogo } from "@/components/branding/TulipsLogo";

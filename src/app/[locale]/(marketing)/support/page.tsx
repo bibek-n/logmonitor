@@ -3,7 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { BookOpen, HelpCircle, FileText, Mail, Ticket } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { MKT } from "@/lib/marketingTheme";
-import { getContactInfo, SUPPORT_GUIDE_KEYS, SUPPORT_FAQ_KEYS } from "@/lib/websiteContent";
+import { SUPPORT_GUIDE_KEYS, SUPPORT_FAQ_KEYS } from "@/lib/websiteContent";
+import { getContactInfo } from "@/lib/websiteContactInfo";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
