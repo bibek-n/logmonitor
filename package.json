@@ -105,6 +105,8 @@
     "migrate:database-analyzer": "tsx scripts/migrate-database-analyzer.ts",
     "migrate:database-analyzer-v2": "tsx scripts/migrate-database-analyzer-v2.ts",
     "migrate:user-menu-access": "tsx scripts/migrate-user-menu-access.ts",
+    "migrate:device-target-version": "tsx scripts/migrate-device-target-version.ts",
+    "migrate:agent-rollout-settings": "tsx scripts/migrate-agent-rollout-settings.ts",
     "import:oui": "tsx scripts/import-oui.ts",
     "syslog": "tsx syslog/listener.ts",
     "poll:routerclients": "tsx syslog/poll-router-clients.ts",
