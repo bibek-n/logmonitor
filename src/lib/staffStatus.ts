@@ -109,7 +109,15 @@ export interface DeviceStatusComputed {
 export function computeDeviceStatus(s: DeviceStatusInputs): DeviceStatusComputed {
   const routerTime = s.routerIp && s.routerUpdatedAt ? new Date(s.routerUpdatedAt).getTime() : -Infinity;
   const sophosTime = s.sophosIp && s.sophosUpdatedAt ? new Date(s.sophosUpdatedAt).getTime() : -Infinity;
-  const agentTime = s.agentDeviceIp && s.agentLastHeartbeat ? new Date(s.agentLastHeartbeat).getTime() : -Infinity;
+  // Gated on agentLastHeartbeat alone - NOT also agentDeviceIp. heartbeat/route.ts's clientIp()
+  // only reads the x-forwarded-for header and leaves Devices.LastIp NULL if a request ever
+  // arrives without one (some reverse-proxy paths don't inject it), which is just missing
+  // display metadata, not a sign the agent itself is dead. Requiring agentDeviceIp here too
+  // caused a real bug: a device heartbeating live every 30s with LastIp NULL was never
+  // recognized as "agent" at all and silently fell back to router/Sophos network presence -
+  // which for a months-stale network row made a live, healthy employee read as offline with a
+  // months-old last-seen date (found via Abhaya Chaudhary's live-heartbeating ABHAY-PC).
+  const agentTime = s.agentLastHeartbeat ? new Date(s.agentLastHeartbeat).getTime() : -Infinity;
   // An enrolled agent is ALWAYS the authoritative source once one exists, whether or not its
   // last heartbeat is still fresh - see getStaffWithStatus's historical comment for why (a
   // dead/crashed agent must not silently fall back to network presence, which only needs the
