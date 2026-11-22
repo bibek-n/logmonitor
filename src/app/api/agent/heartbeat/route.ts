@@ -96,12 +96,39 @@ export async function POST(req: NextRequest) {
     .query<{ FilePath: string }>("SELECT FilePath FROM WatchedFiles WHERE DeviceId = @deviceId AND Enabled = 1");
 
   // Automation: resolved per this device's own OS (see getPendingJobsForDevice) so the agent
-  // never has to decide which of a job's two script-body snapshots applies to it.
+  // never has to decide which of a job's two script-body snapshots applies to it. DeviceType
+  // and the device's own AgentTargetVersion are fetched in the same round trip for the Agent
+  // Rollout gate below.
   const osResult = await db
     .request()
     .input("deviceId", sql.VarChar, device.deviceId)
-    .query<{ OS: string }>("SELECT OS FROM Devices WHERE DeviceId = @deviceId");
+    .query<{ OS: string; DeviceType: string; AgentTargetVersion: string | null }>(
+      "SELECT OS, DeviceType, AgentTargetVersion FROM Devices WHERE DeviceId = @deviceId"
+    );
   const pendingAutomationJobs = await getPendingJobsForDevice(device.deviceId, osResult.recordset[0]?.OS ?? "");
+
+  // Agent Rollout gate: a per-device override (Devices.AgentTargetVersion, set via
+  // scripts/set-device-target-version.ts) takes priority; otherwise falls back to the
+  // fleet-wide default for this DeviceType (AgentRolloutSettings, a singleton row, Id = 1).
+  // Either being null/empty means no rollout has been approved, so CheckForUpdate
+  // (agent/update.go) stays a no-op and the device holds at its current version - a
+  // deliberate opt-in gate, not an oversight, so devices can't be force-upgraded the moment a
+  // release happens to get tagged on GitHub. Guarded so a missing/not-yet-migrated rollout
+  // settings table can never take down heartbeats for every device.
+  let agentTargetVersion: string | null = osResult.recordset[0]?.AgentTargetVersion || null;
+  if (!agentTargetVersion) {
+    try {
+      const rolloutResult = await db.query<{ EmployeeTargetVersion: string | null; ServerTargetVersion: string | null }>`
+        SELECT EmployeeTargetVersion, ServerTargetVersion FROM AgentRolloutSettings WHERE Id = 1
+      `;
+      const rolloutRow = rolloutResult.recordset[0];
+      const fleetTarget =
+        osResult.recordset[0]?.DeviceType === "Server" ? rolloutRow?.ServerTargetVersion : rolloutRow?.EmployeeTargetVersion;
+      agentTargetVersion = fleetTarget || null;
+    } catch (err) {
+      console.error("heartbeat: failed to read AgentRolloutSettings", err);
+    }
+  }
 
   // Browser Activity Audit: excluded-domain suffixes are sent on every heartbeat (same "always
   // send, never diff server-side" convention as usbBlockList above) so the agent's pre-filter
@@ -189,5 +216,6 @@ export async function POST(req: NextRequest) {
       deviceNamePattern: r.DeviceNamePattern,
     })),
     watchedFiles: watchedFilesResult.recordset.map((r) => r.FilePath),
+    agentTargetVersion,
   });
 }
