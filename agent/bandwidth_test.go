@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -75,5 +78,32 @@ func TestSampleBufferBoundedAndRequeue(t *testing.T) {
 	again := b.take()
 	if len(again) != 3 || again[0].Timestamp != 4 || again[2].Timestamp != 6 {
 		t.Fatalf("requeue order/bound wrong: %+v", again)
+	}
+}
+
+func TestPostBandwidthReadsServerReply(t *testing.T) {
+	reply := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/agent/bandwidth" || r.Header.Get("X-Device-Id") != "dev-1" {
+			t.Errorf("unexpected request %s %v", r.URL.Path, r.Header)
+		}
+		w.WriteHeader(http.StatusOK) // the endpoint always answers 200, like the heartbeat
+		_, _ = w.Write([]byte(reply))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL, "dev-1", "key")
+	report := BandwidthReport{SentAt: 1, Samples: []BandwidthSample{{Adapter: "Ethernet", Timestamp: 1}}}
+
+	reply = `{"ok":true,"stored":1}`
+	if err := c.PostBandwidth(report); err != nil {
+		t.Fatalf("ok reply: %v", err)
+	}
+	reply = `{"ok":false,"error":"Invalid bandwidth report"}`
+	if err := c.PostBandwidth(report); !errors.Is(err, errBandwidthRejected) {
+		t.Fatalf("invalid reply should be errBandwidthRejected (drop), got %v", err)
+	}
+	reply = `{"ok":false,"error":"Could not store samples"}`
+	if err := c.PostBandwidth(report); err == nil || errors.Is(err, errBandwidthRejected) {
+		t.Fatalf("not-stored reply must be a retryable error, got %v", err)
 	}
 }

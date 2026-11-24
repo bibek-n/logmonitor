@@ -1,8 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"runtime"
@@ -54,7 +60,46 @@ type BandwidthReport struct {
 	Samples     []BandwidthSample `json:"samples"`
 }
 
-func (c *Client) PostBandwidth(r BandwidthReport) error { return c.postJSON("/api/agent/bandwidth", r) }
+// errBandwidthRejected marks a report the server refused as invalid: resending the same batch can
+// never succeed, so the caller drops it instead of re-queuing.
+var errBandwidthRejected = errors.New("bandwidth report rejected as invalid")
+
+// PostBandwidth sends one report. Unlike postJSON it reads the reply: this endpoint (like the
+// heartbeat) answers HTTP 200 even on failure, with {"ok":false}, because IIS would replace a
+// non-2xx body with its own HTML page. Without reading it, "not stored" would look like success
+// and the samples would be lost instead of retried.
+func (c *Client) PostBandwidth(r BandwidthReport) error {
+	body, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	req, err := c.authRequest("POST", "/api/agent/bandwidth", bytes.NewReader(body), "application/json")
+	if err != nil {
+		return err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("POST /api/agent/bandwidth failed: HTTP %d", resp.StatusCode)
+	}
+	var out struct {
+		Ok    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64*1024)).Decode(&out); err != nil {
+		return fmt.Errorf("bandwidth: unreadable server reply: %w", err)
+	}
+	if !out.Ok {
+		if strings.Contains(strings.ToLower(out.Error), "invalid") {
+			return errBandwidthRejected
+		}
+		return fmt.Errorf("bandwidth: server did not store the report: %s", out.Error)
+	}
+	return nil
+}
 
 // ---------------------------------------------------------------- adapter selection (pure)
 
@@ -317,7 +362,12 @@ func runBandwidthMonitor(client *Client, hostname string, stop <-chan struct{}) 
 				user = CurrentLoggedInUser()
 				lastUser = time.Now()
 			}
-			if err := client.PostBandwidth(BandwidthReport{Hostname: hostname, CurrentUser: user, SentAt: time.Now().UnixMilli(), Samples: batch}); err != nil {
+			err := client.PostBandwidth(BandwidthReport{Hostname: hostname, CurrentUser: user, SentAt: time.Now().UnixMilli(), Samples: batch})
+			switch {
+			case err == nil:
+			case errors.Is(err, errBandwidthRejected):
+				log.Printf("bandwidth report rejected by the server as invalid - dropped %d samples", len(batch))
+			default:
 				buf.requeue(batch)
 				log.Printf("bandwidth report failed (kept %d samples for retry): %v", len(batch), err)
 			}
