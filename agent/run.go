@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"time"
@@ -69,6 +70,13 @@ func Run(cfg *Config, stop <-chan struct{}) {
 	go func() { defer recoverAndLog("runPhpPolling"); runPhpPolling(client, stop) }()
 	go func() { defer recoverAndLog("runWeblogTailing"); runWeblogTailing(client, stop) }()
 	go func() { defer recoverAndLog("runForegroundPolling"); runForegroundPolling(stop) }()
+	// Live per-adapter bandwidth (5-second samples, reported every 10 seconds) - see bandwidth.go.
+	// Own goroutine: never waits on, or delays, the heartbeat or the collection worker.
+	go func() {
+		defer recoverAndLog("runBandwidthMonitor")
+		hostname, _ := os.Hostname()
+		runBandwidthMonitor(client, hostname, stop)
+	}()
 
 	// Tamper-protection watchdog for the tray/chat companion process: ensureChatCompanionAutostart
 	// is already safe to call repeatedly (a relaunch attempt against an already-running tray just
