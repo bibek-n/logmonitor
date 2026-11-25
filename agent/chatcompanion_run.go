@@ -150,6 +150,8 @@ func runChatCompanion() {
 	if !acquireTraySingleInstanceLock() {
 		os.Exit(0)
 	}
+	// No console window for the tray - nothing on screen an employee could close to stop it.
+	detachConsole()
 	go runRemoteSupportPoll(cfg)
 	runTray(cfg)
 }

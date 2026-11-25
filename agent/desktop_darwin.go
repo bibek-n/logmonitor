@@ -8,3 +8,6 @@ package main
 // headless-vs-desktop distinction to make here the way there is on Linux (whose XDG autostart
 // mechanism install.sh mirrors can, in edge cases, still fire without a display attached).
 func hasDesktopSession() bool { return true }
+
+// detachConsole is Windows-only (see desktop_windows.go).
+func detachConsole() {}

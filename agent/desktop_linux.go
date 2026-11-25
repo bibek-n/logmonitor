@@ -9,3 +9,6 @@ import "os"
 func hasDesktopSession() bool {
 	return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
 }
+
+// detachConsole is Windows-only (see desktop_windows.go).
+func detachConsole() {}
