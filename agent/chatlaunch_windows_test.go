@@ -35,3 +35,18 @@ func TestParseActiveSessionUsersFromSystemContext(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+// Regression: the watchdog must not relaunch (and flash a console window) while the tray runs.
+func TestTrayRunningInOutput(t *testing.T) {
+	running := "\r\nagent.exe                    12104 Console                    1     28,412 K\r\n"
+	if !trayRunningInOutput(running, "agent.exe") {
+		t.Fatal("expected running")
+	}
+	none := "INFO: No tasks are running which match the specified criteria.\r\n"
+	if trayRunningInOutput(none, "agent.exe") {
+		t.Fatal("expected not running")
+	}
+	if trayRunningInOutput("", "agent.exe") {
+		t.Fatal("empty output must mean not running")
+	}
+}

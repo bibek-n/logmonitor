@@ -146,7 +146,34 @@ func registerChatAutostartTask(exePath string) error {
 	return exec.Command("schtasks", "/Create", "/TN", chatAutostartTaskName, "/XML", tmpFile.Name(), "/F").Run()
 }
 
+// trayRunningInOutput reports whether "tasklist /FI IMAGENAME eq <exe> /FI SESSION ne 0 /NH"
+// listed a process. With no match tasklist prints an "INFO: No tasks are running..." line
+// instead of a row, so a row starting with the image name means the tray is alive.
+func trayRunningInOutput(output, imageName string) bool {
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), strings.ToLower(imageName)) {
+			return true
+		}
+	}
+	return false
+}
+
+// chatCompanionRunning: is a tray-mode copy of this binary already running in a logged-in
+// user's session? (The service itself is always session 0, hence "SESSION ne 0".)
+func chatCompanionRunning(exePath string) bool {
+	image := filepath.Base(exePath)
+	out, _ := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/FI", "SESSION ne 0", "/NH").Output()
+	return trayRunningInOutput(string(out), image)
+}
+
 func launchChatCompanionForActiveSessions(exePath string) {
+	// Only launch when the tray is NOT already running. The watchdog calls this every 3 minutes;
+	// launching regardless started a second copy each time, which exited immediately on the
+	// single-instance lock but still flashed a console window on the employee's screen every
+	// 3 minutes (seen fleet-wide right after the launcher was fixed to work at all).
+	if chatCompanionRunning(exePath) {
+		return
+	}
 	// "query user" exits with code 1 when run as SYSTEM (i.e. from this service) even though it
 	// prints the full session table - confirmed on a real Windows 11 PC. Treating any non-zero
 	// exit as "nobody logged in" meant this function never launched anything from the service,
