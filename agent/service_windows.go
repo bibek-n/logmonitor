@@ -43,8 +43,21 @@ func setupFileLogging() {
 		return
 	}
 	// Keep stderr too - console/foreground runs (agent.exe run from an interactive
-	// prompt) still see output live, same as before this change.
-	log.SetOutput(io.MultiWriter(os.Stderr, f))
+	// prompt) still see output live. The FILE goes first and stderr is wrapped so its
+	// errors are ignored: under the SCM there is no usable stderr, and io.MultiWriter stops
+	// at the first writer that errors - with stderr first, every line was dropped before
+	// reaching the file, which is why agent.log stayed 0 bytes on every installed agent.
+	log.SetOutput(io.MultiWriter(f, bestEffortWriter{os.Stderr}))
+	log.Printf("agent %s starting (file logging enabled)", AgentVersion)
+}
+
+// bestEffortWriter forwards writes but never reports an error, so it can sit in an
+// io.MultiWriter without stopping the writers after it.
+type bestEffortWriter struct{ w io.Writer }
+
+func (b bestEffortWriter) Write(p []byte) (int, error) {
+	_, _ = b.w.Write(p)
+	return len(p), nil
 }
 
 // configureRestartOnFailure tells the Windows Service Control Manager to relaunch this

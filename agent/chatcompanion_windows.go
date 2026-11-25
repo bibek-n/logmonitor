@@ -147,14 +147,21 @@ func registerChatAutostartTask(exePath string) error {
 }
 
 func launchChatCompanionForActiveSessions(exePath string) {
+	// "query user" exits with code 1 when run as SYSTEM (i.e. from this service) even though it
+	// prints the full session table - confirmed on a real Windows 11 PC. Treating any non-zero
+	// exit as "nobody logged in" meant this function never launched anything from the service,
+	// so the 3-minute watchdog could never bring back a tray that had exited mid-session; only
+	// the at-logon task ever started it. Parse whatever stdout came back and ignore the code -
+	// exec's Output() still returns stdout alongside an *ExitError.
 	out, err := exec.Command("query", "user").Output()
-	if err != nil {
-		// No interactive session right now (e.g. a locked/logged-off machine), or running in
-		// a context "query user" can't see - nothing to do immediately; the logon task above
-		// still covers the next real login.
+	users := parseActiveSessionUsers(string(out))
+	if len(users) == 0 {
+		if err != nil && len(out) == 0 {
+			log.Printf("chat companion: query user failed (no sessions to launch into): %v", err)
+		}
 		return
 	}
-	for _, user := range parseActiveSessionUsers(string(out)) {
+	for _, user := range users {
 		launchChatCompanionForUser(exePath, user)
 	}
 }
@@ -253,11 +260,13 @@ func launchChatCompanionForUser(exePath, username string) {
 	taskName := "LogMonitorChatLaunch-" + strings.NewReplacer(`\`, "_", "/", "_").Replace(qualifiedUsername)
 	create := exec.Command("schtasks", "/Create", "/TN", taskName, "/TR", fmt.Sprintf(`"%s" tray`, exePath),
 		"/SC", "ONCE", "/ST", "23:59", "/RU", qualifiedUsername, "/IT", "/F")
-	if err := create.Run(); err != nil {
-		log.Printf("chat companion immediate launch for %s failed to schedule (non-fatal): %v", qualifiedUsername, err)
+	if out, err := create.CombinedOutput(); err != nil {
+		log.Printf("chat companion immediate launch for %s failed to schedule (non-fatal): %v %s", qualifiedUsername, err, strings.TrimSpace(string(out)))
 		return
 	}
-	_ = exec.Command("schtasks", "/Run", "/TN", taskName).Run()
+	if out, err := exec.Command("schtasks", "/Run", "/TN", taskName).CombinedOutput(); err != nil {
+		log.Printf("chat companion launch for %s failed to run (non-fatal): %v %s", qualifiedUsername, err, strings.TrimSpace(string(out)))
+	}
 	time.AfterFunc(10*time.Second, func() {
 		_ = exec.Command("schtasks", "/Delete", "/TN", taskName, "/F").Run()
 	})
