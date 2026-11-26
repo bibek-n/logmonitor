@@ -57,57 +57,13 @@ func saveBlockedState(ids map[string]bool) {
 	_ = os.WriteFile(usbPolicyStatePath(), data, 0o644)
 }
 
-// buildDenyDeviceIDs returns "USB\VID_xxxx&PID_yyyy" strings for policy entries specific
-// enough to express as an exact Windows hardware ID (both VendorID and ProductID set) - the
-// only shape Windows' own DenyDeviceIDs policy can match against. Serial-number-only or
-// name-pattern-only entries can't be expressed this way and are handled purely via the
-// currently-connected Disable-PnpDevice path in ApplyUsbPolicy instead.
-func buildDenyDeviceIDs(entries []UsbPolicyEntry) []string {
-	seen := map[string]bool{}
-	var ids []string
-	for _, e := range entries {
-		if e.VendorID == "" || e.ProductID == "" {
-			continue
-		}
-		id := fmt.Sprintf(`USB\VID_%s&PID_%s`, strings.ToUpper(e.VendorID), strings.ToUpper(e.ProductID))
-		if !seen[id] {
-			seen[id] = true
-			ids = append(ids, id)
-		}
-	}
-	return ids
-}
-
-// applyDenyDeviceIdsPolicy writes (or clears) the Windows Device Installation Restriction
-// policy - HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions\DenyDeviceIDs,
-// the standard Microsoft-documented mechanism for blocking specific USB hardware IDs from
-// installing - with DenyDeviceIDsRetroactive=1 so it also applies to devices already installed,
-// not just future connections. Deliberately never touches AllowDeviceIDs/DenyUnspecified: this
-// agent only ever denies the specific IDs an admin listed, it never switches the machine into a
+// applyDenyDeviceIdsPolicy makes the Windows Device Installation Restriction policy match ids
+// (see denyPolicyScript in usbdenypolicy.go for the registry layout and why the old one never
+// took effect). Deliberately never touches AllowDeviceIDs/DenyUnspecified: this agent only ever
+// denies the specific IDs an admin listed, it never switches the machine into a
 // default-deny-everything-else mode.
 func applyDenyDeviceIdsPolicy(ids []string) {
-	var script string
-	if len(ids) == 0 {
-		script = `
-$path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions'
-if (Test-Path $path) {
-  Remove-ItemProperty -Path $path -Name DenyDeviceIDs -ErrorAction SilentlyContinue
-  Remove-ItemProperty -Path $path -Name DenyDeviceIDsRetroactive -ErrorAction SilentlyContinue
-}
-`
-	} else {
-		quoted := make([]string, len(ids))
-		for i, id := range ids {
-			quoted[i] = "'" + strings.ReplaceAll(id, "'", "''") + "'"
-		}
-		script = fmt.Sprintf(`
-$path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions'
-New-Item -Path $path -Force | Out-Null
-Set-ItemProperty -Path $path -Name DenyDeviceIDs -Value @(%s) -Type MultiString
-Set-ItemProperty -Path $path -Name DenyDeviceIDsRetroactive -Value 1 -Type DWord
-`, strings.Join(quoted, ","))
-	}
-	runPowerShellScript(30*time.Second, script)
+	runPowerShellScript(45*time.Second, denyPolicyScript(ids))
 }
 
 // setPnpDeviceEnabled runs Disable-PnpDevice/Enable-PnpDevice for one device instance ID.
