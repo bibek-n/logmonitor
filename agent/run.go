@@ -210,7 +210,7 @@ func Run(cfg *Config, stop <-chan struct{}) {
 		// PowerShell (registry + Disable-PnpDevice) per matching device, same non-blocking
 		// reasoning as the malware scan/PHP log cases above. No-op on non-Windows builds -
 		// see usbpolicy_other.go.
-		go ApplyUsbPolicy(client, hb.UsbBlockList)
+		go ApplyUsbPolicy(client, UsbPolicy{Entries: hb.UsbBlockList, BlockAllStorage: hb.UsbBlockAllStorage})
 
 		// Website Access Control enforcement: same unconditional/every-heartbeat/own-goroutine
 		// convention as ApplyUsbPolicy just above, for the same reason - ApplyWacBlocklist
@@ -492,6 +492,11 @@ func runChatCompanionWatchdog(stop <-chan struct{}) {
 func pollUsbDevices(client *Client, known map[string]UsbDeviceInfo) {
 	current := CollectUsbDevices()
 	currentIDs := map[string]bool{}
+
+	// Block first, report second: a blocked drive is cut off within this poll, not at the next
+	// heartbeat. Every poll, not only when a device is new - a drive's disk (which is what marks
+	// it as storage) can show up a moment after the drive itself.
+	EnforceUsbPolicyOnPoll(client, current)
 
 	for _, d := range current {
 		currentIDs[d.ID] = true

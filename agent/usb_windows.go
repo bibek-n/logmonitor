@@ -179,7 +179,24 @@ if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
 
 	seen := map[string]bool{}
 	var devices []UsbDeviceInfo
-	physIdx := 0
+
+	// Which physical disk belongs to which mass-storage device - see pairUsbDisks.
+	var storageIDs []string
+	storageSeen := map[string]bool{}
+	for _, r := range pnpRows {
+		if r.DeviceID != "" && !storageSeen[r.DeviceID] && massStorageRe.MatchString(r.Name) {
+			storageSeen[r.DeviceID] = true
+			storageIDs = append(storageIDs, r.DeviceID)
+		}
+	}
+	diskSerials := make([]string, len(physRows))
+	for i, pr := range physRows {
+		diskSerials[i] = pr.SerialNumber
+	}
+	diskOf := map[string]int{}
+	for i, di := range pairUsbDisks(storageIDs, diskSerials) {
+		diskOf[storageIDs[i]] = di
+	}
 
 	for _, r := range pnpRows {
 		if r.DeviceID == "" || seen[r.DeviceID] {
@@ -203,9 +220,8 @@ if ($pnp | Where-Object { $_.Name -match 'mass storage' }) {
 		name := r.Name
 		var capacityGB float64
 		var serial string
-		if massStorageRe.MatchString(r.Name) && physIdx < len(physRows) {
-			p := physRows[physIdx]
-			physIdx++
+		if di, isStorage := diskOf[r.DeviceID]; isStorage && di >= 0 {
+			p := physRows[di]
 			if p.FriendlyName != "" {
 				name = p.FriendlyName
 			}

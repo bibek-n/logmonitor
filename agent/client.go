@@ -81,6 +81,9 @@ type HeartbeatResponse struct {
 	PendingPhpLogRequests          []PhpLogRequest        `json:"pendingPhpLogRequests"`
 	PendingAutomationJobs          []PendingAutomationJob `json:"pendingAutomationJobs"`
 	UsbBlockList                   []UsbPolicyEntry       `json:"usbBlockList"`
+	// UsbBlockAllStorage asks this machine to block every USB storage device, whatever its
+	// model - see UsbPolicy.BlockAllStorage. Absent (false) from older servers.
+	UsbBlockAllStorage bool `json:"usbBlockAllStorage"`
 	WatchedFiles                   []string               `json:"watchedFiles"`
 	// WacBlockedDomains is Website Access Control's enforcement list for THIS device - always
 	// sent (even empty), never omitted, same "always send, diff locally" convention as
